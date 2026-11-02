@@ -96,8 +96,11 @@ const ok = (c: boolean, msg: string) => { if (c) pass++; else { fail++; console.
   ok(st.manual["B:2"] === "จิรายุทธ" && st.manual["O:13"] === "บุปผาชล ลากิจ" && Object.keys(st.manual).length === 2, "อ่านช่องพิมพ์เองจากแท็บ " + JSON.stringify(st.manual));
 
   console.log("3) เลือกชื่อ / กันชื่อซ้ำ / ล้าง / คืนค่าสูตร");
-  let err = await repo.validateOtManual(2569, 11, "o:B:3", "กิตติยาภา"); // กิตติยาภาอยู่ C วันที่ 3 แล้ว
-  ok(err !== null && err.includes("ช่อง C"), "กันชื่อซ้ำ: " + err);
+  let err = await repo.validateOtManual(2569, 11, "o:B:3", "กิตติยาภา"); // กิตติยาภาอยู่ C วันที่ 3 แล้ว — OT ควบ 2 จุดได้
+  ok(err === null, "OT ไม่กันชื่อซ้ำ (ควบ 06.00-08.30 กับทั้งวันได้)");
+  const m3 = eng.computeOtMonth(d.settings, d.leaves, { ...st.manual, "B:3": "กิตติยาภา" }, 2569, 11);
+  const h3 = renderOtHtml(m3, { editable: true });
+  ok(!h3.includes(" dup") && !h3.includes("#FF9900"), "ไม่มีกรอบแดง/สีส้มชื่อซ้ำ");
   err = await repo.validateOtManual(2569, 11, "o:B:3", "เกษมสันต์");
   ok(err === null, "ชื่อไม่ซ้ำผ่าน");
   await repo.saveOtManual(2569, 11, [{ key: "o:B:3", value: "เกษมสันต์" }]);
