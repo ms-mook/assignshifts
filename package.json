@@ -1,0 +1,27 @@
+{
+  "name": "shift-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "verify:shift3": "tsx scripts/verify-shift3.ts fixtures/shift3-sheet.json",
+    "test:shift3": "tsx scripts/test-shift3-scenarios.ts fixtures/shift3-sheet.json"
+  },
+  "dependencies": {
+    "google-auth-library": "9.14.2",
+    "next": "14.2.15",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "server-only": "0.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "20.16.11",
+    "@types/react": "18.3.11",
+    "@types/react-dom": "18.3.1",
+    "tsx": "4.19.1",
+    "typescript": "5.6.3"
+  }
+}
