@@ -1,4 +1,5 @@
 // ทดสอบเว็บส่วน OT (จุดรับ-นำส่ง) แบบครบวงจรด้วย Google Sheets จำลองในหน่วยความจำ
+process.env.SHEET_TITLES_TTL_MS = "0"; // ชีตจำลองเปลี่ยนแท็บระหว่างทดสอบ → ไม่จำรายชื่อแท็บ
 // รัน: tsx scripts/test-ot-flow.ts
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare const require: any;

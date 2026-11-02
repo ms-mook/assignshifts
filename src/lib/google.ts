@@ -56,20 +56,33 @@ function getClient(): TokenClient {
   } as unknown as Parameters<typeof ExternalAccountClient.fromJSON>[0]);
   if (!ext) throw new Error("สร้างการเชื่อม Workload Identity ไม่สำเร็จ");
   ext.scopes = SCOPES;
-  // token ที่ได้มีอายุสั้นและผูกกับ request — สร้างใหม่ทุกครั้งเพื่อความชัวร์
+  // เก็บไว้ใช้ซ้ำ: access token ของ Google มีอายุ ~1 ชม. ไลบรารีจะขอใหม่เองเมื่อหมดอายุ
+  // (ไม่ต้องแลก token ใหม่ทุกครั้งที่เรียก Sheets — ลดเวลาบันทึก/โหลดลงมาก) ถ้าโดนปฏิเสธ 401 จะสร้างใหม่อัตโนมัติ
+  client = ext;
   return ext;
 }
 
 const BASE = "https://sheets.googleapis.com/v4/spreadsheets";
 
-async function call<T>(url: string, init?: { method?: string; body?: unknown }): Promise<T> {
-  const token = (await getClient().getAccessToken()).token;
+async function call<T>(url: string, init?: { method?: string; body?: unknown }, retried = false): Promise<T> {
+  let token: string | null | undefined;
+  try {
+    token = (await getClient().getAccessToken()).token;
+  } catch (e) {
+    if (retried) throw e;
+    client = null; // token เก่าใช้ไม่ได้ → สร้างการเชื่อมใหม่แล้วลองอีกครั้ง
+    return call<T>(url, init, true);
+  }
   const res = await fetch(url, {
     method: init?.method ?? "GET",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: init?.body === undefined ? undefined : JSON.stringify(init.body),
     cache: "no-store",
   });
+  if (res.status === 401 && !retried) {
+    client = null;
+    return call<T>(url, init, true);
+  }
   if (!res.ok) throw new Error(`Google Sheets API ${res.status}: ${await res.text()}`);
   return (await res.json()) as T;
 }
@@ -97,16 +110,26 @@ export async function batchUpdate(spreadsheetId: string, data: { range: string; 
   });
 }
 
+// รายชื่อแท็บแทบไม่เปลี่ยน — จำไว้ 20 วินาที (ลดการเรียก API ซ้ำระหว่างตรวจ+บันทึก+โหลดหน้าใหม่)
+const titleCache = new Map<string, { at: number; titles: string[] }>();
+
 export async function sheetTitles(spreadsheetId: string): Promise<string[]> {
+  const c = titleCache.get(spreadsheetId);
+  const ttl = Number(process.env.SHEET_TITLES_TTL_MS ?? 20_000); // ชุดทดสอบตั้งเป็น 0
+  if (c && Date.now() - c.at < ttl) return c.titles;
   const d = await call<{ sheets: { properties: { title: string } }[] }>(
     `${BASE}/${spreadsheetId}?fields=sheets.properties.title`,
   );
-  return d.sheets.map((s) => s.properties.title);
+  const titles = d.sheets.map((s) => s.properties.title);
+  titleCache.set(spreadsheetId, { at: Date.now(), titles });
+  return titles;
 }
 
 export async function addSheet(spreadsheetId: string, title: string, hidden = true): Promise<void> {
+  titleCache.delete(spreadsheetId);
   await call(`${BASE}/${spreadsheetId}:batchUpdate`, {
     method: "POST",
     body: { requests: [{ addSheet: { properties: { title, hidden } } }] },
   });
+  titleCache.delete(spreadsheetId);
 }

@@ -119,7 +119,7 @@ export default function ScheduleView(p: Props) {
   const anchor = useRef<string | null>(null);
   const [edit, setEdit] = useState<{ key: string; current: string; day: string; col: string; sec: string } | null>(null);
   const [value, setValue] = useState("");
-  const [busy, setBusy] = useState(false);
+  const busy = false; // บันทึกเบื้องหลังแล้ว ไม่ต้องล็อกป๊อปอัป
   const [err, setErr] = useState("");
   const [colorsOpen, setColorsOpen] = useState(false);
   const [sumOpen, setSumOpen] = useState(false);
@@ -276,21 +276,65 @@ export default function ScheduleView(p: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [edit, colorsOpen]);
 
+  // ----- บันทึกแบบไม่ต้องรอ: ปิดป๊อปอัปและแสดงชื่อในช่องทันที แล้วบันทึกลง Google Sheet เบื้องหลัง -----
+  // ส่งคำขอทีละรายการตามลำดับ (กันบันทึกทับกันในแท็บ WEB) และโหลดตารางใหม่ครั้งเดียวเมื่อบันทึกครบทุกรายการ
+  const queue = useRef<Promise<void>>(Promise.resolve());
+  const pending = useRef(0);
+  const enqueue = (task: () => Promise<void>) => {
+    pending.current += 1;
+    queue.current = queue.current
+      .then(task)
+      .catch(() => undefined)
+      .finally(() => {
+        pending.current -= 1;
+        if (pending.current === 0) {
+          stale.current = true;
+          setTimeout(() => (stale.current = false), 10_000); // กันค้าง ถ้าตารางที่โหลดใหม่หน้าตาเหมือนเดิม
+          router.refresh();
+        }
+      });
+  };
+  // ตารางใหม่จาก server มาถึงแล้ว → PDF ใช้ข้อมูลล่าสุดได้
+  const stale = useRef(false);
+  useEffect(() => {
+    stale.current = false;
+  }, [p.sectionHtml]);
+  // ปิด/ย้ายหน้าระหว่างยังบันทึกไม่เสร็จ → เตือนก่อน
+  useEffect(() => {
+    const onLeave = (e: BeforeUnloadEvent) => {
+      if (pending.current > 0) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", onLeave);
+    return () => window.removeEventListener("beforeunload", onLeave);
+  }, []);
+
   // ----- บันทึกชื่อ -----
-  const saveName = async (v: string | null) => {
+  const saveName = (v: string | null) => {
     if (!edit) return;
-    setBusy(true);
-    setErr("");
-    const t = toast.loading("กำลังบันทึกลง Google Sheet… (รอสักครู่)");
-    const r = await post(`${API}/manual`, { ym: p.ym, key: edit.key, value: v });
-    setBusy(false);
-    if (!r.ok) {
-      setErr(r.error);
-      return t.error(r.conflict ? `ชื่อซ้ำ: ${r.error}` : `บันทึกไม่สำเร็จ: ${r.error}`);
+    const key = edit.key;
+    ensureIndex();
+    const cell = cells.current.find((c) => c.key === key)?.el;
+    const before = cell?.textContent ?? "";
+    if (cell) {
+      if (v !== null) cell.textContent = v; // คืนค่าตามสูตร: รอค่าจริงจากชีต
+      cell.classList.add("saving");
     }
-    t.success(v === null ? "คืนค่าตามสูตรแล้ว" : v === "" ? "ล้างช่องแล้ว" : "บันทึกชื่อสำเร็จ");
     setEdit(null);
-    router.refresh();
+    setErr("");
+    const t = toast.loading(v === null ? "กำลังคืนค่าตามสูตร…" : v === "" ? "กำลังล้างช่อง…" : `กำลังบันทึก “${v}”…`);
+    enqueue(async () => {
+      const r = await post(`${API}/manual`, { ym: p.ym, key, value: v });
+      cell?.classList.remove("saving");
+      if (!r.ok) {
+        if (cell) cell.textContent = before; // คืนค่าเดิมบนจอ
+        t.error(r.conflict ? `ไม่ได้บันทึก — ชื่อซ้ำ: ${r.error}` : `บันทึกไม่สำเร็จ: ${r.error}`);
+        return;
+      }
+      t.success(v === null ? "คืนค่าตามสูตรแล้ว" : v === "" ? "ล้างช่องแล้ว" : `บันทึก “${v}” แล้ว`);
+    });
   };
 
   const selKeys = Array.from(sel);
@@ -298,30 +342,50 @@ export default function ScheduleView(p: Props) {
     if (selKeys.length === 0) return;
     const what = v === null ? "คืนค่าตามสูตร" : "ล้างช่องให้ว่าง";
     if (selKeys.length > 1 && !window.confirm(`${what} ${selKeys.length} ช่อง?`)) return;
-    const t = toast.loading(`กำลัง${what} ${selKeys.length} ช่อง… (รอสักครู่)`);
-    const r = await post(`${API}/manual`, { ym: p.ym, keys: selKeys, value: v });
-    if (!r.ok) return t.error(`${what}ไม่สำเร็จ: ${r.error}`);
-    t.success(`${what} ${selKeys.length} ช่อง สำเร็จ`);
-    router.refresh();
+    const keys = [...selKeys];
+    const t = toast.loading(`กำลัง${what} ${keys.length} ช่อง…`);
+    const before = new Map<HTMLElement, string>();
+    for (const x of cells.current) {
+      if (!sel.has(x.key)) continue;
+      before.set(x.el, x.el.textContent ?? "");
+      if (v === "") x.el.textContent = "";
+      x.el.classList.add("saving");
+    }
+    enqueue(async () => {
+      const r = await post(`${API}/manual`, { ym: p.ym, keys, value: v });
+      for (const [el, txt] of before) {
+        el.classList.remove("saving");
+        if (!r.ok) el.textContent = txt;
+      }
+      if (!r.ok) return void t.error(`${what}ไม่สำเร็จ: ${r.error}`);
+      t.success(`${what} ${keys.length} ช่อง สำเร็จ`);
+    });
   };
 
   // ----- สีพื้น / สีตัวอักษร -----
-  const applyStyle = async (patch: { bg?: string | null; fg?: string | null; clear?: boolean }) => {
+  const applyStyle = (patch: { bg?: string | null; fg?: string | null; clear?: boolean }) => {
     if (selKeys.length === 0) return;
-    // แสดงผลทันที แล้วค่อยบันทึก (ถ้าบันทึกไม่ได้ จะโหลดกลับเป็นค่าเดิม)
+    const keys = [...selKeys];
+    // แสดงผลทันที แล้วค่อยบันทึก (ถ้าบันทึกไม่ได้ คืนสีเดิมบนจอ)
+    const before = new Map<HTMLElement, [string, string]>();
     for (const x of cells.current) {
       if (!sel.has(x.key)) continue;
+      before.set(x.el, [x.el.style.background, x.el.style.color]);
       if (typeof patch.bg === "string") x.el.style.background = patch.bg;
       if (typeof patch.fg === "string") x.el.style.color = patch.fg;
     }
-    const t = toast.loading("กำลังบันทึกสี… (รอสักครู่)");
-    const r = await post(`${API}/style`, { ym: p.ym, keys: selKeys, ...patch });
-    if (!r.ok) {
-      t.error(`บันทึกสีไม่สำเร็จ: ${r.error}`);
-      return router.refresh();
-    }
-    t.success(patch.clear || patch.bg === null || patch.fg === null ? "ล้างสีแล้ว" : "บันทึกสีสำเร็จ");
-    router.refresh();
+    const t = toast.loading("กำลังบันทึกสี…");
+    enqueue(async () => {
+      const r = await post(`${API}/style`, { ym: p.ym, keys, ...patch });
+      if (!r.ok) {
+        for (const [el, [bg, fg]] of before) {
+          el.style.background = bg;
+          el.style.color = fg;
+        }
+        return void t.error(`บันทึกสีไม่สำเร็จ: ${r.error}`);
+      }
+      t.success(patch.clear || patch.bg === null || patch.fg === null ? "ล้างสีแล้ว" : "บันทึกสีสำเร็จ");
+    });
   };
 
   const savePersonColors = async () => {
@@ -335,6 +399,7 @@ export default function ScheduleView(p: Props) {
 
   // ดาวน์โหลดเป็น PDF 1 หน้าทันที (ไม่เปิดหน้าต่างพิมพ์/พรีวิว)
   const doPrint = async () => {
+    if (pending.current > 0 || stale.current) return void toast.info("กำลังบันทึกลง Google Sheet อยู่ — รอสักครู่แล้วกดดาวน์โหลด PDF อีกครั้ง");
     if (p.dupDays.length > 0 && !window.confirm(`ตารางนี้ยังมีชื่อซ้ำในแถวเดียวกัน (วันที่ ${p.dupDays.join(", ")}) ดาวน์โหลดต่อหรือไม่?`)) return;
     const h = toast.loading("กำลังสร้างไฟล์ PDF…");
     try {
