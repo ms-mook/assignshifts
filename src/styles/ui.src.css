@@ -287,6 +287,48 @@
   table.form :where(input, select) { width: 100%; }
   table.plan { border-radius: 12px; }
 
+  /* หน้าตั้งค่า SMC */
+  .sf-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr); gap: 0 16px; align-items: start; }
+  .sf-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
+  .sf-field { display: grid; gap: 5px; min-width: 0; }
+  .sf-field.wide { grid-column: 1 / -1; }
+  .sf-field input { width: 100%; }
+  .sf-label { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 13.5px; font-weight: 600; color: #3b4a5e; }
+  .sf-hours { display: grid; gap: 8px; }
+  .sf-hour { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 12px; background: rgb(255 255 255 / 0.7); border: 1px solid rgb(184 199 220 / 0.6); }
+  .sf-time { font-weight: 700; color: #17305a; }
+  .sf-hour-in { display: inline-flex; align-items: center; gap: 6px; }
+  .sf-hour-in input { width: 80px; text-align: right; }
+  .sf-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .sf-col { display: grid; gap: 10px; align-content: start; padding: 12px 14px; border-radius: 14px; background: rgb(255 255 255 / 0.6); border: 1px solid rgb(184 199 220 / 0.55); }
+  .sf-col-head { font-weight: 700; color: #17305a; padding-bottom: 6px; border-bottom: 1px dashed rgb(31 58 104 / 0.18); }
+  .sf-lists { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+  .sf-list { display: grid; grid-template-rows: auto 1fr auto; gap: 8px; padding: 12px; border-radius: 14px; background: rgb(255 255 255 / 0.65); border: 1px solid rgb(184 199 220 / 0.6); transition: box-shadow 0.2s, border-color 0.2s; }
+  .sf-list:focus-within { border-color: #2f5d8f; box-shadow: 0 8px 22px -14px rgb(20 42 77 / 0.5); }
+  .sf-list.over { border-color: rgb(190 40 60 / 0.5); }
+  .sf-list-head { display: grid; gap: 6px; }
+  .sf-list-title { font-weight: 700; font-size: 14px; color: #17305a; line-height: 1.35; min-height: 2.7em; }
+  .sf-list-meta { display: flex; align-items: center; gap: 6px; }
+  .sf-list-meta .cellref { margin-left: 0; }
+  .sf-list textarea { width: 100%; resize: vertical; line-height: 1.6; font-size: 14px; }
+  .sf-over { display: flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 600; color: var(--color-error); }
+  .sf-hol { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 8px 18px; }
+  .sf-hol-row { display: grid; grid-template-columns: 160px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 4px 6px; border-radius: 10px; transition: background 0.15s; }
+  .sf-hol-row:hover { background: rgb(240 244 250 / 0.9); }
+  .sf-hol-row input { width: 100%; }
+  .sf-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  @media (max-width: 1100px) {
+    .sf-grid { grid-template-columns: 1fr; }
+    .sf-hours { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+  @media (max-width: 860px) {
+    .sf-cols, .sf-hours { grid-template-columns: 1fr; }
+    .sf-hol { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 760px) {
+    .sf-fields { grid-template-columns: 1fr; }
+  }
+
   /* แท็บ */
   .tabs-wrap { margin: 6px 0 16px; }
   .tabs-wrap .tabs { display: inline-flex; flex-wrap: wrap; }

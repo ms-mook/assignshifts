@@ -92,67 +92,138 @@ export default function SmcFormClient({ initial, part }: { initial: SmcForm; par
       </div>
     );
 
-  const txt = (k: keyof SmcForm, label: string, ref: string) => (
-    <>
-      <label>{label} <span className="cellref">{ref}</span></label>
+  const field = (k: keyof SmcForm, label: string, ref: string, wide = false) => (
+    <label className={wide ? "sf-field wide" : "sf-field"}>
+      <span className="sf-label">
+        {label} <span className="cellref">{ref}</span>
+      </span>
       <input className="y" value={f[k] as string} onChange={(e) => set(k, e.target.value as never)} />
-    </>
+    </label>
   );
+  const TIMES = ["07.00–08.30 น.", "08.30–12.30 น.", "12.30–16.00 น."] as const;
   return (
     <div>
       <div className="page-head">
         <h1>ตั้งค่า — ตาราง SMC</h1>
         <span className="muted">ช่องสีเหลือง = แก้ได้ (เหมือนในชีต) · เปลี่ยนแล้วตารางเวรทุกเดือนอัปเดตเอง</span>
       </div>
-      <section className="card">
-        <h2>ทั่วไป</h2>
-        <div className="grid2">
-          {txt("title", "ชื่อหัวตาราง", "B3")}
-          {txt("docNo", "หมายเลขเอกสาร", "B4")}
-          {txt("signerName", "ชื่อผู้จัดทำ (ท้ายตาราง)", "B5")}
-          {txt("signerTitle", "ตำแหน่งผู้จัดทำ", "B6")}
-          {txt("q0700", "ค่าตั้งต้น Manager/Q บัตรคิว 07.00–08.30 น.", "B7")}
-          {txt("q0830", "ค่าตั้งต้น Manager/Q บัตรคิว 08.30–12.30 น.", "B8")}
-          {txt("q1230", "ค่าตั้งต้น Manager/Q ช่อง1/บัตรคิว 12.30–16.00 น.", "B9")}
-          {txt("key0700", "ค่าตั้งต้น ลงทะเบียน Key1 07.00–08.30 น.", "B10")}
-          {txt("key0830", "ค่าตั้งต้น ลงทะเบียน Key1 08.30–12.30 น.", "B11")}
-          {txt("mt", "ข้อความช่องประจำ (MT)", "B12")}
-          {txt("pt", "ข้อความช่องประจำ (Part-time)", "B13")}
-          {(["07.00–08.30 น.", "08.30–12.30 น.", "12.30–16.00 น."] as const).map((lb, i) => (
-            <span key={lb} style={{ display: "contents" }}>
-              <label>ชั่วโมงต่อช่วงเวลา {lb} <span className="cellref">F{4 + i}</span></label>
-              <input className="y" type="number" step={0.5} value={f.hours[i]} onChange={(e) => set("hours", f.hours.map((x, j) => (j === i ? Number(e.target.value) : x)) as [number, number, number])} />
-            </span>
-          ))}
-        </div>
-      </section>
-      <section className="card">
-        <h2>รายชื่อสำหรับ dropdown</h2>
-        <p className="muted">หนึ่งบรรทัดต่อหนึ่งชื่อ</p>
-        <div className="grid2">
-          {LISTS.map((l) => (
-            <span key={l.k} style={{ display: "contents" }}>
-              <label>{l.label} <span className="cellref">{l.ref}</span></label>
-              <textarea className="y" rows={l.max > 4 ? 8 : 4} value={texts[l.k]} onChange={(e) => { setTexts((x) => ({ ...x, [l.k]: e.target.value })); set(l.k, e.target.value.split("\n").map((x) => x.trim()).filter((x) => x !== "")); }} />
-            </span>
-          ))}
-        </div>
-      </section>
-      <section className="card scroll-x">
-        <h2>วันหยุดนักขัตฤกษ์ <span className="cellref">E17:F66</span></h2>
-        <table className="form">
-          <thead><tr><th style={{ width: 170 }}>วันที่</th><th>ชื่อวันหยุด</th><th></th></tr></thead>
-          <tbody>
-            {f.holidays.map((h, i) => (
-              <tr key={i}>
-                <td><input className="y" type="date" value={h.date} onChange={(e) => set("holidays", f.holidays.map((x, j) => (j === i ? { ...x, date: e.target.value } : x)))} /></td>
-                <td><input className="y" value={h.name} onChange={(e) => set("holidays", f.holidays.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} /></td>
-                <td><button onClick={() => set("holidays", f.holidays.filter((_, j) => j !== i))}>ลบ</button></td>
-              </tr>
+
+      <div className="sf-grid">
+        <section className="card">
+          <h2>
+            <Icon name="SquarePen" size={18} /> หัวตาราง และผู้จัดทำ
+          </h2>
+          <div className="sf-fields">
+            {field("title", "ชื่อหัวตาราง", "B3", true)}
+            {field("docNo", "หมายเลขเอกสาร", "B4", true)}
+            {field("signerName", "ชื่อผู้จัดทำ (ท้ายตาราง)", "B5")}
+            {field("signerTitle", "ตำแหน่งผู้จัดทำ", "B6")}
+          </div>
+        </section>
+
+        <section className="card">
+          <h2>
+            <Icon name="Clock" size={18} /> ชั่วโมงต่อช่วงเวลา
+            <small>ใช้คำนวณชั่วโมงในหน้าสรุป</small>
+          </h2>
+          <div className="sf-hours">
+            {TIMES.map((lb, i) => (
+              <label key={lb} className="sf-hour">
+                <span className="sf-time">{lb}</span>
+                <span className="sf-hour-in">
+                  <input className="y" type="number" step={0.5} min={0} value={f.hours[i]} onChange={(e) => set("hours", f.hours.map((x, j) => (j === i ? Number(e.target.value) : x)) as [number, number, number])} />
+                  <span className="muted">ชม.</span>
+                </span>
+                <span className="cellref">F{4 + i}</span>
+              </label>
             ))}
-          </tbody>
-        </table>
-        <p><button disabled={f.holidays.length >= 50} onClick={() => set("holidays", [...f.holidays, { date: "", name: "" }])}>+ เพิ่มวันหยุด</button></p>
+          </div>
+        </section>
+      </div>
+
+      <section className="card">
+        <h2>
+          <Icon name="LayoutGrid" size={18} /> ค่าตั้งต้นในตารางเวร
+          <small>ข้อความที่ขึ้นในช่องเมื่อไม่ได้แก้เอง</small>
+        </h2>
+        <div className="sf-cols">
+          <div className="sf-col">
+            <div className="sf-col-head">Manager/Q บัตรคิว</div>
+            {field("q0700", "07.00–08.30 น.", "B7")}
+            {field("q0830", "08.30–12.30 น.", "B8")}
+            {field("q1230", "12.30–16.00 น. (ช่อง1/บัตรคิว)", "B9")}
+          </div>
+          <div className="sf-col">
+            <div className="sf-col-head">ลงทะเบียน Key1</div>
+            {field("key0700", "07.00–08.30 น.", "B10")}
+            {field("key0830", "08.30–12.30 น.", "B11")}
+          </div>
+          <div className="sf-col">
+            <div className="sf-col-head">ข้อความช่องประจำ</div>
+            {field("mt", "MT", "B12")}
+            {field("pt", "Part-time", "B13")}
+          </div>
+        </div>
+      </section>
+
+      <section className="card">
+        <h2>
+          <Icon name="Users" size={18} /> รายชื่อสำหรับ dropdown
+          <small>หนึ่งบรรทัดต่อหนึ่งชื่อ</small>
+        </h2>
+        <div className="sf-lists">
+          {LISTS.map((l) => {
+            const n = f[l.k].length;
+            const over = n > l.max;
+            return (
+              <div key={l.k} className={over ? "sf-list over" : "sf-list"}>
+                <div className="sf-list-head">
+                  <span className="sf-list-title">{l.label}</span>
+                  <span className="sf-list-meta">
+                    <span className={over ? "badge badge-error badge-sm" : "badge badge-soft badge-primary badge-sm"}>
+                      {n}/{l.max} ชื่อ
+                    </span>
+                    <span className="cellref">{l.ref}</span>
+                  </span>
+                </div>
+                <textarea
+                  className="y"
+                  rows={l.max > 4 ? 10 : 4}
+                  value={texts[l.k]}
+                  onChange={(e) => {
+                    setTexts((x) => ({ ...x, [l.k]: e.target.value }));
+                    set(l.k, e.target.value.split("\n").map((x) => x.trim()).filter((x) => x !== ""));
+                  }}
+                />
+                {over && <div className="sf-over"><Icon name="TriangleAlert" size={13} /> เกิน {l.max} ชื่อ (ในชีตมีช่องแค่ {l.max} แถว)</div>}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="card">
+        <h2>
+          <Icon name="CalendarX" size={18} /> วันหยุดนักขัตฤกษ์
+          <span className="badge badge-soft badge-primary badge-sm">{f.holidays.length}/50 วัน</span>
+          <span className="cellref">E17:F66</span>
+        </h2>
+        <div className="sf-hol">
+          {f.holidays.map((h, i) => (
+            <div key={i} className="sf-hol-row">
+              <input className="y" type="date" aria-label="วันที่" value={h.date} onChange={(e) => set("holidays", f.holidays.map((x, j) => (j === i ? { ...x, date: e.target.value } : x)))} />
+              <input className="y" aria-label="ชื่อวันหยุด" placeholder="ชื่อวันหยุด" value={h.name} onChange={(e) => set("holidays", f.holidays.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
+              <button className="btn btn-xs btn-ghost btn-square text-error" title="ลบวันหยุดนี้" aria-label="ลบ" onClick={() => set("holidays", f.holidays.filter((_, j) => j !== i))}>
+                <Icon name="Trash" size={15} />
+              </button>
+            </div>
+          ))}
+          {f.holidays.length === 0 && <div className="muted">ยังไม่มีวันหยุด</div>}
+        </div>
+        <div className="sf-actions">
+          <button className="btn btn-sm btn-soft btn-primary" disabled={f.holidays.length >= 50} onClick={() => set("holidays", [...f.holidays, { date: "", name: "" }])}><Icon name="Plus" size={14} />เพิ่มวันหยุด</button>
+          <button className="btn btn-sm btn-ghost" onClick={() => set("holidays", [...f.holidays].sort((a, b) => (a.date || "9").localeCompare(b.date || "9")))}><Icon name="ArrowDownAZ" size={14} />เรียงตามวันที่</button>
+        </div>
       </section>
       {bar}
     </div>
