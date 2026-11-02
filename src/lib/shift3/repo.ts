@@ -406,3 +406,17 @@ export async function saveLeaves(rows: LeaveForm[]): Promise<void> {
 }
 
 export { colLetter };
+
+// ---------- แท็บ สรุป (ความเท่าเทียมของการเวียนจุด) ----------
+/** สรุป!B2 (ตั้งแต่สัปดาห์ที่เริ่ม) / B3 (ถึงสัปดาห์ที่เริ่ม) — คืน serial (null ถ้ายังไม่มีแท็บ/ค่า) */
+export async function loadShift3SummaryRange(): Promise<{ from: number | null; to: number | null }> {
+  const titles = await sheetTitles(ID());
+  if (!titles.includes("สรุป")) return { from: null, to: null };
+  const [g] = await batchGet(ID(), ["'สรุป'!B2:B3"]);
+  return { from: toSerial((g[0] ?? [])[0]), to: toSerial((g[1] ?? [])[0]) };
+}
+export async function saveShift3SummaryRange(from: string, to: string): Promise<void> {
+  const titles = await sheetTitles(ID());
+  if (!titles.includes("สรุป")) throw new Error("ชีตไม่มีแท็บ สรุป");
+  await batchUpdate(ID(), [{ range: "'สรุป'!B2:B3", values: [[from], [to]] }]);
+}

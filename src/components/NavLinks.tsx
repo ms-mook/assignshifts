@@ -61,6 +61,7 @@ export default function NavLinks() {
             ]
           : [
               { href: "/plan", label: "แผนรายสัปดาห์", icon: "CalendarRange" },
+              { href: "/summary", label: "สรุปการเวียนจุด", icon: "ChartColumn" },
               { href: "/leaves", label: "ลา-แลกเวร", icon: "Repeat" },
               { href: "/settings", label: "ตั้งค่า", icon: "Settings" },
             ];

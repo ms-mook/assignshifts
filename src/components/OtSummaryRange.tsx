@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "./Toast";
 
 /** สรุป!B2 (ตั้งแต่สัปดาห์ที่เริ่ม) และ B3 (ถึงสัปดาห์ที่เริ่ม) */
-export default function OtSummaryRange({ from, to }: { from: string; to: string }) {
+export default function OtSummaryRange({ from, to, api = "/api/ot/summary" }: { from: string; to: string; api?: string }) {
   const [a, setA] = useState(from);
   const [b, setB] = useState(to);
   const [busy, setBusy] = useState(false);
@@ -15,7 +15,7 @@ export default function OtSummaryRange({ from, to }: { from: string; to: string 
     setBusy(true);
     const t = toast.loading("กำลังบันทึกช่วงสรุป…");
     try {
-      const r = await fetch("/api/ot/summary", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ from: a, to: b }) });
+      const r = await fetch(api, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ from: a, to: b }) });
       if (!r.ok) t.error((await r.json().catch(() => ({}))).error ?? "บันทึกไม่สำเร็จ");
       else {
         t.success("บันทึกช่วงสรุปแล้ว");

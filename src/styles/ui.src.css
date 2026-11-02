@@ -293,6 +293,22 @@
   table.plan tr.now td:first-child { background: #1f3a68; color: #fff; }
   #week-now { scroll-margin-top: 140px; }
 
+  /* หน้าสรุปการเวียนจุด */
+  table.sumtbl th { text-align: center; white-space: normal; min-width: 64px; line-height: 1.25; }
+  table.sumtbl th.r-o { background: #e5cedb; color: #3b1f2e; }
+  table.sumtbl th.r-k { background: #cedded; color: #17305a; }
+  table.sumtbl th.r-s { background: #d6e8d1; color: #1f4a2c; }
+  table.sumtbl th.tot { background: #3b4a5e; color: #fff; }
+  table.sumtbl td.num { text-align: center; font-variant-numeric: tabular-nums; }
+  table.sumtbl td.tot { font-weight: 700; background: #f3f5f8; }
+  table.sumtbl td.nm { font-weight: 700; white-space: nowrap; }
+  table.sumtbl tr.newbie td.nm { font-style: italic; color: #5d6b7e; }
+  .sum-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+  .sum-check { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border-radius: 12px; font-weight: 600; }
+  .sum-check b { font-size: 22px; }
+  .sum-check.ok { background: rgb(47 118 96 / 0.1); color: #1f5c48; border: 1px solid rgb(47 118 96 / 0.25); }
+  .sum-check.bad { background: rgb(190 40 60 / 0.08); color: #a01c33; border: 1px solid rgb(190 40 60 / 0.3); }
+
   /* หน้าตั้งค่า SMC */
   .sf-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr); gap: 0 16px; align-items: start; }
   .sf-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
