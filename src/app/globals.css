@@ -461,3 +461,6 @@ body:has(.login-screen) main { padding: 0; }
 .topnav .linkbtn { white-space: nowrap; }
 .card { margin-right: 6px; }
 .toolbar { margin-right: 6px; }
+/* ตาราง 3 ช่วงเวลา บนจอ: คอลัมน์ A (วันที่/เวลา) กว้างขึ้นให้อ่านครบ — เฉพาะหน้าจอ ไม่กระทบ PDF */
+.screen-zoom .sheet[data-section] col:first-child { width: 96px !important; }
+.screen-zoom .sheet[data-section] { width: auto !important; }
