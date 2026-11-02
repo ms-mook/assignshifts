@@ -1,0 +1,90 @@
+:root {
+  --bg: #f6f5f2;
+  --panel: #ffffff;
+  --ink: #1f2328;
+  --muted: #6b6f76;
+  --line: #d9d6cf;
+  --accent: #7a2e4f;
+  --accent-ink: #ffffff;
+  --yellow: #fff6cc;
+  --danger: #b42318;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Sarabun", system-ui, sans-serif; font-size: 15px; }
+main { padding: 12px 16px 40px; }
+button, input, select, textarea { font: inherit; }
+button { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button:disabled { opacity: .6; cursor: default; }
+button.linkbtn { border: none; background: none; color: inherit; text-decoration: underline; }
+input, select, textarea { border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; background: #fff; }
+.spacer { flex: 1; }
+.muted { color: var(--muted); }
+.error { color: var(--danger); margin-top: 8px; }
+.warn { color: var(--danger); }
+
+.topnav { display: flex; gap: 18px; align-items: center; padding: 10px 16px; background: var(--accent); color: #fff; flex-wrap: wrap; }
+.topnav a { color: #fff; text-decoration: none; opacity: .9; }
+.topnav a:hover { opacity: 1; text-decoration: underline; }
+.topnav .brand { font-weight: 700; }
+
+.login { max-width: 360px; margin: 12vh auto; background: var(--panel); padding: 28px; border-radius: 10px; border: 1px solid var(--line); }
+.login h1 { margin: 0 0 4px; font-size: 22px; }
+.login form { display: grid; gap: 10px; margin-top: 16px; }
+
+/* ตาราง */
+.toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+.toolbar label { display: flex; gap: 6px; align-items: center; }
+.month-label { font-size: 17px; min-width: 210px; text-align: center; }
+.hint { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+.sections { overflow: auto; background: #fff; border: 1px solid var(--line); padding: 8px; }
+.print-page + .print-page { margin-top: 24px; }
+.sheet td.e { cursor: pointer; }
+.sheet td.e:hover { outline: 3px solid #2f6feb; outline-offset: -3px; }
+
+.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: grid; place-items: center; z-index: 50; }
+.modal { background: #fff; border-radius: 10px; padding: 18px; width: min(420px, calc(100vw - 32px)); display: grid; gap: 10px; }
+.modal h3 { margin: 0; }
+.modal p { margin: 0; }
+.modal-actions { display: flex; gap: 8px; }
+
+/* หน้าตั้งค่า / ลา */
+.page-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.page-head h1 { font-size: 22px; margin: 6px 0; }
+.tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--line); margin: 10px 0 14px; flex-wrap: wrap; }
+.tabs button { border-radius: 6px 6px 0 0; border-bottom: none; }
+.tabs button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+.card h2 { font-size: 17px; margin: 0 0 10px; }
+.card h2 small { font-weight: 400; color: var(--muted); font-size: 13px; }
+.grid2 { display: grid; grid-template-columns: minmax(220px, 340px) 1fr; gap: 8px 14px; align-items: center; }
+.cellref { font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); }
+table.form { border-collapse: collapse; width: 100%; }
+table.form th, table.form td { border-bottom: 1px solid var(--line); padding: 4px 6px; text-align: left; font-size: 14px; }
+table.form th { background: #faf9f6; font-weight: 600; }
+table.form input, table.form select { width: 100%; }
+input.y, select.y { background: var(--yellow); }
+.ro { color: var(--muted); }
+.savebar { position: sticky; bottom: 0; background: var(--bg); padding: 10px 0; display: flex; gap: 10px; align-items: center; border-top: 1px solid var(--line); }
+.ok { color: #1a7f37; }
+.scroll-x { overflow-x: auto; }
+
+@media (max-width: 640px) {
+  .grid2 { grid-template-columns: 1fr; }
+}
+
+/* พิมพ์ / PDF: Legal แนวนอน ตารางละ 1 หน้า */
+@page { size: legal landscape; margin: 6mm; }
+@media print {
+  html, body { background: #fff; }
+  main { padding: 0; }
+  .no-print, .topnav { display: none !important; }
+  .sections { border: none; padding: 0; overflow: visible; }
+  .print-page { break-after: page; page-break-after: always; margin: 0 !important; }
+  .print-page:last-child { break-after: auto; page-break-after: auto; }
+  .screen-zoom { zoom: var(--print-zoom) !important; }
+  .print-1 .print-page:not(.sec-1), .print-2 .print-page:not(.sec-2), .print-3 .print-page:not(.sec-3) { display: none; }
+  .sheet td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .sheet td.e:hover { outline: none; }
+}

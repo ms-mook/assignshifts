@@ -1,0 +1,36 @@
+// รายการ Google Sheet ทั้ง 4 ไฟล์ (เปลี่ยนได้ผ่าน environment variables)
+export const SHEETS = {
+  /** ตารางเวรนักเทคนิคการแพทย์และพยาบาล FM-CL-05-002-00 (6.00-8.30 / 8.30-12.30 / 12.30-16.30) */
+  shift3: process.env.SHEET_ID_SHIFT3 ?? "1_blttzEvQtyx8hVI_xmFdwbeIRiz4SwINsgD--1LZQk",
+  /** ตารางเวรจัดลงทะเบียนรายการตรวจ (Key) — ขั้นถัดไป */
+  key: process.env.SHEET_ID_KEY ?? "18lqgFYRJ6FhVV-qcDkUmbCO2Be6ACNKYCIaO_BCuBR8",
+  /** ตารางเวร SMC — ขั้นถัดไป */
+  smc: process.env.SHEET_ID_SMC ?? "1kbwFy83JEq7RNo14WQ4UtPhvmVL5XNxQSef0so7YPB0",
+  /** ตารางเวรจัดรับ-นำส่งสิ่งส่งตรวจ (OT) — ขั้นถัดไป */
+  ot: process.env.SHEET_ID_OT ?? "15IAk-8UceseuQNCoaeeTvVtZdDIPPAPsJIoUctkt7KY",
+};
+
+export const MONTH_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+
+/** ชื่อแท็บเดือนในชีต เช่น ม.ค.70 */
+export function monthTabName(yearBE: number, month: number): string {
+  return `${MONTH_SHORT[month - 1]}${String(yearBE % 100).padStart(2, "0")}`;
+}
+
+/** "2570-01" <-> {yearBE, month} */
+export function parseYm(ym: string): { yearBE: number; month: number } | null {
+  const m = /^(\d{4})-(\d{2})$/.exec(ym);
+  if (!m) return null;
+  const month = Number(m[2]);
+  if (month < 1 || month > 12) return null;
+  return { yearBE: Number(m[1]), month };
+}
+
+export function ymString(yearBE: number, month: number): string {
+  return `${yearBE}-${String(month).padStart(2, "0")}`;
+}
+
+export function shiftYm(yearBE: number, month: number, delta: number): string {
+  const idx = yearBE * 12 + (month - 1) + delta;
+  return ymString(Math.floor(idx / 12), (idx % 12) + 1);
+}
