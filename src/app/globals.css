@@ -28,6 +28,9 @@ input, select, textarea { border: 1px solid var(--line); border-radius: 6px; pad
 .topnav a { color: #fff; text-decoration: none; opacity: .9; }
 .topnav a:hover { opacity: 1; text-decoration: underline; }
 .topnav .brand { font-weight: 700; }
+.topnav .navlink { padding: 4px 10px; border-radius: 6px; }
+.topnav .navlink.on { background: rgba(255,255,255,.22); font-weight: 700; opacity: 1; }
+.topnav .navsep { width: 1px; height: 18px; background: rgba(255,255,255,.4); }
 
 .login { max-width: 360px; margin: 12vh auto; background: var(--panel); padding: 28px; border-radius: 10px; border: 1px solid var(--line); }
 .login h1 { margin: 0 0 4px; font-size: 22px; }

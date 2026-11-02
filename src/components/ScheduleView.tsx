@@ -5,13 +5,15 @@ import { useRouter } from "next/navigation";
 import { SHEET_CSS } from "@/lib/shift3/render";
 
 interface Props {
+  table: string;
+  tableTitle: string;
   ym: string;
   prevYm: string;
   nextYm: string;
   label: string;
   tabName: string;
   manualSource: "month-tab" | "web-tab";
-  sectionsHtml: string[];
+  sectionHtml: string;
   names: string[];
   warning: string;
 }
@@ -25,7 +27,6 @@ const FREE_COLS = ["AH", "AI", "AJ", "AK"];
 export default function ScheduleView(p: Props) {
   const router = useRouter();
   const [zoom, setZoom] = useState(0.35);
-  const [printWhich, setPrintWhich] = useState<"all" | "1" | "2" | "3">("all");
   const [edit, setEdit] = useState<{ key: string; current: string; day: string; col: string; sec: string } | null>(null);
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
@@ -78,18 +79,18 @@ export default function ScheduleView(p: Props) {
   const isFree = edit ? FREE_COLS.includes(edit.col) : false;
 
   return (
-    <div className={`schedule print-${printWhich}`}>
+    <div className={"schedule"}>
       <style>{SHEET_CSS}</style>
       <div className="toolbar no-print">
-        <button onClick={() => router.push(`/schedule/${p.prevYm}`)}>◀ เดือนก่อน</button>
-        <strong className="month-label">{p.label}</strong>
-        <button onClick={() => router.push(`/schedule/${p.nextYm}`)}>เดือนถัดไป ▶</button>
+        <button onClick={() => router.push(`/schedule/${p.table}/${p.prevYm}`)}>◀ เดือนก่อน</button>
+        <strong className="month-label">{p.tableTitle} · {p.label}</strong>
+        <button onClick={() => router.push(`/schedule/${p.table}/${p.nextYm}`)}>เดือนถัดไป ▶</button>
         <input
           type="month"
           aria-label="เลือกเดือน"
           onChange={(e) => {
             const [y, m] = e.target.value.split("-");
-            if (y && m) router.push(`/schedule/${Number(y) + 543}-${m}`);
+            if (y && m) router.push(`/schedule/${p.table}/${Number(y) + 543}-${m}`);
           }}
         />
         <span className="spacer" />
@@ -98,14 +99,8 @@ export default function ScheduleView(p: Props) {
           <input type="range" min={0.2} max={1} step={0.05} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} />
           {Math.round(zoom * 100)}%
         </label>
-        <select value={printWhich} onChange={(e) => setPrintWhich(e.target.value as typeof printWhich)}>
-          <option value="all">พิมพ์ทั้ง 3 ส่วน</option>
-          <option value="1">เฉพาะส่วนที่ 1 (06.00-8.30)</option>
-          <option value="2">เฉพาะส่วนที่ 2 (08.30-12.30)</option>
-          <option value="3">เฉพาะส่วนที่ 3 (12.30-16.30)</option>
-        </select>
         <button className="primary" onClick={() => window.print()}>
-          พิมพ์ / บันทึก PDF (Legal แนวนอน)
+          พิมพ์ / บันทึก PDF ตารางนี้ (Legal แนวนอน)
         </button>
       </div>
       <div className="hint no-print">
@@ -116,11 +111,9 @@ export default function ScheduleView(p: Props) {
         {p.warning && <span className="warn"> · {p.warning}</span>}
       </div>
       <div className="sections" onClick={onClick} style={{ ["--print-zoom" as string]: printZoom } as CSSProperties}>
-        {p.sectionsHtml.map((h, i) => (
-          <div key={i} className={`print-page sec-${i + 1}`}>
-            <div className="screen-zoom" style={{ zoom }} dangerouslySetInnerHTML={{ __html: h }} />
-          </div>
-        ))}
+        <div className="print-page">
+          <div className="screen-zoom" style={{ zoom }} dangerouslySetInnerHTML={{ __html: p.sectionHtml }} />
+        </div>
       </div>
 
       {edit && (
