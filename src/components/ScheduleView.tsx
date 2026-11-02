@@ -531,9 +531,6 @@ export default function ScheduleView(p: Props) {
                         );
                       })}
                     </tbody>
-                    <tfoot>
-                      <tr><td>รวม</td><td className="num">{g.rows.reduce((a, r) => a + r.count, 0)}</td></tr>
-                    </tfoot>
                   </table>
                 );
               })}

@@ -147,4 +147,3 @@ table.plan tr.rowbad td:first-child { background: #ffd7d9; }
 .sum-table th, .sum-table td { border: 1px solid #b9b5ad; padding: 3px 10px; }
 .sum-table thead th { background: #2f2f2f; color: #fff; font-weight: 700; }
 .sum-table td.num { text-align: center; font-weight: 700; min-width: 70px; }
-.sum-table tfoot td { background: #f3f1ec; font-weight: 700; }
