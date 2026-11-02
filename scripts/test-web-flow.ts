@@ -280,8 +280,11 @@ async function main() {
       ["", `${names[5]} ลาภโต`, "", "ลาอื่นๆ", "26/11/2026", "26/11/2026", "1", "Reject", "L7"],
     ]);
     wb.set("ลา-แลกเวร", [[], [], [], ["วันที่"]]);
-    const r1 = await repo.syncLeaveSystem({ force: true });
-    eqv([r1.added, r1.removed, r1.error], [5, 0, undefined], "ดึงมา 5 แถว (ข้ามเสาร์-อาทิตย์และวันหยุด 7 ธ.ค.)");
+    const r1a = await repo.syncLeaveSystem({ force: true, ym: "2569-11" });
+    eqv([r1a.added, r1a.removed, r1a.error, r1a.ym], [3, 0, undefined, "2569-11"], "ดึงเฉพาะ พ.ย.69: 3 แถว (ไม่ดึงเดือนอื่น ไม่ดึงงดเวรนอกเวลา/Pending/Reject)");
+    eqv((await repo.loadShift3()).leaves.length, 3, "หลังดึง พ.ย. ในชีตมีแค่ 3 แถว (ไม่มี ธ.ค.)");
+    const r1 = await repo.syncLeaveSystem({ force: true, ym: "2569-12" });
+    eqv([r1.added, r1.removed, r1.error], [2, 0, undefined], "ดึงเฉพาะ ธ.ค.69: 2 แถว (ข้ามเสาร์-อาทิตย์และวันหยุด 7 ธ.ค.)");
     ok(r1.skippedNames.includes("อัมพร นามสี"), "คนที่ไม่ใช่พนักงานตารางนี้ไม่ถูกดึง");
     let d = await repo.loadShift3();
     eqv(d.leaves.map((l: any) => `${isoD(l.date)}|${l.name}|${l.type}|${l.replacement}|${l.ref}`), [
@@ -291,14 +294,16 @@ async function main() {
     // ผู้จัดใส่คนแทน แล้วดึงซ้ำ → ไม่ซ้ำ ไม่ลบ คนแทนยังอยู่
     const form = d.leaves.map((l: any) => ({ date: isoD(l.date), name: l.name, replacement: l.ref.endsWith("11-12") ? names[9] : "", type: l.type, note: "", ref: l.ref }));
     await repo.saveLeaves(form);
-    const r2 = await repo.syncLeaveSystem({ force: true });
+    const r2 = await repo.syncLeaveSystem({ force: true, ym: "2569-11" });
     eqv([r2.added, r2.removed], [0, 0], "ดึงซ้ำ ไม่เพิ่ม/ไม่ลบ");
     d = await repo.loadShift3();
     eqv(d.leaves.find((l: any) => l.ref.endsWith("11-12"))?.replacement, names[9], "คนแทนที่ผู้จัดใส่ยังอยู่");
     // ยกเลิกการลาในระบบลา → แถวถูกนำออก
     wb.get("Leave")![1][7] = "Cancelled";
-    const r3 = await repo.syncLeaveSystem({ force: true });
-    eqv([r3.added, r3.removed], [0, 3], "ยกเลิกในระบบลา → นำออก 3 แถว");
+    const r3a = await repo.syncLeaveSystem({ force: true, ym: "2569-12" });
+    eqv([r3a.added, r3a.removed], [0, 0], "ซิงก์เดือน ธ.ค. ไม่แตะแถวของ พ.ย.");
+    const r3 = await repo.syncLeaveSystem({ force: true, ym: "2569-11" });
+    eqv([r3.added, r3.removed], [0, 3], "ยกเลิกในระบบลา → นำออก 3 แถว (ในเดือนนั้น)");
     d = await repo.loadShift3();
     eqv(d.leaves.length, 2, "เหลือ 2 แถว");
     const m = computeMonth(d.settings, d.leaves, {}, 2569, 12);

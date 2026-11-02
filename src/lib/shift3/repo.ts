@@ -1,7 +1,7 @@
 // อ่าน/เขียนข้อมูลตาราง 3 ช่วงเวลา กับ Google Sheet
 import "server-only";
 import { addSheet, batchGet, batchUpdate, sheetTitles } from "../google";
-import { SHEETS, monthTabName, ymString } from "../config";
+import { SHEETS, monthTabName, parseYm, ymString } from "../config";
 import { isoFromSerial, serialFromYMD, toSerial } from "../sheets-date";
 import { PlanCalculator, colIndex, colLetter, computeMonth, editableCols, manualKey, SECTION_MAP } from "./engine";
 import {
@@ -430,31 +430,42 @@ export interface LeaveSyncResult {
   added: number;
   removed: number;
   at: string;
+  /** เดือนที่ดึง (ปี พ.ศ.-เดือน) */
+  ym: string;
   error?: string;
   /** ชื่อในระบบลาที่จับคู่กับพนักงานในตารางนี้ไม่ได้ (ไม่ได้ดึงมา) */
   skippedNames: string[];
 }
 let syncing: Promise<LeaveSyncResult> | null = null;
+let syncingYm = "";
 let lastSync = 0;
 let lastResult: LeaveSyncResult | null = null;
+let lastYm = "";
 
 /**
  * เทียบรายการลาที่ Approve (ลาป่วย/ลากิจ/ลาพักร้อน/ลาอื่นๆ) กับแถวในแท็บ ลา-แลกเวร
- *  - 1 แถวต่อ 1 คน 1 วันทำการ (ข้ามเสาร์-อาทิตย์และวันหยุดในตั้งค่า) ตั้งแต่วันที่ 1 ของเดือนก่อนเป็นต้นไป
+ *  - 1 แถวต่อ 1 คน 1 วันทำการ (ข้ามเสาร์-อาทิตย์และวันหยุดในตั้งค่า) เฉพาะ "เดือนที่กำลังจัดทำ" (ym = ปี พ.ศ.-เดือน) ไม่ดึงทั้งชีต
+ *  - แถวนอกเดือนนั้น (เดือนอื่นที่เคยดึงไว้แล้ว) ไม่ถูกแตะต้อง
  *  - ใส่ วันที่ / ชื่อ / ประเภท / รหัส (H) · คนแทน และหมายเหตุ เว้นว่างให้ผู้จัดกรอกเอง
  *  - ถ้าการลาถูกยกเลิก/ไม่อนุมัติภายหลัง แถวที่ดึงมาจะถูกนำออก (ข้อมูลที่ผู้จัดกรอกในแถวนั้นหายไปด้วย)
  */
-export async function syncLeaveSystem(opt: { force?: boolean } = {}): Promise<LeaveSyncResult> {
-  if (!opt.force && lastResult && Date.now() - lastSync < 60_000) return lastResult;
-  if (syncing) return syncing;
+export async function syncLeaveSystem(opt: { force?: boolean; ym?: string } = {}): Promise<LeaveSyncResult> {
+  const nowTH = new Date(Date.now() + 7 * 3600 * 1000);
+  const pm = opt.ym ? parseYm(opt.ym) : null;
+  const yearBE = pm ? pm.yearBE : nowTH.getUTCFullYear() + 543;
+  const month = pm ? pm.month : nowTH.getUTCMonth() + 1;
+  const ymKey = ymString(yearBE, month);
+  if (!opt.force && lastResult && lastYm === ymKey && Date.now() - lastSync < 60_000) return lastResult;
+  if (syncing && syncingYm === ymKey) return syncing;
+  syncingYm = ymKey;
   syncing = (async () => {
     const at = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(11, 16);
     try {
       const data = await loadShift3();
       const s = data.settings;
       const staff = Array.from(new Set([...s.persons.flatMap((p) => [p.name, p.replacement]), s.pairOddKw8, s.pairOddOpd11].map((x) => x.trim()).filter((x) => x !== "")));
-      const now = new Date(Date.now() + 7 * 3600 * 1000);
-      const windowStart = serialFromYMD(now.getUTCFullYear(), now.getUTCMonth(), 1); // วันที่ 1 ของเดือนก่อน
+      const windowStart = serialFromYMD(yearBE - 543, month, 1); // วันที่ 1 ของเดือนที่จัดทำ
+      const windowEnd = serialFromYMD(yearBE - 543, month + 1, 0); // วันสุดท้ายของเดือน
       const holidays = new Set(s.holidays.map((h) => h.date).filter((d): d is number => d !== null));
       const sys = await readApprovedLeaves();
       const skipped = new Set<string>();
@@ -465,7 +476,8 @@ export async function syncLeaveSystem(opt: { force?: boolean } = {}): Promise<Le
           skipped.add(l.fullName);
           continue;
         }
-        for (let d = Math.max(l.start, windowStart); d <= l.end && d - l.start < 400; d++) {
+        if (l.end < windowStart || l.start > windowEnd) continue;
+        for (let d = Math.max(l.start, windowStart); d <= Math.min(l.end, windowEnd); d++) {
           const wd = new Date((d - 25569) * 86400000).getUTCDay();
           if (wd === 0 || wd === 6 || holidays.has(d)) continue;
           const ref = `${l.leaveId}|${isoFromSerial(d)}`;
@@ -487,19 +499,21 @@ export async function syncLeaveSystem(opt: { force?: boolean } = {}): Promise<Le
         if (seen.has(r.ref)) return (removed++, false); // แถวซ้ำ
         seen.add(r.ref);
         const d = toSerial(r.date);
-        if (want.has(r.ref) || (d !== null && d < windowStart)) return true;
+        if (want.has(r.ref) || d === null || d < windowStart || d > windowEnd) return true; // นอกเดือนนี้ ไม่แตะ
         removed++;
         return false;
       });
       const add = Array.from(want.values()).filter((r) => !seen.has(r.ref!)).sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
       if (add.length > 0 || removed > 0) await saveLeaves([...keep, ...add]);
-      return (lastResult = { added: add.length, removed, at, skippedNames: Array.from(skipped) });
+      lastYm = ymKey;
+      return (lastResult = { added: add.length, removed, at, ym: ymKey, skippedNames: Array.from(skipped) });
     } catch (e) {
       const msg = (e as Error).message;
       const error = /\b(403|404)\b|PERMISSION|not found/i.test(msg)
         ? "อ่านชีตระบบลาไม่ได้ — ต้องแชร์ชีตระบบลาให้บัญชีของเว็บ (assignshifts@assignshifts.iam.gserviceaccount.com) สิทธิ์ผู้อ่าน"
         : `ดึงข้อมูลระบบลาไม่สำเร็จ: ${msg.slice(0, 200)}`;
-      return (lastResult = { added: 0, removed: 0, at, error, skippedNames: [] });
+      lastYm = ymKey;
+      return (lastResult = { added: 0, removed: 0, at, ym: ymKey, error, skippedNames: [] });
     } finally {
       lastSync = Date.now();
       syncing = null;

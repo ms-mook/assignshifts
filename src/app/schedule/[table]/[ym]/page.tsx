@@ -22,7 +22,7 @@ export default async function SchedulePage({ params }: { params: { table: string
   if (tdef.kind === "smc") return <SmcSchedule tdef={tdef} ym={params.ym} yearBE={p.yearBE} month={p.month} />;
   if (tdef.kind === "key") return <KeySchedule tdef={tdef} ym={params.ym} yearBE={p.yearBE} month={p.month} />;
   if (tdef.kind === "ot") return <OtSchedule tdef={tdef} ym={params.ym} yearBE={p.yearBE} month={p.month} />;
-  await syncLeaveSystem(); // การลาที่ Approve ในระบบลา (ดึงซ้ำไม่เกินนาทีละครั้ง)
+  await syncLeaveSystem({ ym: params.ym }); // การลาที่ Approve ในระบบลา เฉพาะเดือนนี้ (ดึงซ้ำไม่เกินนาทีละครั้ง)
   const data = await loadShift3();
   const st = await loadMonthState(data, p.yearBE, p.month);
   const res = computeMonth(data.settings, data.leaves, st.manual, p.yearBE, p.month);

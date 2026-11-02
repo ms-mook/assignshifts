@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PlanCalculator, leaveSpotOf, suggestedReplacement } from "@/lib/shift3/engine";
+import { MONTH_SHORT, parseYm, shiftYm } from "@/lib/config";
 import { toSerial } from "@/lib/sheets-date";
 import { useToast } from "./Toast";
 import Icon from "./Icon";
@@ -15,12 +16,17 @@ interface Props {
   staff: string[];
   allNames: string[];
   sync?: LeaveSyncResult;
+  ym: string;
 }
 
-export default function LeavesClient({ initial, settings, staff, allNames, sync }: Props) {
+export default function LeavesClient({ initial, settings, staff, allNames, sync, ym }: Props) {
   const router = useRouter();
   const toast = useToast();
   const [rows, setRows] = useState<LeaveForm[]>(initial);
+  const pmo = parseYm(ym);
+  const monthLabel = pmo ? `${MONTH_SHORT[pmo.month - 1]} ${pmo.yearBE}` : ym;
+  const prevYm = pmo ? shiftYm(pmo.yearBE, pmo.month, -1) : ym;
+  const nextYm = pmo ? shiftYm(pmo.yearBE, pmo.month, 1) : ym;
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const plan = useMemo(() => new PlanCalculator(settings), [settings]);
@@ -33,7 +39,7 @@ export default function LeavesClient({ initial, settings, staff, allNames, sync 
     setPulling(true);
     const t = toast.loading("กำลังดึงการลาจากระบบลา…");
     try {
-      const r = await fetch("/api/shift3/leaves/sync", { method: "POST" });
+      const r = await fetch("/api/shift3/leaves/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ym }) });
       const j = (await r.json().catch(() => ({}))) as Partial<LeaveSyncResult>;
       if (!r.ok || j.error) t.error(j.error ?? `ดึงข้อมูลไม่สำเร็จ (${r.status})`);
       else t.success(`ดึงข้อมูลแล้ว · เพิ่ม ${j.added ?? 0} · นำออก ${j.removed ?? 0} รายการ`);
@@ -77,7 +83,7 @@ export default function LeavesClient({ initial, settings, staff, allNames, sync 
       <div className={sync?.error ? "sync-bar bad" : "sync-bar"}>
         <Icon name={sync?.error ? "TriangleAlert" : "CalendarCheck"} size={18} />
         <div className="sync-text">
-          <b>ดึงอัตโนมัติจากระบบลา</b> — เฉพาะที่ Approve แล้ว (ลาป่วย / ลากิจ / ลาพักร้อน / ลาอื่นๆ) ตั้งแต่ต้นเดือนก่อน · 1 แถวต่อ 1 วันทำการ
+          <b>ดึงอัตโนมัติจากระบบลา</b> — เฉพาะที่ Approve แล้ว (ลาป่วย / ลากิจ / ลาพักร้อน / ลาอื่นๆ) เฉพาะเดือน <b>{monthLabel}</b> ที่กำลังจัดทำ · 1 แถวต่อ 1 วันทำการ
           {sync && !sync.error && (
             <span className="muted"> · ล่าสุด {sync.at} น. เพิ่ม {sync.added} · นำออก {sync.removed}</span>
           )}
@@ -85,6 +91,11 @@ export default function LeavesClient({ initial, settings, staff, allNames, sync 
           {sync && sync.skippedNames.length > 0 && (
             <div className="muted small">ไม่ได้ดึง (ไม่ใช่พนักงานตารางนี้): {sync.skippedNames.join(", ")}</div>
           )}
+        </div>
+        <div className="join">
+          <button className="btn btn-sm join-item btn-soft" disabled={pulling || busy || dirty} onClick={() => router.push(`/leaves?ym=${prevYm}`)} title="เดือนก่อนหน้า" aria-label="เดือนก่อนหน้า"><Icon name="ChevronLeft" size={14} /></button>
+          <span className="btn btn-sm join-item btn-soft no-animation pointer-events-none">{monthLabel}</span>
+          <button className="btn btn-sm join-item btn-soft" disabled={pulling || busy || dirty} onClick={() => router.push(`/leaves?ym=${nextYm}`)} title="เดือนถัดไป" aria-label="เดือนถัดไป"><Icon name="ChevronRight" size={14} /></button>
         </div>
         <button className="btn btn-sm btn-soft btn-primary" disabled={pulling || busy} onClick={pull}>
           {pulling ? <span className="loading loading-spinner loading-xs" /> : <Icon name="RotateCcw" size={14} />}
