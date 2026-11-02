@@ -28,6 +28,8 @@ interface Props {
   officerCols?: string[];
   /** ข้อความช่วยใต้แถบเครื่องมือ (แทนข้อความเริ่มต้น) */
   hint?: string;
+  /** ข้อความเตือนชื่อซ้ำ (แทนข้อความเริ่มต้น) */
+  dupNote?: string;
   /** ตั้งค่าการสร้าง PDF */
   pdf?: { colA: number; colW: number; keepCols?: number[]; sheetCss?: string };
   warning: string;
@@ -149,7 +151,7 @@ export default function ScheduleView(p: Props) {
     const k = `${p.table}/${p.ym}`;
     if (p.dupDays.length > 0 && warnedFor.current !== k) {
       warnedFor.current = k;
-      toast.error(`พบชื่อซ้ำในแถวเดียวกัน วันที่ ${p.dupDays.join(", ")} (กรอบแดงในตาราง) — พนักงาน 1 คนอยู่ได้ทีละจุด`);
+      toast.error(`พบชื่อซ้ำในแถวเดียวกัน วันที่ ${p.dupDays.join(", ")} (กรอบแดงในตาราง) — ${p.dupNote ?? "พนักงาน 1 คนอยู่ได้ทีละจุด"}`);
     }
   }, [p.dupDays, p.table, p.ym, toast]);
 
@@ -471,7 +473,7 @@ export default function ScheduleView(p: Props) {
               ))}
               {shown.length === 0 && <div className="muted small">ไม่พบชื่อ{!isOfficer && value.trim() !== "" ? " — กด Enter เพื่อใช้ชื่อที่พิมพ์" : ""}</div>}
             </div>
-            <p className="muted small">พนักงาน 1 คนอยู่ได้ทีละจุดในแถวเดียวกัน — ถ้าชื่อซ้ำ ระบบจะไม่บันทึก</p>
+            <p className="muted small">{p.dupNote ?? "พนักงาน 1 คนอยู่ได้ทีละจุดในแถวเดียวกัน — ถ้าชื่อซ้ำ ระบบจะไม่บันทึก"}</p>
             {err && <div className="error">{err}</div>}
             <div className="modal-actions">
               <button disabled={busy} onClick={() => saveName(null)}>

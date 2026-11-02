@@ -2,10 +2,11 @@
 // อิงเงื่อนไขสีส้มในชีต: B8<>"", ไม่ขึ้นต้น จนท/⚠/→, ไม่ใช่ "ปิดจุด", COUNTIF($B8:$N8,B8)>1
 // เว็บตรวจเข้มกว่าเล็กน้อย: ตัด " (แทน ...)" ออกก่อนเทียบ เพื่อจับคนเดียวกันที่อยู่ 2 จุด
 /**
- * ตาราง OT ไม่เตือน/ไม่กันชื่อซ้ำ (ผู้ใช้กำหนด 2 พ.ย. 2569):
- * คนเดียวกันควบ 2 จุดได้ เช่น ช่วง 06.00-08.30 คู่กับช่วงทั้งวัน (เช้าจนเลิกงาน) ไม่ผิดกฎ
+ * ตาราง OT (ผู้ใช้กำหนด 2 พ.ย. 2569): ชื่อซ้ำในแถว "เตือน" (ไฮไลต์) แต่ "ไม่กัน" การบันทึก
+ * เพราะคนเดียวกันควบ 2 จุดได้ เช่น ช่วง 06.00-08.30 คู่กับช่วงทั้งวัน (เช้าจนเลิกงาน)
  */
-export const OT_CHECK_DUPLICATES = false;
+export const OT_CHECK_DUPLICATES = true;
+export const OT_BLOCK_DUPLICATES = false;
 
 export const OT_ROW_COLS = ["B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N"];
 
@@ -30,7 +31,7 @@ export function otDupCols(cells: Record<string, string>): Set<string> {
 }
 
 export function otConflictMessage(cells: Record<string, string>, col: string, value: string, day: number): string | null {
-  if (!OT_CHECK_DUPLICATES) return null;
+  if (!OT_BLOCK_DUPLICATES) return null;
   const p = otPerson(value);
   if (p === null) return null;
   for (const c of OT_ROW_COLS) {

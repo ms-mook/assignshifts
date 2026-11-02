@@ -37,6 +37,7 @@ export default async function OtSchedule({ tdef, ym, yearBE, month }: { tdef: Ta
       dupDays={dupDays}
       warning={beforeStart ? "เดือนนี้อยู่ก่อนวันเริ่มตาราง (ตั้งค่า B4) จึงยังไม่มีการจัดคน" : ""}
       api="/api/ot"
+      dupNote="ตรวจว่าตั้งใจให้ควบ 2 จุด (เช่น 06.00-08.30 คู่กับช่วงทั้งวัน) — บันทึกได้ ระบบแค่เตือน"
       officerCols={[]}
       hint="ช่องที่แก้เอง/พิมพ์ทับเก็บในแท็บ WEB-ช่องเลือกเอง (ไม่แตะสูตรในแท็บเดือน) · ถ้าจะเปลี่ยนคนในช่องที่เป็นสูตร ให้ใช้หน้า ลา-แลกเวร (OT)"
       pdf={{ colA: OT_COL_W[0], colW: 185, keepCols: [14], sheetCss: SHEET_CSS + OT_CSS }}
