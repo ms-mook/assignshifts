@@ -159,11 +159,14 @@ export async function downloadTablePdf(o: ExportOpts): Promise<void> {
     const H = Math.ceil(table.getBoundingClientRect().height);
     probe.remove();
 
-    const scale = Math.min(2.5, Math.sqrt(16_000_000 / (W * H)));
+    // เผื่อขอบ: เส้นตารางแบบ border-collapse ล้นออกนอกความกว้างตาราง ~1px (ไม่เผื่อ = เส้นขวาสุด/ล่างสุดหาย)
+    const PAD = 4;
+    const SW = W + PAD * 2, SH = H + PAD * 2;
+    const scale = Math.min(2.5, Math.sqrt(16_000_000 / (SW * SH)));
     const xml = new XMLSerializer().serializeToString(host);
     const svg =
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><foreignObject width="100%" height="100%">` +
-      `<div xmlns="http://www.w3.org/1999/xhtml"><style>${css.replace(/</g, "&lt;")}</style>${xml.replace(/^<div[^>]*>/, "<div>")}</div></foreignObject></svg>`;
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${SW}" height="${SH}"><foreignObject width="100%" height="100%">` +
+      `<div xmlns="http://www.w3.org/1999/xhtml" style="padding:${PAD}px;background:#fff"><style>${css.replace(/</g, "&lt;")}</style>${xml.replace(/^<div[^>]*>/, "<div>")}</div></foreignObject></svg>`;
     const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
     const img = new Image();
     await new Promise<void>((res, rej) => {
@@ -172,8 +175,8 @@ export async function downloadTablePdf(o: ExportOpts): Promise<void> {
       img.src = url;
     });
     const cv = document.createElement("canvas");
-    cv.width = Math.round(W * scale);
-    cv.height = Math.round(H * scale);
+    cv.width = Math.round(SW * scale);
+    cv.height = Math.round(SH * scale);
     const ctx = cv.getContext("2d")!;
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, cv.width, cv.height);
