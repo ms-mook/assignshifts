@@ -34,7 +34,7 @@ export default function OtSettingsClient({ initial }: { initial: OtSettingsForm 
       setBusy(false);
     }
   };
-  const save = () => post("/api/ot/settings", f, "กำลังบันทึกตั้งค่า (รับ-นำส่ง)… (รอสักครู่)", "บันทึกตั้งค่าสำเร็จ ตารางทุกเดือนอัปเดตตาม");
+  const save = () => post("/api/ot/settings", f, "กำลังบันทึกตั้งค่า (OT)… (รอสักครู่)", "บันทึกตั้งค่าสำเร็จ ตารางทุกเดือนอัปเดตตาม");
   const step = async (dir: 1 | -1) => {
     if (dirty && !window.confirm("มีการแก้ไขที่ยังไม่บันทึก — สลับรูปแบบตอนนี้จะไม่บันทึกการแก้ไขอื่น ทำต่อหรือไม่?")) return;
     const j = await post("/api/ot/pattern", { dir }, "กำลังสลับรูปแบบการเวียน…", "สลับรูปแบบการเวียนแล้ว");
@@ -44,7 +44,7 @@ export default function OtSettingsClient({ initial }: { initial: OtSettingsForm 
   return (
     <div>
       <div className="page-head">
-        <h1>ตั้งค่า — ตารางจุดรับ-นำส่งสิ่งส่งตรวจ</h1>
+        <h1>ตั้งค่า — ตาราง OT</h1>
         <span className="muted">ช่องสีเหลือง = แก้ได้ (เหมือนในชีต) · เปลี่ยนแล้วตารางทุกเดือนอัปเดตเอง</span>
       </div>
 

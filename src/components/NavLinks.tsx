@@ -34,7 +34,7 @@ export default function NavLinks() {
     } else setYm(readYmCookie());
   }, [path]); // eslint-disable-line react-hooks/exhaustive-deps
   const cls = (on: boolean) => (on ? "navlink on" : "navlink");
-  // อยู่ในส่วนตารางรับ-นำส่ง (OT) → เมนูรองเป็นของ OT
+  // อยู่ในส่วนตาราง OT (OT) → เมนูรองเป็นของ OT
   const isOt = path.startsWith("/schedule/ot/") || path.startsWith("/ot/");
   return (
     <>
@@ -46,9 +46,9 @@ export default function NavLinks() {
       <span className="navsep" />
       {isOt ? (
         <>
-          <Link href="/ot/plan" className={cls(path.startsWith("/ot/plan"))}>แผน/สรุป (รับ-นำส่ง)</Link>
-          <Link href="/ot/leaves" className={cls(path.startsWith("/ot/leaves"))}>ลา-แลกเวร (รับ-นำส่ง)</Link>
-          <Link href="/ot/settings" className={cls(path.startsWith("/ot/settings"))}>ตั้งค่า (รับ-นำส่ง)</Link>
+          <Link href="/ot/plan" className={cls(path.startsWith("/ot/plan"))}>แผน/สรุป (OT)</Link>
+          <Link href="/ot/leaves" className={cls(path.startsWith("/ot/leaves"))}>ลา-แลกเวร (OT)</Link>
+          <Link href="/ot/settings" className={cls(path.startsWith("/ot/settings"))}>ตั้งค่า (OT)</Link>
         </>
       ) : (
         <>

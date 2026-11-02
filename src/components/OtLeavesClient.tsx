@@ -19,12 +19,12 @@ export default function OtLeavesClient({ initial, settings, names }: { initial: 
 
   const save = async () => {
     setBusy(true);
-    const t = toast.loading("กำลังบันทึกการลา/แลกเวร (รับ-นำส่ง)… (รอสักครู่)");
+    const t = toast.loading("กำลังบันทึกการลา/แลกเวร (OT)… (รอสักครู่)");
     try {
       const res = await fetch("/api/ot/leaves", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rows }) });
       if (!res.ok) t.error((await res.json().catch(() => ({}))).error ?? `บันทึกไม่สำเร็จ (${res.status})`);
       else {
-        t.success("บันทึกสำเร็จ ตารางรับ-นำส่งจะอัปเดตตามอัตโนมัติ");
+        t.success("บันทึกสำเร็จ ตาราง OTจะอัปเดตตามอัตโนมัติ");
         router.refresh();
       }
     } catch {
@@ -37,7 +37,7 @@ export default function OtLeavesClient({ initial, settings, names }: { initial: 
   return (
     <div>
       <div className="page-head">
-        <h1>บันทึกการลา / แลกเวร รายวัน — จุดรับ-นำส่งสิ่งส่งตรวจ</h1>
+        <h1>บันทึกการลา / แลกเวร รายวัน — ตาราง OT</h1>
         <span className="muted">กรอก 1 แถวต่อ 1 คน 1 วัน (ลาหลายวันให้กรอกทีละวัน) · ถ้ายังไม่ใส่คนแทน ฟอร์มรายเดือนจะขึ้น ⚠ สีแดง · คนที่ถูกดึงไปแทนจะขึ้น &apos;→ ไปช่วยจุดอื่น&apos; ที่จุดเดิม</span>
       </div>
       <datalist id="ot-names">{names.map((n) => <option key={n} value={n} />)}</datalist>

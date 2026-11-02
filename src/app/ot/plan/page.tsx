@@ -54,7 +54,7 @@ export default async function OtPlanPage({ searchParams }: { searchParams: { wee
   return (
     <div>
       <div className="page-head">
-        <h1>แผนการเวียนรายสัปดาห์ — จุดรับ-นำส่งสิ่งส่งตรวจ</h1>
+        <h1>แผนการเวียนรายสัปดาห์ — ตาราง OT</h1>
         <span className="muted">คำนวณอัตโนมัติจากหน้า ตั้งค่า (ห้ามแก้) · จุดหนัก = ตรวจสอบเอกสาร, นำส่ง OPD คนที่1-2 · ปิดจุด = บัตรคิว SMC ถูกย้ายไปแทนจุดที่ขาดคน · ⚠ ว่าง = ต้องหาคนเพิ่ม</span>
       </div>
 
