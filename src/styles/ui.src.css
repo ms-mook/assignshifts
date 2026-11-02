@@ -293,6 +293,14 @@
   table.plan tr.now td:first-child { background: #1f3a68; color: #fff; }
   #week-now { scroll-margin-top: 140px; }
 
+  /* หน้าลา-แลกเวร: ดึงจากระบบลา */
+  .sync-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; padding: 10px 14px; border-radius: 14px; background: rgb(240 244 250 / 0.9); border: 1px solid rgb(184 199 220 / 0.7); }
+  .sync-bar > .lucide { color: #2f6694; flex: none; }
+  .sync-bar.bad { background: rgb(190 40 60 / 0.06); border-color: rgb(190 40 60 / 0.3); }
+  .sync-bar.bad > .lucide { color: var(--color-error); }
+  .sync-text { flex: 1; font-size: 14px; line-height: 1.5; }
+  table.form tr.from-sys td { background: rgb(232 240 250 / 0.55); }
+
   /* หน้าสรุปการเวียนจุด */
   table.sumtbl th { text-align: center; white-space: normal; min-width: 64px; line-height: 1.25; }
   table.sumtbl th.r-o { background: #e5cedb; color: #3b1f2e; }

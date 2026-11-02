@@ -60,6 +60,8 @@ export interface LeaveRow {
   replacement: string; // C
   type: string; // D
   note: string; // G
+  /** H: รหัสอ้างอิงจากระบบลา (`LeaveID|yyyy-mm-dd`) — ว่าง = กรอกเอง */
+  ref?: string;
 }
 
 /** ช่องที่ผู้จัดเลือกเอง (เขียนทับสูตรในชีตเดือน) key = `${section}:${col}:${day}` */

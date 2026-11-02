@@ -88,9 +88,9 @@ export function parseSettings(g: Grid): Shift3Settings {
   };
 }
 
-export const LEAVES_RANGE = "'ลา-แลกเวร'!A5:G400";
+export const LEAVES_RANGE = "'ลา-แลกเวร'!A5:H400";
 
-/** g = ค่าตั้งแต่แถว 5 (A5:G400) */
+/** g = ค่าตั้งแต่แถว 5 (A5:H400) · H = รหัสจากระบบลา (เว็บเพิ่ม) */
 export function parseLeaves(g: Grid): LeaveRow[] {
   return g
     .map((row) => ({
@@ -99,6 +99,7 @@ export function parseLeaves(g: Grid): LeaveRow[] {
       replacement: str(row?.[2]),
       type: str(row?.[3]),
       note: str(row?.[6]),
+      ref: str(row?.[7]),
     }))
     .filter((l) => l.date !== null || l.name !== "" || l.replacement !== "");
 }

@@ -2,7 +2,7 @@
 import "server-only";
 import { addSheet, batchGet, batchUpdate, sheetTitles } from "../google";
 import { SHEETS, monthTabName, ymString } from "../config";
-import { isoFromSerial, toSerial } from "../sheets-date";
+import { isoFromSerial, serialFromYMD, toSerial } from "../sheets-date";
 import { PlanCalculator, colIndex, colLetter, computeMonth, editableCols, manualKey, SECTION_MAP } from "./engine";
 import {
   LEAVES_RANGE,
@@ -16,6 +16,7 @@ import {
   str,
 } from "./parse";
 import { conflictMessage } from "./conflicts";
+import { readApprovedLeaves } from "../leave-system";
 import type { CellStyle } from "./render";
 import type { LeaveRow, ManualCells, SectionNo, Shift3Settings } from "./types";
 
@@ -387,6 +388,8 @@ export interface LeaveForm {
   replacement: string;
   type: string;
   note: string;
+  /** รหัสจากระบบลา (ว่าง = กรอกเอง) */
+  ref?: string;
 }
 
 export async function saveLeaves(rows: LeaveForm[]): Promise<void> {
@@ -397,11 +400,11 @@ export async function saveLeaves(rows: LeaveForm[]): Promise<void> {
     rows.map((r, i) => [checkDate(r.date, `A${5 + i}`), r.name, r.replacement, r.type]),
     ["", "", "", ""],
   );
-  const g = pad(rows.map((r) => [r.note]), [""]);
-  // E, F เป็นสูตร ไม่เขียนทับ
+  const g = pad(rows.map((r) => [r.note, r.ref ?? ""]), ["", ""]);
+  // E, F เป็นสูตร ไม่เขียนทับ · H = รหัสจากระบบลา
   await batchUpdate(ID(), [
     { range: `'ลา-แลกเวร'!A5:D400`, values: ad },
-    { range: `'ลา-แลกเวร'!G5:G400`, values: g },
+    { range: `'ลา-แลกเวร'!G5:H400`, values: g },
   ]);
 }
 
@@ -419,4 +422,88 @@ export async function saveShift3SummaryRange(from: string, to: string): Promise<
   const titles = await sheetTitles(ID());
   if (!titles.includes("สรุป")) throw new Error("ชีตไม่มีแท็บ สรุป");
   await batchUpdate(ID(), [{ range: "'สรุป'!B2:B3", values: [[from], [to]] }]);
+}
+
+// ---------- ดึงการลาจากระบบลา (Approve แล้ว) มาใส่หน้า ลา-แลกเวร ----------
+
+export interface LeaveSyncResult {
+  added: number;
+  removed: number;
+  at: string;
+  error?: string;
+  /** ชื่อในระบบลาที่จับคู่กับพนักงานในตารางนี้ไม่ได้ (ไม่ได้ดึงมา) */
+  skippedNames: string[];
+}
+let syncing: Promise<LeaveSyncResult> | null = null;
+let lastSync = 0;
+let lastResult: LeaveSyncResult | null = null;
+
+/**
+ * เทียบรายการลาที่ Approve (ลาป่วย/ลากิจ/ลาพักร้อน/ลาอื่นๆ) กับแถวในแท็บ ลา-แลกเวร
+ *  - 1 แถวต่อ 1 คน 1 วันทำการ (ข้ามเสาร์-อาทิตย์และวันหยุดในตั้งค่า) ตั้งแต่วันที่ 1 ของเดือนก่อนเป็นต้นไป
+ *  - ใส่ วันที่ / ชื่อ / ประเภท / รหัส (H) · คนแทน และหมายเหตุ เว้นว่างให้ผู้จัดกรอกเอง
+ *  - ถ้าการลาถูกยกเลิก/ไม่อนุมัติภายหลัง แถวที่ดึงมาจะถูกนำออก (ข้อมูลที่ผู้จัดกรอกในแถวนั้นหายไปด้วย)
+ */
+export async function syncLeaveSystem(opt: { force?: boolean } = {}): Promise<LeaveSyncResult> {
+  if (!opt.force && lastResult && Date.now() - lastSync < 60_000) return lastResult;
+  if (syncing) return syncing;
+  syncing = (async () => {
+    const at = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(11, 16);
+    try {
+      const data = await loadShift3();
+      const s = data.settings;
+      const staff = Array.from(new Set([...s.persons.flatMap((p) => [p.name, p.replacement]), s.pairOddKw8, s.pairOddOpd11].map((x) => x.trim()).filter((x) => x !== "")));
+      const now = new Date(Date.now() + 7 * 3600 * 1000);
+      const windowStart = serialFromYMD(now.getUTCFullYear(), now.getUTCMonth(), 1); // วันที่ 1 ของเดือนก่อน
+      const holidays = new Set(s.holidays.map((h) => h.date).filter((d): d is number => d !== null));
+      const sys = await readApprovedLeaves();
+      const skipped = new Set<string>();
+      const want = new Map<string, LeaveForm>();
+      for (const l of sys) {
+        const name = staff.find((n) => n.toLowerCase() === l.firstName.toLowerCase());
+        if (!name) {
+          skipped.add(l.fullName);
+          continue;
+        }
+        for (let d = Math.max(l.start, windowStart); d <= l.end && d - l.start < 400; d++) {
+          const wd = new Date((d - 25569) * 86400000).getUTCDay();
+          if (wd === 0 || wd === 6 || holidays.has(d)) continue;
+          const ref = `${l.leaveId}|${isoFromSerial(d)}`;
+          want.set(ref, { date: isoFromSerial(d), name, replacement: "", type: l.type, note: "", ref });
+        }
+      }
+      const cur: LeaveForm[] = data.leaves.map((l) => ({
+        date: l.date === null ? "" : isoFromSerial(l.date),
+        name: l.name,
+        replacement: l.replacement,
+        type: l.type,
+        note: l.note,
+        ref: l.ref ?? "",
+      }));
+      const seen = new Set<string>();
+      let removed = 0;
+      const keep = cur.filter((r) => {
+        if (!r.ref) return true;
+        if (seen.has(r.ref)) return (removed++, false); // แถวซ้ำ
+        seen.add(r.ref);
+        const d = toSerial(r.date);
+        if (want.has(r.ref) || (d !== null && d < windowStart)) return true;
+        removed++;
+        return false;
+      });
+      const add = Array.from(want.values()).filter((r) => !seen.has(r.ref!)).sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
+      if (add.length > 0 || removed > 0) await saveLeaves([...keep, ...add]);
+      return (lastResult = { added: add.length, removed, at, skippedNames: Array.from(skipped) });
+    } catch (e) {
+      const msg = (e as Error).message;
+      const error = /\b(403|404)\b|PERMISSION|not found/i.test(msg)
+        ? "อ่านชีตระบบลาไม่ได้ — ต้องแชร์ชีตระบบลาให้บัญชีของเว็บ (assignshifts@assignshifts.iam.gserviceaccount.com) สิทธิ์ผู้อ่าน"
+        : `ดึงข้อมูลระบบลาไม่สำเร็จ: ${msg.slice(0, 200)}`;
+      return (lastResult = { added: 0, removed: 0, at, error, skippedNames: [] });
+    } finally {
+      lastSync = Date.now();
+      syncing = null;
+    }
+  })();
+  return syncing;
 }

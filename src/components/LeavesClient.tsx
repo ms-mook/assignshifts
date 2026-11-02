@@ -1,22 +1,23 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PlanCalculator, leaveSpotOf, suggestedReplacement } from "@/lib/shift3/engine";
 import { toSerial } from "@/lib/sheets-date";
 import { useToast } from "./Toast";
 import Icon from "./Icon";
 import type { Shift3Settings } from "@/lib/shift3/types";
-import type { LeaveForm } from "@/lib/shift3/repo";
+import type { LeaveForm, LeaveSyncResult } from "@/lib/shift3/repo";
 
 interface Props {
   initial: LeaveForm[];
   settings: Shift3Settings;
   staff: string[];
   allNames: string[];
+  sync?: LeaveSyncResult;
 }
 
-export default function LeavesClient({ initial, settings, staff, allNames }: Props) {
+export default function LeavesClient({ initial, settings, staff, allNames, sync }: Props) {
   const router = useRouter();
   const toast = useToast();
   const [rows, setRows] = useState<LeaveForm[]>(initial);
@@ -25,6 +26,25 @@ export default function LeavesClient({ initial, settings, staff, allNames }: Pro
   const plan = useMemo(() => new PlanCalculator(settings), [settings]);
   const dirty = JSON.stringify(rows) !== JSON.stringify(initial);
   const upd = (i: number, k: keyof LeaveForm, v: string) => setRows((r) => r.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
+
+  const [pulling, setPulling] = useState(false);
+  const pull = async () => {
+    if (dirty && !window.confirm("มีการแก้ไขที่ยังไม่บันทึก — ดึงข้อมูลใหม่จะล้างการแก้ไขนี้ ทำต่อหรือไม่?")) return;
+    setPulling(true);
+    const t = toast.loading("กำลังดึงการลาจากระบบลา…");
+    try {
+      const r = await fetch("/api/shift3/leaves/sync", { method: "POST" });
+      const j = (await r.json().catch(() => ({}))) as Partial<LeaveSyncResult>;
+      if (!r.ok || j.error) t.error(j.error ?? `ดึงข้อมูลไม่สำเร็จ (${r.status})`);
+      else t.success(`ดึงข้อมูลแล้ว · เพิ่ม ${j.added ?? 0} · นำออก ${j.removed ?? 0} รายการ`);
+      router.refresh();
+    } catch {
+      t.error("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
+    } finally {
+      setPulling(false);
+    }
+  };
+  useEffect(() => setRows(initial), [initial]);
 
   const save = async () => {
     setBusy(true);
@@ -54,6 +74,23 @@ export default function LeavesClient({ initial, settings, staff, allNames }: Pro
         <h1>บันทึกการลา / แลกเวร รายวัน</h1>
         <span className="muted">กรอก 1 แถวต่อ 1 คน 1 วัน · ถ้ายังไม่ใส่คนแทน ตารางจะขึ้น &apos;⚠ ชื่อ ลา&apos; สีแดง · มีผลทั้ง 3 ช่วงเวลา</span>
       </div>
+      <div className={sync?.error ? "sync-bar bad" : "sync-bar"}>
+        <Icon name={sync?.error ? "TriangleAlert" : "CalendarCheck"} size={18} />
+        <div className="sync-text">
+          <b>ดึงอัตโนมัติจากระบบลา</b> — เฉพาะที่ Approve แล้ว (ลาป่วย / ลากิจ / ลาพักร้อน / ลาอื่นๆ) ตั้งแต่ต้นเดือนก่อน · 1 แถวต่อ 1 วันทำการ
+          {sync && !sync.error && (
+            <span className="muted"> · ล่าสุด {sync.at} น. เพิ่ม {sync.added} · นำออก {sync.removed}</span>
+          )}
+          {sync?.error && <div className="error">{sync.error}</div>}
+          {sync && sync.skippedNames.length > 0 && (
+            <div className="muted small">ไม่ได้ดึง (ไม่ใช่พนักงานตารางนี้): {sync.skippedNames.join(", ")}</div>
+          )}
+        </div>
+        <button className="btn btn-sm btn-soft btn-primary" disabled={pulling || busy} onClick={pull}>
+          {pulling ? <span className="loading loading-spinner loading-xs" /> : <Icon name="RotateCcw" size={14} />}
+          ดึงข้อมูลล่าสุด
+        </button>
+      </div>
       <datalist id="staff">{staff.map((n) => <option key={n} value={n} />)}</datalist>
       <datalist id="all">{allNames.map((n) => <option key={n} value={n} />)}</datalist>
       <section className="card scroll-x">
@@ -74,15 +111,32 @@ export default function LeavesClient({ initial, settings, staff, allNames }: Pro
             {rows.map((r, i) => {
               const d = toSerial(r.date);
               return (
-                <tr key={i}>
-                  <td><input className="y" type="date" value={r.date} onChange={(e) => upd(i, "date", e.target.value)} /></td>
-                  <td><input className="y" list="staff" value={r.name} onChange={(e) => upd(i, "name", e.target.value)} /></td>
+                <tr key={i} className={r.ref ? "from-sys" : undefined}>
+                  {r.ref ? (
+                    <>
+                      <td className="ro">
+                        {r.date} <span className="badge badge-soft badge-info badge-xs">ระบบลา</span>
+                      </td>
+                      <td className="ro"><b>{r.name}</b></td>
+                    </>
+                  ) : (
+                    <>
+                      <td><input className="y" type="date" value={r.date} onChange={(e) => upd(i, "date", e.target.value)} /></td>
+                      <td><input className="y" list="staff" value={r.name} onChange={(e) => upd(i, "name", e.target.value)} /></td>
+                    </>
+                  )}
                   <td><input className="y" list="all" value={r.replacement} onChange={(e) => upd(i, "replacement", e.target.value)} /></td>
-                  <td><input className="y" value={r.type} onChange={(e) => upd(i, "type", e.target.value)} /></td>
+                  <td>{r.ref ? <span className="ro">{r.type}</span> : <input className="y" value={r.type} onChange={(e) => upd(i, "type", e.target.value)} />}</td>
                   <td className="ro">{r.name && d !== null ? leaveSpotOf(plan, d, r.name) : ""}</td>
                   <td className="ro">{d !== null ? suggestedReplacement(plan, d) : ""}</td>
                   <td><input value={r.note} onChange={(e) => upd(i, "note", e.target.value)} /></td>
-                  <td><button onClick={() => setRows((x) => x.filter((_, j) => j !== i))}>ลบ</button></td>
+                  <td>
+                    {r.ref ? (
+                      <span className="muted small" title="แก้/ยกเลิกที่ระบบลา แล้วกด ดึงข้อมูลล่าสุด">อัตโนมัติ</span>
+                    ) : (
+                      <button onClick={() => setRows((x) => x.filter((_, j) => j !== i))}>ลบ</button>
+                    )}
+                  </td>
                 </tr>
               );
             })}

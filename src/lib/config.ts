@@ -8,6 +8,8 @@ export const SHEETS = {
   smc: process.env.SHEET_ID_SMC ?? "1dKewo2QDyQUrHL1xaCN6QxNH9q5Jejl7ZE37LUpn_gQ",
   /** ตารางเวรจุดรับ-นำส่งสิ่งส่งตรวจ (OT) — สำเนาสำหรับเว็บ */
   ot: process.env.SHEET_ID_OT ?? "1HtxDgpEwdZbQXFp3j6ZLjwOZyF4wMnyLiVQBNTysReI",
+  /** ระบบลา (อ่านอย่างเดียว · แท็บ Leave) — ดึงเฉพาะการลาที่ Approve แล้ว */
+  leaveSystem: process.env.SHEET_ID_LEAVE_SYSTEM ?? "1NEmJOPvNXZCLEzWXZefdsy6vj6T9_GMQ0Y46EZ80lUE",
 };
 
 export const MONTH_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];

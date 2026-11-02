@@ -105,6 +105,7 @@ const eqv = (a: unknown, b: unknown, msg: string) => ok(JSON.stringify(a) === JS
 
 async function main() {
   const repo = require("../src/lib/shift3/repo");
+  const isoD = (n: number | null) => (n === null ? "" : require("../src/lib/sheets-date").isoFromSerial(n));
   const { computeMonth, colIndex } = require("../src/lib/shift3/engine");
   const { renderMonthHtml } = require("../src/lib/shift3/render");
   const { cellPerson, duplicateCols } = require("../src/lib/shift3/conflicts");
@@ -262,6 +263,46 @@ async function main() {
     await repo.saveManualMany(2570, 12, ks.map((key) => ({ key, value: null })));
     st2 = await repo.loadMonthState(data, 2570, 12);
     eqv(ks.some((k) => k in st2.manual), false, "ย้อนกลับ (คืนค่าสูตร) ครบ 3 ตาราง");
+  }
+
+  console.log("13) ดึงการลาจากระบบลา (Approve · ลาป่วย/ลากิจ/ลาพักร้อน/ลาอื่นๆ · 1 แถวต่อวันทำการ)");
+  {
+    const H = ["Timestamp", "ชื่อ - นามสกุล", "ตำแหน่ง", "ประเภทการลา", "เริ่มต้น", "สิ้นสุด", "จำนวน", "สถานะ", "LeaveID"];
+    const name0 = names[1]; // คนในตาราง
+    wb.set("Leave", [
+      H,
+      ["", `${name0} ทองนวล`, "", "ลาพักร้อน", "11/11/2026", "13/11/2026", "3", "Approve", "L1"],
+      ["", `${name0} ทองนวล`, "", "งดเวรนอกเวลา", "14/11/2026", "14/11/2026", "1", "Approve", "L2"],
+      ["", `${names[2]} มีผิว`, "", "ลากิจ", "04/12/2026", "08/12/2026", "2", "Approve", "L3"],
+      ["", `${names[3]} คำโคตร`, "", "ลาป่วย", "24/11/2026", "24/11/2026", "1", "Pending", "L4"],
+      ["", "อัมพร นามสี", "", "ลาป่วย", "24/11/2026", "24/11/2026", "1", "Approve", "L5"],
+      ["", `${names[4]} สิงห์ทอง`, "", "ลาป่วย", "05/01/2025", "05/01/2025", "1", "Approve", "L6"],
+      ["", `${names[5]} ลาภโต`, "", "ลาอื่นๆ", "26/11/2026", "26/11/2026", "1", "Reject", "L7"],
+    ]);
+    wb.set("ลา-แลกเวร", [[], [], [], ["วันที่"]]);
+    const r1 = await repo.syncLeaveSystem({ force: true });
+    eqv([r1.added, r1.removed, r1.error], [5, 0, undefined], "ดึงมา 5 แถว (ข้ามเสาร์-อาทิตย์และวันหยุด 7 ธ.ค.)");
+    ok(r1.skippedNames.includes("อัมพร นามสี"), "คนที่ไม่ใช่พนักงานตารางนี้ไม่ถูกดึง");
+    let d = await repo.loadShift3();
+    eqv(d.leaves.map((l: any) => `${isoD(l.date)}|${l.name}|${l.type}|${l.replacement}|${l.ref}`), [
+      `2026-11-11|${name0}|ลาพักร้อน||L1|2026-11-11`, `2026-11-12|${name0}|ลาพักร้อน||L1|2026-11-12`, `2026-11-13|${name0}|ลาพักร้อน||L1|2026-11-13`,
+      `2026-12-04|${names[2]}|ลากิจ||L3|2026-12-04`, `2026-12-08|${names[2]}|ลากิจ||L3|2026-12-08`,
+    ], "แถวที่ดึงมา (คนแทน/หมายเหตุ ว่าง)");
+    // ผู้จัดใส่คนแทน แล้วดึงซ้ำ → ไม่ซ้ำ ไม่ลบ คนแทนยังอยู่
+    const form = d.leaves.map((l: any) => ({ date: isoD(l.date), name: l.name, replacement: l.ref.endsWith("11-12") ? names[9] : "", type: l.type, note: "", ref: l.ref }));
+    await repo.saveLeaves(form);
+    const r2 = await repo.syncLeaveSystem({ force: true });
+    eqv([r2.added, r2.removed], [0, 0], "ดึงซ้ำ ไม่เพิ่ม/ไม่ลบ");
+    d = await repo.loadShift3();
+    eqv(d.leaves.find((l: any) => l.ref.endsWith("11-12"))?.replacement, names[9], "คนแทนที่ผู้จัดใส่ยังอยู่");
+    // ยกเลิกการลาในระบบลา → แถวถูกนำออก
+    wb.get("Leave")![1][7] = "Cancelled";
+    const r3 = await repo.syncLeaveSystem({ force: true });
+    eqv([r3.added, r3.removed], [0, 3], "ยกเลิกในระบบลา → นำออก 3 แถว");
+    d = await repo.loadShift3();
+    eqv(d.leaves.length, 2, "เหลือ 2 แถว");
+    const m = computeMonth(d.settings, d.leaves, {}, 2569, 12);
+    ok(m.sections[0].rows[3].cells.some((c: string) => c.includes(names[2]) && c.includes("ลา")), "ตารางวันที่ 4 ธ.ค. ขึ้น ⚠ ลา");
   }
   console.log(`\nผ่าน ${pass} · ไม่ผ่าน ${fail} · เรียก API จำลอง ${apiCalls} ครั้ง`);
   process.exit(fail ? 1 : 0);
