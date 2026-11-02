@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 import { colIndex } from "@/lib/shift3/engine";
 import { COL_WIDTH, ROW_HEIGHT } from "@/lib/shift3/layout";
 import { SHEET_CSS } from "@/lib/shift3/render";
 import { rememberYm } from "./NavLinks";
 import { useToast } from "./Toast";
+import { downloadTablePdf } from "@/lib/pdf-export";
 
 interface Props {
   table: string;
@@ -80,12 +81,19 @@ async function post(url: string, body: unknown): Promise<{ ok: boolean; status: 
   }
 }
 
+// ตัวตารางเป็น HTML ล้วน: ห่อด้วย memo เพื่อไม่ให้ถูกวาดใหม่ทุกครั้งที่เลือกช่อง (ไม่เสียดัชนีช่อง/ไม่กระตุก)
+const SheetHtml = memo(function SheetHtml({ html, zoom }: { html: string; zoom: number }) {
+  return <div className="screen-zoom" style={{ zoom }} dangerouslySetInnerHTML={{ __html: html }} />;
+});
+
 export default function ScheduleView(p: Props) {
   const router = useRouter();
   const toast = useToast();
   const rootRef = useRef<HTMLDivElement>(null);
   const cells = useRef<CellRef[]>([]);
   const dragging = useRef(false);
+  const moved = useRef(false);
+  const downAt = useRef({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(0.35);
   const [paper, setPaper] = useState<Paper>("a4");
   const [sel, setSel] = useState<Set<string>>(new Set());
@@ -125,7 +133,7 @@ export default function ScheduleView(p: Props) {
   }, [p.dupDays, p.table, p.ym, toast]);
 
   // จัดทำดัชนีช่องในตาราง (ทุกครั้งที่ตารางถูกวาดใหม่) แล้วทาสีช่องที่เลือกอยู่
-  useEffect(() => {
+  const reindex = useCallback(() => {
     const root = rootRef.current;
     if (!root) return;
     cells.current = Array.from(root.querySelectorAll<HTMLElement>("td[data-k]")).map((el) => {
@@ -133,13 +141,23 @@ export default function ScheduleView(p: Props) {
       const [, col, day] = key.split(":");
       return { key, c: colIndex(col), d: Number(day), el };
     });
+  }, []);
+  // ถ้า DOM ของตารางถูกวาดใหม่ (ช่องเก่าหลุดจากหน้า) ให้ทำดัชนีใหม่ก่อนใช้งาน
+  const ensureIndex = () => {
+    const f = cells.current[0];
+    if (!f || !f.el.isConnected) reindex();
+  };
+  useEffect(() => {
+    reindex();
     // ช่องที่เลือกไว้แต่ไม่มีแล้ว (เปลี่ยนเดือน) ให้ล้างออก
     const have = new Set(cells.current.map((x) => x.key));
     setSel((s) => (Array.from(s).every((k) => have.has(k)) ? s : new Set(Array.from(s).filter((k) => have.has(k)))));
-  }, [p.sectionHtml]);
+  }, [p.sectionHtml, reindex]);
+  // รันทุกครั้งที่ render: ทาสีช่องที่เลือก (ทนต่อกรณี React วาดตารางใหม่)
   useEffect(() => {
+    ensureIndex();
     for (const x of cells.current) x.el.classList.toggle("sel", sel.has(x.key));
-  }, [sel, p.sectionHtml]);
+  });
 
   // ----- พิมพ์ให้พอดีหน้า: ย่อทั้งตารางให้เต็มกระดาษ (ปรับความสูงแถวข้อมูลให้สัดส่วนเท่ากระดาษ ไม่เหลือที่ว่าง) -----
   const fit = useMemo(() => {
@@ -152,13 +170,14 @@ export default function ScheduleView(p: Props) {
   }, [paper]);
 
   const rectKeys = useCallback((a: string, b: string): string[] => {
+    if (!cells.current[0]?.el.isConnected) reindex();
     const pa = cells.current.find((x) => x.key === a);
     const pb = cells.current.find((x) => x.key === b);
     if (!pa || !pb) return [b];
     const [c1, c2] = [Math.min(pa.c, pb.c), Math.max(pa.c, pb.c)];
     const [d1, d2] = [Math.min(pa.d, pb.d), Math.max(pa.d, pb.d)];
     return cells.current.filter((x) => x.c >= c1 && x.c <= c2 && x.d >= d1 && x.d <= d2).map((x) => x.key);
-  }, []);
+  }, [reindex]);
 
   const cellOf = (e: MouseEvent) => (e.target as HTMLElement).closest<HTMLTableCellElement>("td[data-k]");
 
@@ -181,9 +200,13 @@ export default function ScheduleView(p: Props) {
       setSel(new Set([key]));
       anchor.current = key;
       dragging.current = true;
+      moved.current = false;
+      downAt.current = { x: e.clientX, y: e.clientY };
       const stop = () => {
         dragging.current = false;
         window.removeEventListener("mouseup", stop);
+        // คลิกธรรมดา (ไม่ลาก) = เปิดรายการชื่อให้เลือกทันที
+        if (!moved.current) openEdit(key);
       };
       window.addEventListener("mouseup", stop);
     }
@@ -191,20 +214,23 @@ export default function ScheduleView(p: Props) {
   const onMouseOver = (e: MouseEvent) => {
     if (!dragging.current || !anchor.current) return;
     const td = cellOf(e);
-    if (td) setSel(new Set(rectKeys(anchor.current, td.dataset.k!)));
+    if (!td) return;
+    // ต้องขยับเมาส์จริง (ไม่ใช่แค่หน้าเลื่อนใต้เมาส์) จึงนับเป็นการลากเลือก
+    if (!moved.current && Math.hypot(e.clientX - downAt.current.x, e.clientY - downAt.current.y) < 4) return;
+    if (td.dataset.k !== anchor.current) moved.current = true;
+    setSel(new Set(rectKeys(anchor.current, td.dataset.k!)));
   };
 
-  const openEdit = (key: string) => {
+  function openEdit(key: string) {
+    ensureIndex();
     const x = cells.current.find((c) => c.key === key);
     if (!x) return;
     const [sec, col, day] = key.split(":");
     const current = x.el.textContent ?? "";
     setEdit({ key, current, sec, col, day });
-    const officer = OFFICER_COLS.includes(col) || (sec === "1" && col === "B");
-    // ช่องพิมพ์เอง: เริ่มว่างเพื่อให้รายการชื่อแสดงครบ (ค่าปัจจุบันดูได้จากบรรทัด "ค่าปัจจุบัน")
-    setValue(officer ? (current === "จนท." ? "" : current) : "");
+    setValue(""); // ช่องค้นหา/พิมพ์ชื่อ เริ่มว่างเพื่อให้รายการชื่อแสดงครบ
     setErr("");
-  };
+  }
   const onDoubleClick = (e: MouseEvent) => {
     const td = cellOf(e);
     if (td) openEdit(td.dataset.k!);
@@ -275,14 +301,33 @@ export default function ScheduleView(p: Props) {
     router.refresh();
   };
 
-  const doPrint = () => {
-    if (p.dupDays.length > 0 && !window.confirm(`ตารางนี้ยังมีชื่อซ้ำในแถวเดียวกัน (วันที่ ${p.dupDays.join(", ")}) พิมพ์ต่อหรือไม่?`)) return;
-    window.print();
+  // ดาวน์โหลดเป็น PDF 1 หน้าทันที (ไม่เปิดหน้าต่างพิมพ์/พรีวิว)
+  const doPrint = async () => {
+    if (p.dupDays.length > 0 && !window.confirm(`ตารางนี้ยังมีชื่อซ้ำในแถวเดียวกัน (วันที่ ${p.dupDays.join(", ")}) ดาวน์โหลดต่อหรือไม่?`)) return;
+    const h = toast.loading("กำลังสร้างไฟล์ PDF…");
+    try {
+      await downloadTablePdf({
+        sectionHtml: p.sectionHtml,
+        sheetCss: SHEET_CSS,
+        naturalW: NATURAL_W,
+        rowH: fit.rowH,
+        paper,
+        marginMm: MARGIN_MM,
+        fileName: `shift-${p.table}_${p.ym}.pdf`, // ชื่อไฟล์ ASCII ให้ทุกเบราว์เซอร์ตั้งชื่อได้ตรง
+      });
+      h.success("ดาวน์โหลด PDF แล้ว");
+    } catch (e) {
+      h.error(`สร้าง PDF ไม่สำเร็จ: ${e instanceof Error ? e.message : e}`);
+    }
   };
 
   const isOfficer = edit ? OFFICER_COLS.includes(edit.col) || (edit.sec === "1" && edit.col === "B") : false;
   const uniqNames = useMemo(() => Array.from(new Set(p.names)), [p.names]);
   const single = selKeys.length === 1 ? selKeys[0] : null;
+  const shown = useMemo(() => {
+    const q = value.trim().toLowerCase();
+    return q === "" ? uniqNames : uniqNames.filter((n) => n.toLowerCase().includes(q));
+  }, [uniqNames, value]);
 
   return (
     <div className="schedule">
@@ -317,7 +362,7 @@ export default function ScheduleView(p: Props) {
           ))}
         </select>
         <button className="primary" onClick={doPrint}>
-          🖨 พิมพ์ / บันทึก PDF
+          ⬇ ดาวน์โหลด PDF
         </button>
       </div>
 
@@ -354,7 +399,7 @@ export default function ScheduleView(p: Props) {
       )}
 
       <div className="hint no-print">
-        คลิกเลือกช่อง (ลากเมาส์/กด Shift เพื่อเลือกหลายช่อง · Ctrl+คลิกเพื่อเพิ่ม) · ดับเบิลคลิกเพื่อเลือก/พิมพ์ชื่อ ·{" "}
+        คลิกช่องเพื่อเลือกชื่อ · ลากเมาส์ หรือกด Shift เพื่อเลือกหลายช่อง (ใส่สี/ล้างชื่อ) · Ctrl+คลิกเพื่อเพิ่ม ·{" "}
         {p.manualSource === "month-tab"
           ? `ช่อง จนท. บันทึกลงแท็บ ${p.tabName} ในชีต`
           : `ชีตยังไม่มีแท็บ ${p.tabName} — ช่องที่แก้เองจะเก็บในแท็บ WEB-ช่องเลือกเอง`}
@@ -371,7 +416,7 @@ export default function ScheduleView(p: Props) {
         style={{ ["--print-zoom" as string]: fit.zoomPrint, ["--print-row-h" as string]: `${fit.rowH}px` } as CSSProperties}
       >
         <div className="print-page">
-          <div className="screen-zoom" style={{ zoom }} dangerouslySetInnerHTML={{ __html: p.sectionHtml }} />
+          <SheetHtml html={p.sectionHtml} zoom={zoom} />
         </div>
       </div>
 
@@ -382,30 +427,25 @@ export default function ScheduleView(p: Props) {
               {p.tableTitle} · วันที่ {edit.day} · คอลัมน์ {edit.col}
             </h3>
             <p className="muted">ค่าปัจจุบัน: {edit.current || "(ว่าง)"}</p>
-            {!isOfficer ? (
-              <input
-                list="names"
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !busy && value !== "" && saveName(value)}
-                placeholder="พิมพ์หรือเลือกชื่อ"
-                autoFocus
-              />
-            ) : (
-              <select value={value} onChange={(e) => setValue(e.target.value)} autoFocus>
-                <option value="">— เลือกชื่อ —</option>
-                {uniqNames.map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-            )}
-            <datalist id="names">
-              {uniqNames.map((n) => (
-                <option key={n} value={n} />
+            <input
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter" || busy) return;
+                if (shown.length === 1) saveName(shown[0]);
+                else if (!isOfficer && value.trim() !== "") saveName(value.trim());
+              }}
+              placeholder={isOfficer ? "ค้นหาชื่อ…" : "ค้นหา หรือพิมพ์ชื่อใหม่แล้วกด Enter"}
+              autoFocus
+            />
+            <div className="namelist" role="listbox" aria-label="รายชื่อ">
+              {shown.map((n) => (
+                <button key={n} role="option" aria-selected={n === edit.current} className={n === edit.current ? "cur" : ""} disabled={busy} onClick={() => saveName(n)}>
+                  {n}
+                </button>
               ))}
-            </datalist>
+              {shown.length === 0 && <div className="muted small">ไม่พบชื่อ{!isOfficer && value.trim() !== "" ? " — กด Enter เพื่อใช้ชื่อที่พิมพ์" : ""}</div>}
+            </div>
             <p className="muted small">พนักงาน 1 คนอยู่ได้ทีละจุดในแถวเดียวกัน — ถ้าชื่อซ้ำ ระบบจะไม่บันทึก</p>
             {err && <div className="error">{err}</div>}
             <div className="modal-actions">
@@ -421,9 +461,11 @@ export default function ScheduleView(p: Props) {
               <button disabled={busy} onClick={() => setEdit(null)}>
                 ยกเลิก
               </button>
-              <button className="primary" disabled={busy || value === ""} onClick={() => saveName(value)}>
-                {busy ? "กำลังบันทึก…" : "บันทึก"}
-              </button>
+              {!isOfficer && value.trim() !== "" && (
+                <button className="primary" disabled={busy} onClick={() => saveName(value.trim())}>
+                  {busy ? "กำลังบันทึก…" : `ใช้ชื่อ "${value.trim()}"`}
+                </button>
+              )}
             </div>
           </div>
         </div>

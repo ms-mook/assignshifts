@@ -45,7 +45,7 @@ input, select, textarea { border: 1px solid var(--line); border-radius: 6px; pad
 .print-page + .print-page { margin-top: 24px; }
 .sheet td.e { cursor: cell; user-select: none; -webkit-user-select: none; }
 .sheet td.e:hover { outline: 3px solid #8fb2f5; outline-offset: -3px; }
-.sheet td.sel { outline: 3px solid #2f6feb; outline-offset: -3px; box-shadow: inset 0 0 0 999px rgba(47,111,235,.22); }
+.sheet td.sel { outline: 4px solid #2f6feb; outline-offset: -4px; background-image: linear-gradient(rgba(47,111,235,.35), rgba(47,111,235,.35)); }
 
 .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: grid; place-items: center; z-index: 50; }
 .modal { background: #fff; border-radius: 10px; padding: 18px; width: min(420px, calc(100vw - 32px)); display: grid; gap: 10px; max-height: calc(100vh - 32px); overflow: auto; }
@@ -91,7 +91,7 @@ input.y, select.y { background: var(--yellow); }
   .print-page:last-child { break-after: auto; page-break-after: auto; }
   .screen-zoom { zoom: var(--print-zoom) !important; }
   .sheet td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .sheet td.e:hover, .sheet td.sel, .sheet td.dup { outline: none; box-shadow: none; }
+  .sheet td.e:hover, .sheet td.sel, .sheet td.dup { outline: none; box-shadow: none; background-image: none; }
   .sheet tr.dr { height: var(--print-row-h) !important; }
   .sheet td.d { padding: 0 2px; }
 }
@@ -125,3 +125,8 @@ table.plan td.blank { background: #fff3cd; }
 table.plan td.bad { background: #ffd7d9; font-weight: 700; }
 table.plan tr.rowwarn td:first-child { background: #fff3cd; }
 table.plan tr.rowbad td:first-child { background: #ffd7d9; }
+
+.namelist { display: grid; gap: 4px; max-height: 40vh; overflow: auto; border: 1px solid var(--line); border-radius: 8px; padding: 6px; }
+.namelist button { text-align: left; border-color: transparent; padding: 7px 10px; font-size: 16px; }
+.namelist button:hover { background: #eef3ff; border-color: #b9ccf5; }
+.namelist button.cur { background: #fff6cc; font-weight: 700; }
