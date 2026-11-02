@@ -21,16 +21,22 @@ npm run verify:shift3   # เทียบทุกช่อง (46,870 ราย
 npm run test:shift3     # กรณีลา / คนแทน / เลือกช่อง จนท. / วันหยุด / ลาออก
 ```
 
-## ติดตั้งครั้งแรก
-1. **Service Account**: Google Cloud Console → สร้างโปรเจกต์ → เปิด *Google Sheets API* → สร้าง Service Account → สร้าง key (JSON)
-2. **แชร์ชีต** ทั้ง 4 ไฟล์ให้อีเมล Service Account เป็น *ผู้แก้ไข*
-3. **GitHub**: สร้าง repo ใหม่ แล้ว push โฟลเดอร์นี้
-   ```bash
-   git remote add origin https://github.com/<user>/<repo>.git
-   git push -u origin main
-   ```
-4. **Vercel**: Import repo → ตั้ง Environment Variables ตาม `.env.example`
-   (`APP_PASSWORD`, `SESSION_SECRET`, `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_PRIVATE_KEY`) → Deploy
+## ติดตั้งครั้งแรก (แบบไม่ใช้ key — ใช้ได้แม้องค์กรปิดการสร้าง key)
+1. Google Cloud: เปิด *Google Sheets API* · สร้าง Service Account (ไม่ต้องให้ role)
+2. แชร์ชีตทั้ง 4 ไฟล์ให้อีเมล Service Account เป็น *ผู้แก้ไข*
+3. IAM & Admin → **Workload Identity Federation** → Create pool (ID `vercel`)
+   → Add provider: OpenID Connect, ID `vercel`
+   - Issuer URL: `https://oidc.vercel.com/<TEAM_SLUG>` (TEAM_SLUG = ชื่อทีมใน URL ของ Vercel)
+   - Audiences: เลือก *Allowed audiences* ใส่ `https://vercel.com/<TEAM_SLUG>`
+   - Attribute mapping: `google.subject` = `assertion.sub`
+4. Service Account → แท็บ **Principals with access** → Grant access → ใส่ principal
+   `principal://iam.googleapis.com/projects/<PROJECT_NUMBER>/locations/global/workloadIdentityPools/vercel/subject/owner:<TEAM_SLUG>:project:<VERCEL_PROJECT>:environment:production`
+   role **Service Account Token Creator** (ทำซ้ำกับ `environment:preview` ถ้าต้องการ)
+5. Vercel → Settings → Security → เปิด **OIDC Federation** (Team issuer)
+6. Vercel Environment Variables: `APP_PASSWORD`, `SESSION_SECRET`, `GOOGLE_SERVICE_ACCOUNT_EMAIL`,
+   `GCP_PROJECT_NUMBER`, `GCP_WORKLOAD_IDENTITY_POOL_ID`, `GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID` → Redeploy
+
+(ถ้าสร้าง key JSON ได้ ใส่ `GOOGLE_PRIVATE_KEY` แทนข้อ 3-5 ได้)
 
 รันในเครื่อง: `cp .env.example .env.local` แล้วกรอกค่า → `npm install` → `npm run dev`
 
