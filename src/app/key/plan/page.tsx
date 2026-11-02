@@ -2,13 +2,23 @@
 import { computeKeyMonth } from "@/lib/key/engine";
 import { loadKey, loadKeyManyMonths } from "@/lib/key/repo";
 import { ymdFromSerial } from "@/lib/sheets-date";
+import { parseYm } from "@/lib/config";
+import { todaySerialTH } from "@/lib/today";
+import { MonthsNav } from "@/components/PlanNav";
 
 export const dynamic = "force-dynamic";
 
-export default async function KeyPlanPage() {
+export default async function KeyPlanPage({ searchParams }: { searchParams: { from?: string } }) {
   const s = await loadKey();
   // ชีตเดิมนับ 12 แท็บ ธ.ค.69–พ.ย.70: เว็บนับ 12 เดือนเริ่มจากเดือนของสัปดาห์แรกในรอบเวียน (ตั้งค่า B3 + 6 วัน)
-  const st = ymdFromSerial(s.rotStart + 6);
+  // เลือกช่วงเองได้ (?from=2570-12) · ค่าเริ่มต้น = รอบ 12 เดือนจากเดือนเริ่ม ที่ครอบคลุมเดือนปัจจุบัน (เลื่อนเองทุกปี)
+  const st0 = ymdFromSerial(s.rotStart + 6);
+  const pick = parseYm(searchParams.from ?? "");
+  const nowYmd = ymdFromSerial(todaySerialTH());
+  const k0 = st0.y * 12 + st0.m - 1;
+  const kNow = nowYmd.y * 12 + nowYmd.m - 1;
+  const kStart = pick ? (pick.yearBE - 543) * 12 + pick.month - 1 : kNow < k0 ? k0 : k0 + Math.floor((kNow - k0) / 12) * 12;
+  const st = { y: Math.floor(kStart / 12), m: (kStart % 12) + 1 };
   const months = Array.from({ length: 12 }, (_, i) => {
     const k = st.y * 12 + st.m - 1 + i;
     return { y: Math.floor(k / 12) + 543, m: (k % 12) + 1 };
@@ -32,6 +42,7 @@ export default async function KeyPlanPage() {
         <h1>สรุปจำนวนวันทำงานของแต่ละคน — ตาราง Key</h1>
         <span className="muted">นับจากชื่อในตารางเดือนทั้ง 12 เดือน ({label}) รวมชื่อที่เลือกทับ · หน่วย = วัน</span>
       </div>
+      <MonthsNav base="/key/plan" from={{ y: months[0].y, m: months[0].m }} label={label} />
       <section className="card scroll-x">
         <table className="form plan">
           <thead><tr><th>พนักงาน</th><th>OPD Key3(E)</th><th>OPD Key4</th><th>OPD Key5</th><th>กว. Key3(E)</th><th>กว. Key4 (SMC)</th><th>Key1/Key2/จนท.แทน</th><th>รวมวัน</th></tr></thead>

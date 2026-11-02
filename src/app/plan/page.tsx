@@ -1,6 +1,8 @@
 import { PLAN_HEADERS_D_Q, PlanCalculator } from "@/lib/shift3/engine";
 import { loadShift3 } from "@/lib/shift3/repo";
 import { ymdFromSerial } from "@/lib/sheets-date";
+import { planWeeks } from "@/lib/today";
+import { WeeksNav } from "@/components/PlanNav";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +14,7 @@ const fmt = (serial: number) => {
 export default async function PlanPage({ searchParams }: { searchParams: { weeks?: string } }) {
   const data = await loadShift3();
   const plan = new PlanCalculator(data.settings);
-  const n = Math.min(Math.max(Number(searchParams.weeks) || 58, 4), 156);
+  const { n, current } = planWeeks(data.settings.startMonday, 58, searchParams.weeks);
   const weeks = Array.from({ length: n }, (_, i) => plan.week(i + 1));
   const bad = weeks.filter((w) => w.chkDup > 0 || w.chkBlank > 0 || w.chkSame > 0);
   return (
@@ -47,6 +49,8 @@ export default async function PlanPage({ searchParams }: { searchParams: { weeks
         </p>
       </section>
       <section className="card scroll-x">
+        <h2>แผนรายสัปดาห์</h2>
+        <WeeksNav base="/plan" n={n} current={current} />
         <table className="form plan">
           <thead>
             <tr>
@@ -66,7 +70,7 @@ export default async function PlanPage({ searchParams }: { searchParams: { weeks
           </thead>
           <tbody>
             {weeks.map((w) => (
-              <tr key={w.week} className={w.chkDup > 0 ? "rowbad" : w.chkBlank > 0 || w.chkSame > 0 ? "rowwarn" : ""}>
+              <tr key={w.week} id={w.week === current ? "week-now" : undefined} className={[w.chkDup > 0 ? "rowbad" : w.chkBlank > 0 || w.chkSame > 0 ? "rowwarn" : "", w.week === current ? "now" : ""].join(" ").trim() || undefined}>
                 <td>{w.week}</td>
                 <td>
                   {fmt(w.monday)} - {fmt(w.friday)}

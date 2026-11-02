@@ -3,6 +3,8 @@ import { OtPlan, computeOtMonth, spotCol } from "@/lib/ot/engine";
 import { loadOt, loadOtManyMonths } from "@/lib/ot/repo";
 import { isoFromSerial, ymdFromSerial } from "@/lib/sheets-date";
 import OtSummaryRange from "@/components/OtSummaryRange";
+import { planWeeks } from "@/lib/today";
+import { WeeksNav } from "@/components/PlanNav";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +17,7 @@ export default async function OtPlanPage({ searchParams }: { searchParams: { wee
   const data = await loadOt();
   const s = data.settings;
   const plan = new OtPlan(s);
-  const nWeeks = Math.min(260, Math.max(1, Number(searchParams.weeks) || 61));
+  const { n: nWeeks, current } = planWeeks(s.startMonday, 61, searchParams.weeks);
   const weeks = Array.from({ length: nWeeks }, (_, i) => plan.week(i + 1));
   const heads = s.spots.map((x) => x.name);
 
@@ -88,14 +90,15 @@ export default async function OtPlanPage({ searchParams }: { searchParams: { wee
       </section>
 
       <section className="card scroll-x">
-        <h2>แผนรายสัปดาห์ ({nWeeks} สัปดาห์ · ดูเพิ่มได้ด้วย ?weeks=120)</h2>
+        <h2>แผนรายสัปดาห์</h2>
+        <WeeksNav base="/ot/plan" n={nWeeks} current={current} />
         <table className="form plan">
           <thead>
             <tr><th>สัปดาห์</th><th>วันจันทร์</th><th>วันศุกร์</th>{heads.map((h) => <th key={h}>{h}</th>)}<th>หมายเหตุ</th></tr>
           </thead>
           <tbody>
             {weeks.map((w) => (
-              <tr key={w.A}>
+              <tr key={w.A} id={w.A === current ? "week-now" : undefined} className={w.A === current ? "now" : undefined}>
                 <td>{w.A}</td><td>{fmt(w.B)}</td><td>{fmt(w.C)}</td>
                 {spotCol(w).map((v, k) => <td key={k} className={warnCls(v)}>{v}</td>)}
                 <td className={w.L.includes("⚠") ? "bad" : ""}>{w.L}</td>

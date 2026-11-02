@@ -2,13 +2,21 @@
 import { computeSmcMonth } from "@/lib/smc/engine";
 import { loadSmc, loadSmcManyMonths } from "@/lib/smc/repo";
 import { MONTH_SHORT, parseYm } from "@/lib/config";
+import { ymdFromSerial } from "@/lib/sheets-date";
+import { todaySerialTH } from "@/lib/today";
+import { MonthsNav } from "@/components/PlanNav";
 
 export const dynamic = "force-dynamic";
 
 export default async function SmcPlanPage({ searchParams }: { searchParams: { from?: string } }) {
   const s = await loadSmc();
   // ชีตเดิม: 12 แท็บ ธ.ค.69–พ.ย.70 · เว็บ: เลือกเดือนเริ่มได้ (?from=2569-12) ค่าเริ่มต้น ธ.ค.69
-  const p = parseYm(searchParams.from ?? "") ?? { yearBE: 2569, month: 12 };
+  // ค่าเริ่มต้น = รอบ 12 เดือน (เริ่ม ธ.ค. ตามชีตเดิม) ที่ครอบคลุมเดือนปัจจุบัน — เลื่อนเองทุกปี
+  const nowYmd = ymdFromSerial(todaySerialTH());
+  const kNow = (nowYmd.y + 543) * 12 + nowYmd.m - 1;
+  const k0 = 2569 * 12 + 11;
+  const kDef = kNow < k0 ? k0 : k0 + Math.floor((kNow - k0) / 12) * 12;
+  const p = parseYm(searchParams.from ?? "") ?? { yearBE: Math.floor(kDef / 12), month: (kDef % 12) + 1 };
   const months = Array.from({ length: 12 }, (_, i) => {
     const k = p.yearBE * 12 + p.month - 1 + i;
     return { y: Math.floor(k / 12), m: (k % 12) + 1 };
@@ -28,8 +36,9 @@ export default async function SmcPlanPage({ searchParams }: { searchParams: { fr
     <div>
       <div className="page-head">
         <h1>สรุปจำนวนวันทำงานรายบุคคล ทั้งปี — ตาราง SMC ({head[0]} – {head[11]})</h1>
-        <span className="muted">นับ 1 วันต่อคน เมื่อมีชื่อในตารางเวรวันนั้น (แม้อยู่หลายช่อง) · รายชื่อมาจากตั้งค่า (คอลัมน์ L) · เปลี่ยนเดือนเริ่มได้ด้วย ?from=2570-12</span>
+        <span className="muted">นับ 1 วันต่อคน เมื่อมีชื่อในตารางเวรวันนั้น (แม้อยู่หลายช่อง) · รายชื่อมาจากตั้งค่า (คอลัมน์ L)</span>
       </div>
+      <MonthsNav base="/smc/plan" from={{ y: p.yearBE, m: p.month }} label={`${head[0]} – ${head[11]}`} />
       <section className="card scroll-x">
         <table className="form plan">
           <thead><tr><th>พนักงาน</th>{head.map((h) => <th key={h}>{h}</th>)}<th>รวมทั้งปี</th><th>เฉลี่ย/เดือน</th></tr></thead>
