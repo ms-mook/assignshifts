@@ -134,3 +134,8 @@ table.plan tr.rowbad td:first-child { background: #ffd7d9; }
 .namelist button { text-align: left; border-color: transparent; padding: 7px 10px; font-size: 16px; }
 .namelist button:hover { background: #eef3ff; border-color: #b9ccf5; }
 .namelist button.cur { background: #fff6cc; font-weight: 700; }
+
+/* ตาราง OT บนจอ: คอลัมน์วันที่ไม่ตัดบรรทัด (เฉพาะหน้าจอ ไม่กระทบ PDF) */
+.screen-zoom .sheet.ot td.a { white-space: nowrap; }
+.screen-zoom .sheet.ot col:first-child { width: 130px !important; }
+.screen-zoom .sheet.ot { width: auto !important; }

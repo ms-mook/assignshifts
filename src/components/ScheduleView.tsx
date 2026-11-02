@@ -116,19 +116,31 @@ export default function ScheduleView(p: Props) {
 
   useEffect(() => {
     try {
-      const z = Number(localStorage.getItem("shift-zoom"));
+      // ขนาดจำแยกตามตาราง (ตารางแต่ละแบบกว้างไม่เท่ากัน) — ครั้งแรกปรับให้พอดีความกว้างจอ
+      const z = Number(localStorage.getItem(`shift-zoom-${p.table}`));
       if (z > 0) setZoom(z);
+      else fitToScreen();
       const pp = localStorage.getItem("shift-paper");
       if (pp === "a4" || pp === "legal") setPaper(pp);
     } catch {}
   }, []);
   useEffect(() => {
     try {
-      localStorage.setItem("shift-zoom", String(zoom));
+      localStorage.setItem(`shift-zoom-${p.table}`, String(zoom));
       localStorage.setItem("shift-paper", paper);
     } catch {}
   }, [zoom, paper]);
   useEffect(() => rememberYm(p.ym), [p.ym]);
+
+  /** ปรับขนาดให้ตารางเต็มความกว้างของกรอบบนจอ (ไม่กระทบ PDF/การพิมพ์) */
+  function fitToScreen() {
+    const root = rootRef.current;
+    const table = root?.querySelector<HTMLElement>("table.sheet");
+    if (!root || !table) return;
+    const natural = parseFloat(table.style.width) || table.scrollWidth;
+    const avail = root.clientWidth - 24;
+    if (natural > 0 && avail > 0) setZoom(Math.max(0.2, Math.min(1.5, Math.floor((avail / natural) * 100) / 100)));
+  }
   useEffect(() => setColors(p.personColors), [p.personColors]);
 
   // เตือนครั้งเดียวต่อการเปิดตาราง ถ้ามีชื่อซ้ำในแถวเดียวกัน
@@ -361,9 +373,10 @@ export default function ScheduleView(p: Props) {
         <span className="spacer" />
         <label>
           ขนาด
-          <input type="range" min={0.2} max={1} step={0.05} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} />
+          <input type="range" min={0.2} max={1.5} step={0.01} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} />
           {Math.round(zoom * 100)}%
         </label>
+        <button onClick={fitToScreen} title="ปรับขนาดให้ตารางเต็มความกว้างจอ">↔ พอดีจอ</button>
         <button onClick={() => setColorsOpen(true)}>🎨 สีตามชื่อพนักงาน</button>
         <select value={paper} onChange={(e) => setPaper(e.target.value as Paper)} aria-label="ขนาดกระดาษ">
           {(Object.keys(PAPERS) as Paper[]).map((k) => (
