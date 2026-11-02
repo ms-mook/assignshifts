@@ -154,7 +154,7 @@ export async function downloadTablePdf(o: ExportOpts): Promise<void> {
     const setRow = (h: number) => (rowStyle.textContent = `.sheet tr.dr{height:${h}px !important}`);
     setRow(o.rowH);
     const fixedH = table.getBoundingClientRect().height - nRows * o.rowH;
-    const rowH = Math.max(22, (W * aspect - fixedH) / nRows);
+    const rowH = Math.max(22, Math.floor((W * aspect - fixedH) / nRows)); // จำนวนเต็ม: เส้นแนวนอนคมทุกเส้น
     setRow(rowH);
     const H = Math.ceil(table.getBoundingClientRect().height);
     probe.remove();
@@ -162,7 +162,8 @@ export async function downloadTablePdf(o: ExportOpts): Promise<void> {
     // เผื่อขอบ: เส้นตารางแบบ border-collapse ล้นออกนอกความกว้างตาราง ~1px (ไม่เผื่อ = เส้นขวาสุด/ล่างสุดหาย)
     const PAD = 4;
     const SW = W + PAD * 2, SH = H + PAD * 2;
-    const scale = Math.min(2.5, Math.sqrt(16_000_000 / (SW * SH)));
+    // สเกลเป็นจำนวนเต็ม: เส้นขอบ 1px ตกบนพิกเซลพอดี ไม่เบลอเป็นสีเทา (ขอบซ้าย-ขวาเข้มเท่ากัน)
+    const scale = Math.max(1, Math.floor(Math.min(3, Math.sqrt(16_000_000 / (SW * SH)))));
     const xml = new XMLSerializer().serializeToString(host);
     const svg =
       `<svg xmlns="http://www.w3.org/2000/svg" width="${SW}" height="${SH}"><foreignObject width="100%" height="100%">` +
