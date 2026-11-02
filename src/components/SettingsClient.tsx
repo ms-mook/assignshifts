@@ -15,7 +15,7 @@ interface Info {
   names: string[];
 }
 
-type Tab = "common" | "shift3" | "others";
+type Tab = "common" | "shift3";
 
 export default function SettingsClient({ initial, info }: { initial: Shift3SettingsForm; info: Info }) {
   const router = useRouter();
@@ -70,8 +70,8 @@ export default function SettingsClient({ initial, info }: { initial: Shift3Setti
   return (
     <div>
       <div className="page-head">
-        <h1>ตั้งค่า</h1>
-        <span className="muted">รวมการตั้งค่าของทุกตารางไว้ที่เดียว · ช่องสีเหลือง = แก้ได้ (เหมือนในชีต)</span>
+        <h1>ตั้งค่า — ตาราง 6.00-8.30 / 8.30-12.30 / 12.30-16.30</h1>
+        <span className="muted">ช่องสีเหลือง = แก้ได้ (เหมือนในชีต) · ตาราง Key / SMC / OT ตั้งค่าได้ที่เมนูของแต่ละตาราง</span>
       </div>
       <div className="tabs">
         <button className={tab === "shift3" ? "on" : ""} onClick={() => setTab("shift3")}>
@@ -79,9 +79,6 @@ export default function SettingsClient({ initial, info }: { initial: Shift3Setti
         </button>
         <button className={tab === "common" ? "on" : ""} onClick={() => setTab("common")}>
           วันหยุด · รายชื่อ MT-RN · ผู้ลงนาม
-        </button>
-        <button className={tab === "others" ? "on" : ""} onClick={() => setTab("others")}>
-          Key · SMC · OT
         </button>
       </div>
 
@@ -299,13 +296,6 @@ export default function SettingsClient({ initial, info }: { initial: Shift3Setti
             </div>
           </section>
         </>
-      )}
-
-      {tab === "others" && (
-        <section className="card">
-          <h2>ตาราง Key · SMC · OT</h2>
-          <p className="muted">จะรวมการตั้งค่าของ 3 ตารางนี้เข้ามาในหน้านี้ในขั้นถัดไป (ทีละตาราง) ตอนนี้ยังจัดการในแต่ละ Google Sheet ตามเดิม</p>
-        </section>
       )}
 
       <div className="savebar">
