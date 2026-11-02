@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "./Toast";
+import Icon from "./Icon";
 import type { SmcForm } from "@/lib/smc/repo";
 
 const TYPES = ["ลาป่วย", "ลากิจ", "ลาพักร้อน", "อบรม/ประชุม", "สลับเวร", "ไม่อยู่ปฏิบัติงาน", "อื่นๆ"];
@@ -43,8 +44,8 @@ export default function SmcFormClient({ initial, part }: { initial: SmcForm; par
   };
   const bar = (
     <div className="savebar">
-      <button className="primary" disabled={busy || !dirty} onClick={save}>{busy ? "กำลังบันทึก…" : "บันทึก"}</button>
-      <button disabled={busy || !dirty} onClick={() => { setF(initial); setTexts(Object.fromEntries(LISTS.map((l) => [l.k, initial[l.k].join("\n")])) as Record<ListKey, string>); }}>ยกเลิกการแก้ไข</button>
+      <button className="btn btn-primary" disabled={busy || !dirty} onClick={save}>{busy ? <span className="loading loading-spinner loading-xs" /> : <Icon name="Save" size={16} />}{busy ? "กำลังบันทึก…" : "บันทึก"}</button>
+      <button className="btn btn-ghost" disabled={busy || !dirty} onClick={() => { setF(initial); setTexts(Object.fromEntries(LISTS.map((l) => [l.k, initial[l.k].join("\n")])) as Record<ListKey, string>); }}><Icon name="Undo2" size={16} />ยกเลิกการแก้ไข</button>
     </div>
   );
 

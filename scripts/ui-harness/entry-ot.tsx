@@ -8,6 +8,7 @@ import { summarizeShifts } from "../../src/lib/shift-summary";
 import { OT_COL_W, OT_CSS, renderOtHtml } from "../../src/lib/ot/render";
 import { SHEET_CSS } from "../../src/lib/shift3/render";
 import { otSettings, otLeaves } from "../../fixtures/ot-fixture";
+import "../../src/app/ui.css";
 import "../../src/app/globals.css";
 
 const res = computeOtMonth(otSettings, otLeaves, { "B:2": "จิรายุทธ", "B:3": "กิตติยาภา" }, 2569, 11);

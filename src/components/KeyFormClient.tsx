@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "./Toast";
+import Icon from "./Icon";
 import { keyLeaveSpot, type KeySettings } from "@/lib/key/engine";
 import { toSerial } from "@/lib/sheets-date";
 import type { KeyForm } from "@/lib/key/repo";
@@ -38,8 +39,8 @@ export default function KeyFormClient({ initial, part, settings }: { initial: Ke
 
   const bar = (
     <div className="savebar">
-      <button className="primary" disabled={busy || !dirty} onClick={save}>{busy ? "กำลังบันทึก…" : "บันทึก"}</button>
-      <button disabled={busy || !dirty} onClick={() => { setF(initial); setDropText(initial.dropdown.join("\n")); setHeadText(initial.heads.join("\n")); }}>ยกเลิกการแก้ไข</button>
+      <button className="btn btn-primary" disabled={busy || !dirty} onClick={save}>{busy ? <span className="loading loading-spinner loading-xs" /> : <Icon name="Save" size={16} />}{busy ? "กำลังบันทึก…" : "บันทึก"}</button>
+      <button className="btn btn-ghost" disabled={busy || !dirty} onClick={() => { setF(initial); setDropText(initial.dropdown.join("\n")); setHeadText(initial.heads.join("\n")); }}><Icon name="Undo2" size={16} />ยกเลิกการแก้ไข</button>
     </div>
   );
 

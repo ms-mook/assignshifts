@@ -8,7 +8,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "verify:shift3": "tsx scripts/verify-shift3.ts fixtures/shift3-sheet.json",
-    "test:shift3": "tsx scripts/test-shift3-scenarios.ts fixtures/shift3-sheet.json"
+    "test:shift3": "tsx scripts/test-shift3-scenarios.ts fixtures/shift3-sheet.json",
+    "build:ui-css": "node scripts/build-ui-css.mjs"
   },
   "dependencies": {
     "google-auth-library": "9.14.2",

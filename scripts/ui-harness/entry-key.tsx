@@ -5,6 +5,7 @@ import { computeKeyMonth } from "../../src/lib/key/engine";
 import { KEY_COL_W, KEY_CSS, renderKeyHtml } from "../../src/lib/key/render";
 import { SHEET_CSS } from "../../src/lib/shift3/render";
 import { keySettings } from "../../fixtures/key-fixture";
+import "../../src/app/ui.css";
 import "../../src/app/globals.css";
 
 const s = { ...keySettings, leaves: [{ date: keySettings.rotStart + 15, who: "สมพาน", sub: "ปณิชา", note: "" }, { date: keySettings.rotStart + 16, who: "เดือน", sub: "", note: "" }] };

@@ -1,5 +1,6 @@
 "use client";
 
+import Icon from "./Icon";
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 
 type Kind = "loading" | "success" | "error" | "info";
@@ -29,7 +30,7 @@ export function useToast(): Api {
 }
 
 const AUTO_MS: Record<Kind, number> = { loading: 0, success: 3500, info: 4000, error: 9000 };
-const ICON: Record<Kind, string> = { loading: "", success: "✓", error: "✕", info: "i" };
+const ALERT: Record<Kind, string> = { loading: "alert alert-loading", success: "alert alert-success", error: "alert alert-error", info: "alert alert-info" };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<Item[]>([]);
@@ -74,14 +75,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={api}>
       {children}
-      <div className="toasts no-print" role="status" aria-live="polite">
+      <div className="toast toast-end toast-bottom toasts no-print" role="status" aria-live="polite">
         {items.map((t) => (
-          <div key={t.id} className={`toast ${t.kind}`}>
-            <span className="ticon">{t.kind === "loading" ? <span className="spin" /> : ICON[t.kind]}</span>
+          <div key={t.id} className={ALERT[t.kind]}>
+            {t.kind === "loading" ? (
+              <span className="loading loading-spinner loading-sm text-primary" />
+            ) : (
+              <Icon name={t.kind === "success" ? "CircleCheck" : t.kind === "error" ? "CircleX" : "Info"} size={20} />
+            )}
             <span className="ttext">{t.text}</span>
             {t.kind !== "loading" && (
-              <button className="tclose" aria-label="ปิด" onClick={() => dismiss(t.id)}>
-                ×
+              <button className="tclose raw" aria-label="ปิด" onClick={() => dismiss(t.id)}>
+                <Icon name="X" size={16} />
               </button>
             )}
           </div>

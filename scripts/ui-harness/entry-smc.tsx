@@ -5,6 +5,7 @@ import { computeSmcMonth } from "../../src/lib/smc/engine";
 import { SMC_COL_W, SMC_CSS, renderSmcHtml } from "../../src/lib/smc/render";
 import { SHEET_CSS } from "../../src/lib/shift3/render";
 import { smcSettings } from "../../fixtures/smc-fixture";
+import "../../src/app/ui.css";
 import "../../src/app/globals.css";
 
 const iso = (d: string) => Math.round(Date.parse(d + "T00:00:00Z") / 86400000) + 25569;

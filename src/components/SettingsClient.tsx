@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "./Toast";
+import Icon from "./Icon";
 import type { Shift3SettingsForm } from "@/lib/shift3/repo";
 import type { Spot, TrainingStep } from "@/lib/shift3/types";
 
@@ -73,13 +74,17 @@ export default function SettingsClient({ initial, info }: { initial: Shift3Setti
         <h1>ตั้งค่า — ตาราง 6.00-8.30 / 8.30-12.30 / 12.30-16.30</h1>
         <span className="muted">ช่องสีเหลือง = แก้ได้ (เหมือนในชีต) · ตาราง Key / SMC / OT ตั้งค่าได้ที่เมนูของแต่ละตาราง</span>
       </div>
-      <div className="tabs">
-        <button className={tab === "shift3" ? "on" : ""} onClick={() => setTab("shift3")}>
-          ตาราง 6.00-8.30 / 8.30-12.30 / 12.30-16.30
-        </button>
-        <button className={tab === "common" ? "on" : ""} onClick={() => setTab("common")}>
-          วันหยุด · รายชื่อ MT-RN · ผู้ลงนาม
-        </button>
+      <div className="tabs-wrap">
+        <div role="tablist" className="tabs tabs-box">
+          <button role="tab" aria-selected={tab === "shift3"} className={tab === "shift3" ? "tab tab-active" : "tab"} onClick={() => setTab("shift3")}>
+            <Icon name="LayoutGrid" size={16} />
+            ตาราง 6.00-8.30 / 8.30-12.30 / 12.30-16.30
+          </button>
+          <button role="tab" aria-selected={tab === "common"} className={tab === "common" ? "tab tab-active" : "tab"} onClick={() => setTab("common")}>
+            <Icon name="CalendarCheck" size={16} />
+            วันหยุด · รายชื่อ MT-RN · ผู้ลงนาม
+          </button>
+        </div>
       </div>
 
       {tab === "shift3" && (
@@ -299,10 +304,11 @@ export default function SettingsClient({ initial, info }: { initial: Shift3Setti
       )}
 
       <div className="savebar">
-        <button className="primary" disabled={busy || !dirty} onClick={save}>
+        <button className="btn btn-primary" disabled={busy || !dirty} onClick={save}>
+          {busy ? <span className="loading loading-spinner loading-xs" /> : <Icon name="Save" size={16} />}
           {busy ? "กำลังบันทึก…" : "บันทึกการตั้งค่า"}
         </button>
-        <button disabled={busy || !dirty} onClick={() => setF(initial)}>ยกเลิกการแก้ไข</button>
+        <button className="btn btn-ghost" disabled={busy || !dirty} onClick={() => setF(initial)}><Icon name="Undo2" size={16} />ยกเลิกการแก้ไข</button>
         {dirty && !msg && <span className="muted">มีการแก้ไขที่ยังไม่บันทึก</span>}
         {msg && <span className={msg.ok ? "ok" : "error"}>{msg.text}</span>}
       </div>

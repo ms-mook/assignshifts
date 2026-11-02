@@ -8,6 +8,7 @@ import { SHEET_CSS } from "@/lib/shift3/render";
 import { rememberYm } from "./NavLinks";
 import { useToast } from "./Toast";
 import { downloadTablePdf } from "@/lib/pdf-export";
+import Icon from "./Icon";
 import type { SummaryGroup } from "@/lib/shift-summary";
 
 interface Props {
@@ -76,6 +77,10 @@ const FG_SWATCHES: { c: string; t: string }[] = [
   { c: "#7F7F7F", t: "เทา" },
   { c: "#FFFFFF", t: "ขาว" },
 ];
+
+// สีวงกลมหน้าชื่อในรายการ (ตกแต่งเท่านั้น)
+const AV_COLORS = ["#1f3a68", "#2f6694", "#2f7660", "#56508a", "#8c4a66", "#a8643a", "#355784", "#2f6b74", "#6b4f6e", "#5a7598"];
+const avColor = (n: string) => AV_COLORS[Array.from(n).reduce((a, ch) => a + ch.charCodeAt(0), 0) % AV_COLORS.length];
 
 interface CellRef {
   key: string;
@@ -363,80 +368,126 @@ export default function ScheduleView(p: Props) {
       <style>{SHEET_CSS}</style>
       <style>{`@page{size:${PAPERS[paper].css};margin:${MARGIN_MM}mm}`}</style>
       <div className="toolbar no-print">
-        <button onClick={() => router.push(`/schedule/${p.table}/${p.prevYm}`)}>◀ เดือนก่อน</button>
-        <strong className="month-label">
-          {p.tableTitle} · {p.label}
+        <div className="join">
+          <button className="btn btn-sm join-item" onClick={() => router.push(`/schedule/${p.table}/${p.prevYm}`)} title="เดือนก่อน">
+            <Icon name="ChevronLeft" size={16} />
+            เดือนก่อน
+          </button>
+          <button className="btn btn-sm join-item" onClick={() => router.push(`/schedule/${p.table}/${p.nextYm}`)} title="เดือนถัดไป">
+            เดือนถัดไป
+            <Icon name="ChevronRight" size={16} />
+          </button>
+        </div>
+        <strong className={`month-chip tone-${p.table}`}>
+          <Icon name="CalendarDays" size={16} />
+          <span className="tt">{p.tableTitle}</span> · {p.label}
         </strong>
-        <button onClick={() => router.push(`/schedule/${p.table}/${p.nextYm}`)}>เดือนถัดไป ▶</button>
         <input
           type="month"
+          className="input input-sm w-auto"
           aria-label="เลือกเดือน"
+          title="ไปเดือนที่ต้องการ"
           onChange={(e) => {
             const [y, m] = e.target.value.split("-");
             if (y && m) router.push(`/schedule/${p.table}/${Number(y) + 543}-${m}`);
           }}
         />
         <span className="spacer" />
-        <label>
-          ขนาด
-          <input type="range" min={0.2} max={1.5} step={0.01} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} />
-          {Math.round(zoom * 100)}%
+        <label className="zoombox" title="ขนาดตารางบนจอ (ไม่กระทบ PDF)">
+          <Icon name="ZoomIn" size={16} />
+          <input type="range" className="range range-primary range-xs" min={0.2} max={1.5} step={0.01} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} aria-label="ขนาดตาราง" />
+          <span className="pct">{Math.round(zoom * 100)}%</span>
         </label>
-        <button onClick={fitToScreen} title="ปรับขนาดให้ตารางเต็มความกว้างจอ">↔ พอดีจอ</button>
-        {p.summary && <button onClick={() => setSumOpen(true)}>📊 สรุปเวร</button>}
-        <button onClick={() => setColorsOpen(true)}>🎨 สีตามชื่อพนักงาน</button>
-        <select value={paper} onChange={(e) => setPaper(e.target.value as Paper)} aria-label="ขนาดกระดาษ">
+        <button className="btn btn-sm btn-soft btn-accent" onClick={fitToScreen} title="ปรับขนาดให้ตารางเต็มความกว้างจอ">
+          <Icon name="Maximize2" size={16} />
+          พอดีจอ
+        </button>
+        {p.summary && (
+          <button className="btn btn-sm btn-soft btn-info" onClick={() => setSumOpen(true)}>
+            <Icon name="ChartColumn" size={16} />
+            สรุปเวร
+          </button>
+        )}
+        <button className="btn btn-sm btn-soft btn-secondary" onClick={() => setColorsOpen(true)}>
+          <Icon name="Palette" size={16} />
+          สีตามชื่อพนักงาน
+        </button>
+        <select className="select select-sm w-auto" value={paper} onChange={(e) => setPaper(e.target.value as Paper)} aria-label="ขนาดกระดาษ">
           {(Object.keys(PAPERS) as Paper[]).map((k) => (
             <option key={k} value={k}>
               {PAPERS[k].label}
             </option>
           ))}
         </select>
-        <button className="primary" onClick={doPrint}>
-          ⬇ ดาวน์โหลด PDF
+        <button className="btn btn-sm btn-primary" onClick={doPrint}>
+          <Icon name="FileDown" size={16} />
+          ดาวน์โหลด PDF
         </button>
       </div>
 
       {sel.size > 0 && (
         <div className="seltools no-print" role="toolbar" aria-label="เครื่องมือช่องที่เลือก">
-          <strong>เลือก {sel.size} ช่อง</strong>
-          <button disabled={!single} onClick={() => single && openEdit(single)} title="ดับเบิลคลิกที่ช่องก็ได้">
-            ✎ เลือก/พิมพ์ชื่อ
+          <span className="badge badge-primary gap-1 font-bold">
+            <Icon name="MousePointerClick" size={14} />
+            เลือก {sel.size} ช่อง
+          </span>
+          <button className="btn btn-xs btn-primary btn-soft" disabled={!single} onClick={() => single && openEdit(single)} title="คลิกที่ช่องก็ได้">
+            <Icon name="PencilLine" size={14} />
+            เลือก/พิมพ์ชื่อ
           </button>
           <span className="grp">
+            <Icon name="Paintbrush" size={14} />
             สีพื้น
             {BG_SWATCHES.map((s) => (
               <button key={s.c} className="swatch" style={{ background: s.c }} title={s.t} aria-label={`สีพื้น ${s.t}`} onClick={() => applyStyle({ bg: s.c })} />
             ))}
-            <input type="color" aria-label="สีพื้นอื่นๆ" defaultValue="#FFF2CC" onChange={(e) => applyStyle({ bg: e.target.value })} />
-            <button onClick={() => applyStyle({ bg: null })}>ล้างสีพื้น</button>
+            <input type="color" aria-label="สีพื้นอื่นๆ" title="เลือกสีพื้นอื่น" defaultValue="#FFF2CC" onChange={(e) => applyStyle({ bg: e.target.value })} />
+            <button className="btn btn-xs btn-ghost" onClick={() => applyStyle({ bg: null })}>ล้าง</button>
           </span>
           <span className="grp">
+            <Icon name="Type" size={14} />
             สีตัวอักษร
             {FG_SWATCHES.map((s) => (
               <button key={s.c} className="swatch fg" style={{ color: s.c, background: s.c === "#FFFFFF" ? "#444" : "#fff" }} title={s.t} aria-label={`สีตัวอักษร ${s.t}`} onClick={() => applyStyle({ fg: s.c })}>
                 ก
               </button>
             ))}
-            <input type="color" aria-label="สีตัวอักษรอื่นๆ" defaultValue="#C00000" onChange={(e) => applyStyle({ fg: e.target.value })} />
-            <button onClick={() => applyStyle({ fg: null })}>ล้างสีตัวอักษร</button>
+            <input type="color" aria-label="สีตัวอักษรอื่นๆ" title="เลือกสีตัวอักษรอื่น" defaultValue="#C00000" onChange={(e) => applyStyle({ fg: e.target.value })} />
+            <button className="btn btn-xs btn-ghost" onClick={() => applyStyle({ fg: null })}>ล้าง</button>
           </span>
-          <button onClick={() => applyStyle({ clear: true })}>ล้างสีทั้งหมด</button>
-          <button onClick={() => bulkManual("")}>ล้างชื่อให้ว่าง</button>
-          <button onClick={() => bulkManual(null)}>คืนค่าตามสูตร</button>
+          <button className="btn btn-xs btn-soft btn-warning" onClick={() => applyStyle({ clear: true })}>
+            <Icon name="Eraser" size={14} />
+            ล้างสีทั้งหมด
+          </button>
+          <button className="btn btn-xs btn-soft btn-error" onClick={() => bulkManual("")}>
+            <Icon name="X" size={14} />
+            ล้างชื่อให้ว่าง
+          </button>
+          <button className="btn btn-xs btn-soft btn-success" onClick={() => bulkManual(null)}>
+            <Icon name="RotateCcw" size={14} />
+            คืนค่าตามสูตร
+          </button>
           <span className="spacer" />
-          <button onClick={() => setSel(new Set())}>ยกเลิกเลือก (Esc)</button>
+          <button className="btn btn-xs btn-ghost" onClick={() => setSel(new Set())}>
+            ยกเลิกเลือก <kbd className="kbd kbd-xs">Esc</kbd>
+          </button>
         </div>
       )}
 
       <div className="hint no-print">
+        <Icon name="MousePointerClick" size={14} />
         คลิกช่องเพื่อเลือกชื่อ · ลากเมาส์ หรือกด Shift เพื่อเลือกหลายช่อง (ใส่สี/ล้างชื่อ) · Ctrl+คลิกเพื่อเพิ่ม ·{" "}
         {p.hint ??
           (p.manualSource === "month-tab"
             ? `ช่อง จนท. บันทึกลงแท็บ ${p.tabName} ในชีต`
             : `ชีตยังไม่มีแท็บ ${p.tabName} — ช่องที่แก้เองจะเก็บในแท็บ WEB-ช่องเลือกเอง`)}
-        {p.warning && <span className="warn"> · {p.warning}</span>}
-        {p.dupDays.length > 0 && <span className="warn"> · ⚠ ชื่อซ้ำในแถวเดียวกัน วันที่ {p.dupDays.join(", ")}</span>}
+        {p.warning && <span className="badge badge-warning badge-sm">{p.warning}</span>}
+        {p.dupDays.length > 0 && (
+          <span className="badge badge-error badge-sm gap-1">
+            <Icon name="TriangleAlert" size={12} />
+            ชื่อซ้ำในแถวเดียวกัน วันที่ {p.dupDays.join(", ")}
+          </span>
+        )}
       </div>
 
       <div
@@ -453,48 +504,71 @@ export default function ScheduleView(p: Props) {
       </div>
 
       {edit && (
-        <div className="modal-bg no-print" onClick={() => !busy && setEdit(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>
-              {p.tableTitle} · วันที่ {edit.day} · คอลัมน์ {edit.col}
-            </h3>
-            <p className="muted">ค่าปัจจุบัน: {edit.current || "(ว่าง)"}</p>
-            <input
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key !== "Enter" || busy) return;
-                if (shown.length === 1) saveName(shown[0]);
-                else if (!isOfficer && value.trim() !== "") saveName(value.trim());
-              }}
-              placeholder={isOfficer ? "ค้นหาชื่อ…" : "ค้นหา หรือพิมพ์ชื่อใหม่แล้วกด Enter"}
-              autoFocus
-            />
+        <div className="modal modal-open no-print" onClick={() => !busy && setEdit(null)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="เลือกชื่อ">
+            <div className="mhead">
+              <Icon name="SquarePen" size={20} />
+              <h3>
+                {p.tableTitle} · วันที่ {edit.day} · คอลัมน์ {edit.col}
+              </h3>
+              <button className="btn btn-sm btn-ghost btn-circle mclose" aria-label="ปิด" disabled={busy} onClick={() => setEdit(null)}>
+                <Icon name="X" size={18} />
+              </button>
+            </div>
+            <p className="muted">
+              ค่าปัจจุบัน: <span className="badge badge-soft badge-primary">{edit.current || "(ว่าง)"}</span>
+            </p>
+            <label className="input w-full">
+              <Icon name="Search" size={16} className="opacity-60" />
+              <input
+                className="grow"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter" || busy) return;
+                  if (shown.length === 1) saveName(shown[0]);
+                  else if (!isOfficer && value.trim() !== "") saveName(value.trim());
+                }}
+                placeholder={isOfficer ? "ค้นหาชื่อ…" : "ค้นหา หรือพิมพ์ชื่อใหม่แล้วกด Enter"}
+                autoFocus
+              />
+            </label>
             <div className="namelist" role="listbox" aria-label="รายชื่อ">
               {shown.map((n) => (
-                <button key={n} role="option" aria-selected={n === edit.current} className={n === edit.current ? "cur" : ""} disabled={busy} onClick={() => saveName(n)}>
+                <button key={n} role="option" aria-selected={n === edit.current} className={n === edit.current ? "nl-item cur" : "nl-item"} disabled={busy} onClick={() => saveName(n)}>
+                  <span className="av" style={{ background: avColor(n) }}>{Array.from(n.replace(/^(นาย|นางสาว|นาง|น\.ส\.)\s*/, ""))[0] ?? "?"}</span>
                   {n}
                 </button>
               ))}
-              {shown.length === 0 && <div className="muted small">ไม่พบชื่อ{!isOfficer && value.trim() !== "" ? " — กด Enter เพื่อใช้ชื่อที่พิมพ์" : ""}</div>}
+              {shown.length === 0 && <div className="muted small p-2">ไม่พบชื่อ{!isOfficer && value.trim() !== "" ? " — กด Enter เพื่อใช้ชื่อที่พิมพ์" : ""}</div>}
             </div>
-            <p className="muted small">{p.dupNote ?? "พนักงาน 1 คนอยู่ได้ทีละจุดในแถวเดียวกัน — ถ้าชื่อซ้ำ ระบบจะไม่บันทึก"}</p>
-            {err && <div className="error">{err}</div>}
-            <div className="modal-actions">
-              <button disabled={busy} onClick={() => saveName(null)}>
+            <p className="muted small">
+              <Icon name="Info" size={13} /> {p.dupNote ?? "พนักงาน 1 คนอยู่ได้ทีละจุดในแถวเดียวกัน — ถ้าชื่อซ้ำ ระบบจะไม่บันทึก"}
+            </p>
+            {err && (
+              <div className="alert alert-error alert-soft">
+                <Icon name="TriangleAlert" size={16} />
+                <span>{err}</span>
+              </div>
+            )}
+            <div className="modal-action">
+              <button className="btn btn-sm btn-soft btn-success" disabled={busy} onClick={() => saveName(null)}>
+                <Icon name="RotateCcw" size={14} />
                 {isOfficer ? "คืนค่า จนท." : "คืนค่าตามสูตร"}
               </button>
               {!isOfficer && (
-                <button disabled={busy} onClick={() => saveName("")}>
+                <button className="btn btn-sm btn-soft btn-error" disabled={busy} onClick={() => saveName("")}>
+                  <Icon name="Eraser" size={14} />
                   ล้างให้ว่าง
                 </button>
               )}
               <span className="spacer" />
-              <button disabled={busy} onClick={() => setEdit(null)}>
+              <button className="btn btn-sm btn-ghost" disabled={busy} onClick={() => setEdit(null)}>
                 ยกเลิก
               </button>
               {!isOfficer && value.trim() !== "" && (
-                <button className="primary" disabled={busy} onClick={() => saveName(value.trim())}>
+                <button className="btn btn-sm btn-primary" disabled={busy} onClick={() => saveName(value.trim())}>
+                  {busy ? <span className="loading loading-spinner loading-xs" /> : <Icon name="Check" size={14} />}
                   {busy ? "กำลังบันทึก…" : `ใช้ชื่อ "${value.trim()}"`}
                 </button>
               )}
@@ -504,11 +578,17 @@ export default function ScheduleView(p: Props) {
       )}
 
       {sumOpen && p.summary && (
-        <div className="modal-bg no-print" onClick={() => setSumOpen(false)}>
-          <div className="modal sum-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="สรุปเวร">
-            <h3>
-              สรุปเวร · {p.tableTitle} · {p.label}
-            </h3>
+        <div className="modal modal-open no-print" onClick={() => setSumOpen(false)}>
+          <div className="modal-box sum-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="สรุปเวร">
+            <div className="mhead cool">
+              <Icon name="ChartColumn" size={20} />
+              <h3>
+                สรุปเวร · {p.tableTitle} · {p.label}
+              </h3>
+              <button className="btn btn-sm btn-ghost btn-circle mclose" aria-label="ปิด" onClick={() => setSumOpen(false)}>
+                <Icon name="X" size={18} />
+              </button>
+            </div>
             <p className="muted small">จำนวนเวรที่แต่ละคนได้รับในเดือนนี้ (นับ 1 ช่อง = 1 เวร · ไม่นับช่องที่ลา &quot;⚠&quot; หรือ &quot;→ ไปช่วยจุดอื่น&quot;)</p>
             <div className="sum-groups">
               {p.summary.map((g) => {
@@ -535,17 +615,26 @@ export default function ScheduleView(p: Props) {
                 );
               })}
             </div>
-            <div className="modal-actions">
+            <div className="modal-action">
               <span className="spacer" />
-              <button onClick={() => setSumOpen(false)}>ปิด</button>
+              <button className="btn btn-sm btn-primary" onClick={() => setSumOpen(false)}>
+                <Icon name="Check" size={14} />
+                ปิด
+              </button>
             </div>
           </div>
         </div>
       )}
       {colorsOpen && (
-        <div className="modal-bg no-print" onClick={() => setColorsOpen(false)}>
-          <div className="modal wide" onClick={(e) => e.stopPropagation()}>
-            <h3>สีตัวอักษรตามชื่อพนักงาน</h3>
+        <div className="modal modal-open no-print" onClick={() => setColorsOpen(false)}>
+          <div className="modal-box wide" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="สีตามชื่อพนักงาน">
+            <div className="mhead warm">
+              <Icon name="Palette" size={20} />
+              <h3>สีตัวอักษรตามชื่อพนักงาน</h3>
+              <button className="btn btn-sm btn-ghost btn-circle mclose" aria-label="ปิด" onClick={() => setColorsOpen(false)}>
+                <Icon name="X" size={18} />
+              </button>
+            </div>
             <p className="muted small">ตั้งสีให้ชื่อใด ชื่อนั้นจะเป็นสีนี้ทุกช่องในทุกตาราง ทุกเดือน (สีที่ตั้งรายช่องจะมาก่อน)</p>
             <div className="colorlist">
               {uniqNames.map((n) => (
@@ -553,6 +642,7 @@ export default function ScheduleView(p: Props) {
                   <span style={{ color: colors[n] ?? "#000" }}>{n}</span>
                   <input type="color" value={colors[n] ?? "#000000"} onChange={(e) => setColors((c) => ({ ...c, [n]: e.target.value }))} />
                   <button
+                    className="btn btn-xs btn-ghost"
                     onClick={() =>
                       setColors((c) => {
                         const x = { ...c };
@@ -566,10 +656,11 @@ export default function ScheduleView(p: Props) {
                 </label>
               ))}
             </div>
-            <div className="modal-actions">
+            <div className="modal-action">
               <span className="spacer" />
-              <button onClick={() => setColorsOpen(false)}>ยกเลิก</button>
-              <button className="primary" onClick={savePersonColors}>
+              <button className="btn btn-sm btn-ghost" onClick={() => setColorsOpen(false)}>ยกเลิก</button>
+              <button className="btn btn-sm btn-primary" onClick={savePersonColors}>
+                <Icon name="Save" size={14} />
                 บันทึก
               </button>
             </div>

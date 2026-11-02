@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { leaveInfo, type OtSettings } from "@/lib/ot/engine";
 import { toSerial } from "@/lib/sheets-date";
 import { useToast } from "./Toast";
+import Icon from "./Icon";
 import type { OtLeaveForm } from "@/lib/ot/repo";
 
 const TYPES = ["ลาป่วย", "ลากิจ", "ลาพักร้อน", "อบรม/ประชุม", "แลกเวร", "อื่นๆ"];
@@ -81,8 +82,8 @@ export default function OtLeavesClient({ initial, settings, names }: { initial: 
         <p><button onClick={() => setRows((x) => [...x, { date: "", who: "", sub: "", type: "" }])}>+ เพิ่มรายการ</button></p>
       </section>
       <div className="savebar">
-        <button className="primary" disabled={busy || !dirty} onClick={save}>{busy ? "กำลังบันทึก…" : "บันทึก"}</button>
-        <button disabled={busy || !dirty} onClick={() => setRows(initial)}>ยกเลิกการแก้ไข</button>
+        <button className="btn btn-primary" disabled={busy || !dirty} onClick={save}>{busy ? <span className="loading loading-spinner loading-xs" /> : <Icon name="Save" size={16} />}{busy ? "กำลังบันทึก…" : "บันทึก"}</button>
+        <button className="btn btn-ghost" disabled={busy || !dirty} onClick={() => setRows(initial)}><Icon name="Undo2" size={16} />ยกเลิกการแก้ไข</button>
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { TABLES } from "@/lib/tables";
+import Icon, { type IconName } from "./Icon";
 
 const YM_COOKIE = "shift-ym";
 
@@ -22,6 +23,8 @@ export function rememberYm(ym: string) {
   } catch {}
 }
 
+const TABLE_ICON: Record<string, IconName> = { s1: "Sunrise", s2: "Sun", s3: "Sunset", key: "KeyRound", smc: "Stethoscope", ot: "Timer" };
+
 export default function NavLinks() {
   const path = usePathname() ?? "";
   const onSchedule = /^\/schedule\/[^/]+\/(\d{4}-\d{2})/.exec(path);
@@ -33,44 +36,66 @@ export default function NavLinks() {
       setYm(onSchedule[1]);
     } else setYm(readYmCookie());
   }, [path]); // eslint-disable-line react-hooks/exhaustive-deps
-  const cls = (on: boolean) => (on ? "navlink on" : "navlink");
-  // อยู่ในส่วนตาราง OT (OT) → เมนูรองเป็นของ OT
   const isOt = path.startsWith("/schedule/ot/") || path.startsWith("/ot/");
   const isKey = path.startsWith("/schedule/key/") || path.startsWith("/key/");
   const isSmc = path.startsWith("/schedule/smc/") || path.startsWith("/smc/");
+  const ctx = isSmc ? "smc" : isKey ? "key" : isOt ? "ot" : "s";
+  const sub: { href: string; label: string; icon: IconName }[] =
+    ctx === "smc"
+      ? [
+          { href: "/smc/plan", label: "สรุปรายปี", icon: "ChartColumn" },
+          { href: "/smc/leaves", label: "ตารางลา", icon: "CalendarX" },
+          { href: "/smc/settings", label: "ตั้งค่า", icon: "Settings" },
+        ]
+      : ctx === "key"
+        ? [
+            { href: "/key/plan", label: "สรุปรายปี", icon: "ChartColumn" },
+            { href: "/key/leaves", label: "ลา-แลกเวร", icon: "Repeat" },
+            { href: "/key/settings", label: "ตั้งค่า", icon: "Settings" },
+          ]
+        : ctx === "ot"
+          ? [
+              { href: "/ot/plan", label: "แผน/สรุป", icon: "CalendarRange" },
+              { href: "/ot/leaves", label: "ลา-แลกเวร", icon: "Repeat" },
+              { href: "/ot/settings", label: "ตั้งค่า", icon: "Settings" },
+            ]
+          : [
+              { href: "/plan", label: "แผนรายสัปดาห์", icon: "CalendarRange" },
+              { href: "/leaves", label: "ลา-แลกเวร", icon: "Repeat" },
+              { href: "/settings", label: "ตั้งค่า", icon: "Settings" },
+            ];
+  const ctxLabel = ctx === "smc" ? "SMC" : ctx === "key" ? "Key" : ctx === "ot" ? "OT" : "6.00-16.30";
+  const ctxTone = ctx === "s" ? "s3" : ctx;
   return (
     <>
-      {TABLES.map((t) => (
-        <Link key={t.id} href={ym ? `/schedule/${t.id}/${ym}` : `/?t=${t.id}`} className={cls(path.startsWith(`/schedule/${t.id}/`))}>
-          {t.label}
-        </Link>
-      ))}
-      <span className="navsep" />
-      {isSmc ? (
-        <>
-          <Link href="/smc/plan" className={cls(path.startsWith("/smc/plan"))}>สรุปรายปี (SMC)</Link>
-          <Link href="/smc/leaves" className={cls(path.startsWith("/smc/leaves"))}>ตารางลา (SMC)</Link>
-          <Link href="/smc/settings" className={cls(path.startsWith("/smc/settings"))}>ตั้งค่า (SMC)</Link>
-        </>
-      ) : isKey ? (
-        <>
-          <Link href="/key/plan" className={cls(path.startsWith("/key/plan"))}>สรุปรายปี (Key)</Link>
-          <Link href="/key/leaves" className={cls(path.startsWith("/key/leaves"))}>ลา-แลกเวร (Key)</Link>
-          <Link href="/key/settings" className={cls(path.startsWith("/key/settings"))}>ตั้งค่า (Key)</Link>
-        </>
-      ) : isOt ? (
-        <>
-          <Link href="/ot/plan" className={cls(path.startsWith("/ot/plan"))}>แผน/สรุป (OT)</Link>
-          <Link href="/ot/leaves" className={cls(path.startsWith("/ot/leaves"))}>ลา-แลกเวร (OT)</Link>
-          <Link href="/ot/settings" className={cls(path.startsWith("/ot/settings"))}>ตั้งค่า (OT)</Link>
-        </>
-      ) : (
-        <>
-          <Link href="/plan" className={cls(path.startsWith("/plan"))}>แผนรายสัปดาห์</Link>
-          <Link href="/leaves" className={cls(path.startsWith("/leaves"))}>ลา-แลกเวร</Link>
-          <Link href="/settings" className={cls(path.startsWith("/settings"))}>ตั้งค่า</Link>
-        </>
-      )}
+      <div className="nav-main" role="navigation" aria-label="ตาราง">
+        {TABLES.map((t) => {
+          const on = path.startsWith(`/schedule/${t.id}/`);
+          return (
+            <Link key={t.id} href={ym ? `/schedule/${t.id}/${ym}` : `/?t=${t.id}`} className={`nav-pill tone-${t.id}${on ? " on" : ""}`} aria-current={on ? "page" : undefined}>
+              <span className="ico">
+                <Icon name={TABLE_ICON[t.id] ?? "CalendarDays"} size={14} strokeWidth={2.4} />
+              </span>
+              {t.label}
+            </Link>
+          );
+        })}
+      </div>
+      <div className="nav-sub" role="navigation" aria-label="เมนูของตาราง">
+        <span className={`sub-ctx tone-${ctxTone}`}>
+          <Icon name={ctx === "s" ? "LayoutGrid" : TABLE_ICON[ctx]} size={20} />
+          {ctxLabel}
+        </span>
+        {sub.map((x) => {
+          const on = path.startsWith(x.href);
+          return (
+            <Link key={x.href} href={x.href} className={on ? "sub-link on" : "sub-link"} aria-current={on ? "page" : undefined}>
+              <Icon name={x.icon} size={16} />
+              {x.label}
+            </Link>
+          );
+        })}
+      </div>
     </>
   );
 }

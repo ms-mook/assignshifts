@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { PlanCalculator, leaveSpotOf, suggestedReplacement } from "@/lib/shift3/engine";
 import { toSerial } from "@/lib/sheets-date";
 import { useToast } from "./Toast";
+import Icon from "./Icon";
 import type { Shift3Settings } from "@/lib/shift3/types";
 import type { LeaveForm } from "@/lib/shift3/repo";
 
@@ -90,8 +91,8 @@ export default function LeavesClient({ initial, settings, staff, allNames }: Pro
         <p><button onClick={() => setRows((x) => [...x, { date: "", name: "", replacement: "", type: "", note: "" }])}>+ เพิ่มรายการ</button></p>
       </section>
       <div className="savebar">
-        <button className="primary" disabled={busy || !dirty} onClick={save}>{busy ? "กำลังบันทึก…" : "บันทึก"}</button>
-        <button disabled={busy || !dirty} onClick={() => setRows(initial)}>ยกเลิกการแก้ไข</button>
+        <button className="btn btn-primary" disabled={busy || !dirty} onClick={save}>{busy ? <span className="loading loading-spinner loading-xs" /> : <Icon name="Save" size={16} />}{busy ? "กำลังบันทึก…" : "บันทึก"}</button>
+        <button className="btn btn-ghost" disabled={busy || !dirty} onClick={() => setRows(initial)}><Icon name="Undo2" size={16} />ยกเลิกการแก้ไข</button>
         {msg && <span className={msg.ok ? "ok" : "error"}>{msg.text}</span>}
       </div>
     </div>

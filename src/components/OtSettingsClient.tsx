@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "./Toast";
+import Icon from "./Icon";
 import type { OtSettingsForm } from "@/lib/ot/repo";
 
 export default function OtSettingsClient({ initial }: { initial: OtSettingsForm }) {
@@ -133,8 +134,8 @@ export default function OtSettingsClient({ initial }: { initial: OtSettingsForm 
       </section>
 
       <div className="savebar">
-        <button className="primary" disabled={busy || !dirty} onClick={save}>{busy ? "กำลังบันทึก…" : "บันทึก"}</button>
-        <button disabled={busy || !dirty} onClick={() => { setF(initial); setDropText(initial.dropdown.join("\n")); }}>ยกเลิกการแก้ไข</button>
+        <button className="btn btn-primary" disabled={busy || !dirty} onClick={save}>{busy ? <span className="loading loading-spinner loading-xs" /> : <Icon name="Save" size={16} />}{busy ? "กำลังบันทึก…" : "บันทึก"}</button>
+        <button className="btn btn-ghost" disabled={busy || !dirty} onClick={() => { setF(initial); setDropText(initial.dropdown.join("\n")); }}><Icon name="Undo2" size={16} />ยกเลิกการแก้ไข</button>
       </div>
     </div>
   );

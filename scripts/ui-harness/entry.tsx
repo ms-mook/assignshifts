@@ -8,6 +8,7 @@ import { renderMonthHtml } from "../../src/lib/shift3/render";
 import { duplicateCols } from "../../src/lib/shift3/conflicts";
 import { dropdownNames } from "../../src/lib/shift3/parse";
 import book from "../../fixtures/shift3-sheet.json";
+import "../../src/app/ui.css";
 import "../../src/app/globals.css";
 
 const g: any[][] = (book as any)["ตั้งค่า"].map((r: string[]) => [...r]);
