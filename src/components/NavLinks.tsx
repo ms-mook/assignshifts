@@ -36,6 +36,7 @@ export default function NavLinks() {
   const cls = (on: boolean) => (on ? "navlink on" : "navlink");
   // อยู่ในส่วนตาราง OT (OT) → เมนูรองเป็นของ OT
   const isOt = path.startsWith("/schedule/ot/") || path.startsWith("/ot/");
+  const isKey = path.startsWith("/schedule/key/") || path.startsWith("/key/");
   return (
     <>
       {TABLES.map((t) => (
@@ -44,7 +45,13 @@ export default function NavLinks() {
         </Link>
       ))}
       <span className="navsep" />
-      {isOt ? (
+      {isKey ? (
+        <>
+          <Link href="/key/plan" className={cls(path.startsWith("/key/plan"))}>สรุปรายปี (Key)</Link>
+          <Link href="/key/leaves" className={cls(path.startsWith("/key/leaves"))}>ลา-แลกเวร (Key)</Link>
+          <Link href="/key/settings" className={cls(path.startsWith("/key/settings"))}>ตั้งค่า (Key)</Link>
+        </>
+      ) : isOt ? (
         <>
           <Link href="/ot/plan" className={cls(path.startsWith("/ot/plan"))}>แผน/สรุป (OT)</Link>
           <Link href="/ot/leaves" className={cls(path.startsWith("/ot/leaves"))}>ลา-แลกเวร (OT)</Link>
