@@ -2,12 +2,12 @@
 export const SHEETS = {
   /** ตารางเวรนักเทคนิคการแพทย์และพยาบาล FM-CL-05-002-00 (6.00-8.30 / 8.30-12.30 / 12.30-16.30) */
   shift3: process.env.SHEET_ID_SHIFT3 ?? "1-8n5Btno6HXHIfQBqmmZq8NMAGWd8IyYvifenDuw85w",
-  /** ตารางเวรจัดลงทะเบียนรายการตรวจ (Key) — ขั้นถัดไป */
-  key: process.env.SHEET_ID_KEY ?? "",
-  /** ตารางเวร SMC — ขั้นถัดไป */
-  smc: process.env.SHEET_ID_SMC ?? "",
-  /** ตารางเวรจัดรับ-นำส่งสิ่งส่งตรวจ (OT) — ขั้นถัดไป */
-  ot: process.env.SHEET_ID_OT ?? "",
+  /** ตารางเวรจุดลงทะเบียนรายการตรวจ (Key) — สำเนาสำหรับเว็บ */
+  key: process.env.SHEET_ID_KEY ?? "1THlhf3PFPtvVUBb0Ij-9HAN1cWXP6c15yh9NGkpRTgw",
+  /** ตารางเวร SMC — สำเนาสำหรับเว็บ */
+  smc: process.env.SHEET_ID_SMC ?? "1dKewo2QDyQUrHL1xaCN6QxNH9q5Jejl7ZE37LUpn_gQ",
+  /** ตารางเวรจุดรับ-นำส่งสิ่งส่งตรวจ (OT) — สำเนาสำหรับเว็บ */
+  ot: process.env.SHEET_ID_OT ?? "1HtxDgpEwdZbQXFp3j6ZLjwOZyF4wMnyLiVQBNTysReI",
 };
 
 export const MONTH_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];

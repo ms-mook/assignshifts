@@ -34,6 +34,8 @@ export default function NavLinks() {
     } else setYm(readYmCookie());
   }, [path]); // eslint-disable-line react-hooks/exhaustive-deps
   const cls = (on: boolean) => (on ? "navlink on" : "navlink");
+  // อยู่ในส่วนตารางรับ-นำส่ง (OT) → เมนูรองเป็นของ OT
+  const isOt = path.startsWith("/schedule/ot/") || path.startsWith("/ot/");
   return (
     <>
       {TABLES.map((t) => (
@@ -42,9 +44,19 @@ export default function NavLinks() {
         </Link>
       ))}
       <span className="navsep" />
-      <Link href="/plan" className={cls(path.startsWith("/plan"))}>แผนรายสัปดาห์</Link>
-      <Link href="/leaves" className={cls(path.startsWith("/leaves"))}>ลา-แลกเวร</Link>
-      <Link href="/settings" className={cls(path.startsWith("/settings"))}>ตั้งค่า</Link>
+      {isOt ? (
+        <>
+          <Link href="/ot/plan" className={cls(path.startsWith("/ot/plan"))}>แผน/สรุป (รับ-นำส่ง)</Link>
+          <Link href="/ot/leaves" className={cls(path.startsWith("/ot/leaves"))}>ลา-แลกเวร (รับ-นำส่ง)</Link>
+          <Link href="/ot/settings" className={cls(path.startsWith("/ot/settings"))}>ตั้งค่า (รับ-นำส่ง)</Link>
+        </>
+      ) : (
+        <>
+          <Link href="/plan" className={cls(path.startsWith("/plan"))}>แผนรายสัปดาห์</Link>
+          <Link href="/leaves" className={cls(path.startsWith("/leaves"))}>ลา-แลกเวร</Link>
+          <Link href="/settings" className={cls(path.startsWith("/settings"))}>ตั้งค่า</Link>
+        </>
+      )}
     </>
   );
 }

@@ -22,6 +22,14 @@ interface Props {
   names: string[];
   personColors: Record<string, string>;
   dupDays: number[];
+  /** ฐาน API (ค่าเริ่มต้น /api/shift3) */
+  api?: string;
+  /** คอลัมน์ที่ค่าตั้งต้นเป็น จนท. (เลือกจากรายชื่อเท่านั้น) */
+  officerCols?: string[];
+  /** ข้อความช่วยใต้แถบเครื่องมือ (แทนข้อความเริ่มต้น) */
+  hint?: string;
+  /** ตั้งค่าการสร้าง PDF */
+  pdf?: { colA: number; colW: number; keepCols?: number[]; sheetCss?: string };
   warning: string;
 }
 
@@ -89,6 +97,7 @@ const SheetHtml = memo(function SheetHtml({ html, zoom }: { html: string; zoom: 
 export default function ScheduleView(p: Props) {
   const router = useRouter();
   const toast = useToast();
+  const API = p.api ?? "/api/shift3";
   const rootRef = useRef<HTMLDivElement>(null);
   const cells = useRef<CellRef[]>([]);
   const dragging = useRef(false);
@@ -250,7 +259,7 @@ export default function ScheduleView(p: Props) {
     setBusy(true);
     setErr("");
     const t = toast.loading("กำลังบันทึกลง Google Sheet… (รอสักครู่)");
-    const r = await post("/api/shift3/manual", { ym: p.ym, key: edit.key, value: v });
+    const r = await post(`${API}/manual`, { ym: p.ym, key: edit.key, value: v });
     setBusy(false);
     if (!r.ok) {
       setErr(r.error);
@@ -267,7 +276,7 @@ export default function ScheduleView(p: Props) {
     const what = v === null ? "คืนค่าตามสูตร" : "ล้างช่องให้ว่าง";
     if (selKeys.length > 1 && !window.confirm(`${what} ${selKeys.length} ช่อง?`)) return;
     const t = toast.loading(`กำลัง${what} ${selKeys.length} ช่อง… (รอสักครู่)`);
-    const r = await post("/api/shift3/manual", { ym: p.ym, keys: selKeys, value: v });
+    const r = await post(`${API}/manual`, { ym: p.ym, keys: selKeys, value: v });
     if (!r.ok) return t.error(`${what}ไม่สำเร็จ: ${r.error}`);
     t.success(`${what} ${selKeys.length} ช่อง สำเร็จ`);
     router.refresh();
@@ -283,7 +292,7 @@ export default function ScheduleView(p: Props) {
       if (typeof patch.fg === "string") x.el.style.color = patch.fg;
     }
     const t = toast.loading("กำลังบันทึกสี… (รอสักครู่)");
-    const r = await post("/api/shift3/style", { ym: p.ym, keys: selKeys, ...patch });
+    const r = await post(`${API}/style`, { ym: p.ym, keys: selKeys, ...patch });
     if (!r.ok) {
       t.error(`บันทึกสีไม่สำเร็จ: ${r.error}`);
       return router.refresh();
@@ -294,7 +303,7 @@ export default function ScheduleView(p: Props) {
 
   const savePersonColors = async () => {
     const t = toast.loading("กำลังบันทึกสีพนักงาน… (รอสักครู่)");
-    const r = await post("/api/shift3/person-colors", { colors });
+    const r = await post(`${API}/person-colors`, { colors });
     if (!r.ok) return t.error(`บันทึกสีพนักงานไม่สำเร็จ: ${r.error}`);
     t.success("บันทึกสีพนักงานสำเร็จ");
     setColorsOpen(false);
@@ -308,9 +317,10 @@ export default function ScheduleView(p: Props) {
     try {
       await downloadTablePdf({
         sectionHtml: p.sectionHtml,
-        sheetCss: SHEET_CSS,
-        colA: COL_WIDTH.A,
-        colW: COL_WIDTH.other,
+        sheetCss: p.pdf?.sheetCss ?? SHEET_CSS,
+        colA: p.pdf?.colA ?? COL_WIDTH.A,
+        colW: p.pdf?.colW ?? COL_WIDTH.other,
+        keepCols: p.pdf?.keepCols,
         rowH: fit.rowH,
         paper,
         marginMm: MARGIN_MM,
@@ -322,7 +332,7 @@ export default function ScheduleView(p: Props) {
     }
   };
 
-  const isOfficer = edit ? OFFICER_COLS.includes(edit.col) || (edit.sec === "1" && edit.col === "B") : false;
+  const isOfficer = edit ? (p.officerCols ?? OFFICER_COLS).includes(edit.col) || (edit.sec === "1" && edit.col === "B") : false;
   const uniqNames = useMemo(() => Array.from(new Set(p.names)), [p.names]);
   const single = selKeys.length === 1 ? selKeys[0] : null;
   const shown = useMemo(() => {
@@ -401,9 +411,10 @@ export default function ScheduleView(p: Props) {
 
       <div className="hint no-print">
         คลิกช่องเพื่อเลือกชื่อ · ลากเมาส์ หรือกด Shift เพื่อเลือกหลายช่อง (ใส่สี/ล้างชื่อ) · Ctrl+คลิกเพื่อเพิ่ม ·{" "}
-        {p.manualSource === "month-tab"
-          ? `ช่อง จนท. บันทึกลงแท็บ ${p.tabName} ในชีต`
-          : `ชีตยังไม่มีแท็บ ${p.tabName} — ช่องที่แก้เองจะเก็บในแท็บ WEB-ช่องเลือกเอง`}
+        {p.hint ??
+          (p.manualSource === "month-tab"
+            ? `ช่อง จนท. บันทึกลงแท็บ ${p.tabName} ในชีต`
+            : `ชีตยังไม่มีแท็บ ${p.tabName} — ช่องที่แก้เองจะเก็บในแท็บ WEB-ช่องเลือกเอง`)}
         {p.warning && <span className="warn"> · {p.warning}</span>}
         {p.dupDays.length > 0 && <span className="warn"> · ⚠ ชื่อซ้ำในแถวเดียวกัน วันที่ {p.dupDays.join(", ")}</span>}
       </div>

@@ -90,6 +90,8 @@ export type ExportOpts = {
   sheetCss: string;
   colA: number; // px คอลัมน์วันที่
   colW: number; // px คอลัมน์อื่น (ค่าสูงสุด)
+  /** คอลัมน์ (index) ที่คงความกว้างเดิมและให้ตัดบรรทัดได้ เช่น หมายเหตุ */
+  keepCols?: number[];
   rowH: number; // px ความสูงแถวข้อมูลตอนพิมพ์ (ค่าเริ่มต้น จะคำนวณใหม่ให้เต็มหน้า)
   paper: "a4" | "legal";
   marginMm: number;
@@ -125,7 +127,7 @@ export async function downloadTablePdf(o: ExportOpts): Promise<void> {
     let maxText = 0;
     for (const td of dcells) {
       const tx = (td.textContent ?? "").trim();
-      if (!tx || special(tx)) continue;
+      if (!tx || special(tx) || (o.keepCols ?? []).includes((td as HTMLTableCellElement).cellIndex)) continue;
       const cs = getComputedStyle(td);
       ruler.style.font = cs.font;
       ruler.textContent = tx;
@@ -135,8 +137,10 @@ export async function downloadTablePdf(o: ExportOpts): Promise<void> {
     ruler.remove();
     const colW = Math.max(90, Math.min(o.colW, Math.ceil(maxText) + 12));
     const cols = Array.from(table.querySelectorAll("col"));
-    cols.forEach((c, i) => ((c as HTMLElement).style.width = `${i === 0 ? o.colA : colW}px`));
-    const W = o.colA + (cols.length - 1) * colW;
+    const keep = new Set(o.keepCols ?? []);
+    const widths = cols.map((c, i) => (i === 0 ? o.colA : keep.has(i) ? parseFloat((c as HTMLElement).style.width) || colW : colW));
+    cols.forEach((c, i) => ((c as HTMLElement).style.width = `${widths[i]}px`));
+    const W = widths.reduce((a, b) => a + b, 0);
     table.style.width = `${W}px`;
     host.style.width = `${W}px`;
 
@@ -150,7 +154,7 @@ export async function downloadTablePdf(o: ExportOpts): Promise<void> {
     const setRow = (h: number) => (rowStyle.textContent = `.sheet tr.dr{height:${h}px !important}`);
     setRow(o.rowH);
     const fixedH = table.getBoundingClientRect().height - nRows * o.rowH;
-    const rowH = Math.max(40, (W * aspect - fixedH) / nRows);
+    const rowH = Math.max(22, (W * aspect - fixedH) / nRows);
     setRow(rowH);
     const H = Math.ceil(table.getBoundingClientRect().height);
     probe.remove();
