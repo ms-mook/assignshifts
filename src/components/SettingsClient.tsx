@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "./Toast";
 import type { Shift3SettingsForm } from "@/lib/shift3/repo";
 import type { Spot, TrainingStep } from "@/lib/shift3/types";
 
@@ -18,6 +19,7 @@ type Tab = "common" | "shift3" | "others";
 
 export default function SettingsClient({ initial, info }: { initial: Shift3SettingsForm; info: Info }) {
   const router = useRouter();
+  const toast = useToast();
   const [f, setF] = useState<Shift3SettingsForm>(initial);
   const [tab, setTab] = useState<Tab>("shift3");
   const [busy, setBusy] = useState(false);
@@ -35,11 +37,23 @@ export default function SettingsClient({ initial, info }: { initial: Shift3Setti
   const save = async () => {
     setBusy(true);
     setMsg(null);
-    const r = await fetch("/api/shift3/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(f) });
-    setBusy(false);
-    if (!r.ok) return setMsg({ ok: false, text: (await r.json()).error ?? "บันทึกไม่สำเร็จ" });
-    setMsg({ ok: true, text: "บันทึกลง Google Sheet แล้ว" });
-    router.refresh();
+    const t = toast.loading("กำลังบันทึกการตั้งค่าลง Google Sheet… (รอสักครู่)");
+    try {
+      const r = await fetch("/api/shift3/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(f) });
+      if (!r.ok) {
+        const text = (await r.json().catch(() => ({}))).error ?? `บันทึกไม่สำเร็จ (${r.status})`;
+        setMsg({ ok: false, text });
+        t.error(text);
+      } else {
+        setMsg({ ok: true, text: "บันทึกลง Google Sheet แล้ว" });
+        t.success("บันทึกการตั้งค่าสำเร็จ");
+        router.refresh();
+      }
+    } catch {
+      t.error("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const NameSelect = ({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: string[] }) => (

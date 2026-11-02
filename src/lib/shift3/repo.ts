@@ -14,6 +14,8 @@ import {
   parseSettings,
   str,
 } from "./parse";
+import { conflictMessage } from "./conflicts";
+import type { CellStyle } from "./render";
 import type { LeaveRow, ManualCells, SectionNo, Shift3Settings } from "./types";
 
 const ID = () => SHEETS.shift3;
@@ -31,78 +33,194 @@ export async function loadShift3(): Promise<Shift3Data> {
   return { settings: parseSettings(sg), leaves: parseLeaves(lg), mtrn: parseMtrn(mg) };
 }
 
+// ---------- ช่องที่ผู้จัดเลือกเอง / รูปแบบช่อง / สีพนักงาน ----------
+
+export const WEB_STYLE_TAB = "WEB-รูปแบบเซลล์";
+export const WEB_COLOR_TAB = "WEB-สีพนักงาน";
+
+export interface MonthState {
+  manual: ManualCells;
+  source: "month-tab" | "web-tab";
+  styles: Record<string, CellStyle>;
+  personColors: Record<string, string>;
+}
+
 /**
- * ช่องที่ผู้จัดเลือกเอง:
- * - ถ้ามีแท็บเดือนในชีต (เช่น ม.ค.70) อ่านจากแท็บนั้น (ค่าที่ต่างจากสูตรตั้งต้น = เลือกเอง)
- * - ถ้ายังไม่มีแท็บเดือน อ่านจากแท็บ WEB-ช่องเลือกเอง
+ * อ่านสถานะของเดือนที่ผู้จัดตั้งเอง:
+ * - ช่อง จนท./เวชกรรมสังคม/SHE: ถ้ามีแท็บเดือนในชีต (เช่น ม.ค.70) อ่านจากแท็บนั้น (ค่าที่ต่างจากสูตรตั้งต้น = เลือกเอง)
+ * - ช่องอื่นที่พิมพ์ทับ: แท็บ WEB-ช่องเลือกเอง (ไม่แตะสูตรในแท็บเดือน)
+ * - สีพื้น/สีตัวอักษรรายช่อง: แท็บ WEB-รูปแบบเซลล์ · สีตามชื่อพนักงาน: แท็บ WEB-สีพนักงาน
  */
-export async function loadManual(
-  data: Shift3Data,
-  yearBE: number,
-  month: number,
-): Promise<{ manual: ManualCells; source: "month-tab" | "web-tab" }> {
+export async function loadMonthState(data: Shift3Data, yearBE: number, month: number): Promise<MonthState> {
   const titles = await sheetTitles(ID());
   const tab = monthTabName(yearBE, month);
-  // ช่องที่พิมพ์ทับ (ทุกช่องตำแหน่ง) เก็บในแท็บ WEB-ช่องเลือกเอง เสมอ — ไม่แตะสูตรในแท็บเดือน
+  const ranges: string[] = [];
+  const at: Record<string, number> = {};
+  const add = (name: string, r: string) => {
+    at[name] = ranges.length;
+    ranges.push(r);
+  };
+  if (titles.includes(WEB_MANUAL_TAB)) add("web", `'${WEB_MANUAL_TAB}'!A2:B5000`);
+  if (titles.includes(WEB_STYLE_TAB)) add("style", `'${WEB_STYLE_TAB}'!A2:C5000`);
+  if (titles.includes(WEB_COLOR_TAB)) add("color", `'${WEB_COLOR_TAB}'!A2:B500`);
+  const hasMonthTab = titles.includes(tab);
+  if (hasMonthTab) for (const sec of [1, 2, 3] as SectionNo[]) add(`m${sec}`, `'${tab}'!A${SECTION_FIRST_ROW[sec]}:AK${SECTION_FIRST_ROW[sec] + 30}`);
+  const g = ranges.length > 0 ? await batchGet(ID(), ranges, "FORMATTED_VALUE") : [];
+  const grid = (name: string) => (name in at ? g[at[name]] : []);
+
+  const prefix = `${ymString(yearBE, month)}|`;
   const web: ManualCells = {};
-  if (titles.includes(WEB_MANUAL_TAB)) {
-    const [g] = await batchGet(ID(), [`'${WEB_MANUAL_TAB}'!A2:B5000`]);
-    const prefix = `${ymString(yearBE, month)}|`;
-    for (const r of g) {
-      const k = str(r[0]);
-      if (k.startsWith(prefix)) web[k.slice(prefix.length)] = str(r[1]);
-    }
+  for (const r of grid("web")) {
+    const k = str(r[0]);
+    if (k.startsWith(prefix)) web[k.slice(prefix.length)] = str(r[1]);
   }
-  if (titles.includes(tab)) {
-    const ranges = ([1, 2, 3] as SectionNo[]).map(
-      (s) => `'${tab}'!A${SECTION_FIRST_ROW[s]}:AK${SECTION_FIRST_ROW[s] + 30}`,
-    );
-    const grids = await batchGet(ID(), ranges, "FORMATTED_VALUE");
-    const base = computeMonth(data.settings, data.leaves, {}, yearBE, month);
-    const manual: ManualCells = {};
-    base.sections.forEach((sec, si) => {
-      sec.rows.forEach((row, ri) => {
-        const sheetRow = grids[si][ri] ?? [];
-        for (const ci of editableCols(sec.section)) {
-          const v = str(sheetRow[ci]);
-          if (v !== row.cells[ci]) manual[manualKey(sec.section, ci, row.day)] = v;
-        }
-      });
+  const styles: Record<string, CellStyle> = {};
+  for (const r of grid("style")) {
+    const k = str(r[0]);
+    if (!k.startsWith(prefix)) continue;
+    const st: CellStyle = {};
+    if (str(r[1]) !== "") st.bg = str(r[1]);
+    if (str(r[2]) !== "") st.fg = str(r[2]);
+    styles[k.slice(prefix.length)] = st;
+  }
+  const personColors: Record<string, string> = {};
+  for (const r of grid("color")) if (str(r[0]) !== "" && str(r[1]) !== "") personColors[str(r[0])] = str(r[1]);
+
+  if (!hasMonthTab) return { manual: web, source: "web-tab", styles, personColors };
+  const base = computeMonth(data.settings, data.leaves, {}, yearBE, month);
+  const manual: ManualCells = {};
+  base.sections.forEach((sec, si) => {
+    const sheet = grid(`m${sec.section}`);
+    sec.rows.forEach((row, ri) => {
+      const sheetRow = sheet[ri] ?? [];
+      for (const ci of editableCols(sec.section)) {
+        const v = str(sheetRow[ci]);
+        if (v !== row.cells[ci]) manual[manualKey(sec.section, ci, row.day)] = v;
+      }
     });
-    return { manual: { ...manual, ...web }, source: "month-tab" };
-  }
-  return { manual: web, source: "web-tab" };
+  });
+  return { manual: { ...manual, ...web }, source: "month-tab", styles, personColors };
+}
+
+async function ensureTab(titles: string[], title: string, header: string[]): Promise<void> {
+  if (titles.includes(title)) return;
+  await addSheet(ID(), title);
+  await batchUpdate(ID(), [{ range: `'${title}'!A1:${String.fromCharCode(64 + header.length)}1`, values: [header] }]);
 }
 
 /** บันทึกช่องเลือกเอง; value = null หมายถึงคืนค่าสูตรตั้งต้น */
 export async function saveManual(yearBE: number, month: number, key: string, value: string | null): Promise<void> {
+  await saveManualMany(yearBE, month, [{ key, value }]);
+}
+
+/** บันทึกหลายช่องพร้อมกัน (เรียก Google Sheets ให้น้อยที่สุด) */
+export async function saveManualMany(
+  yearBE: number,
+  month: number,
+  entries: { key: string; value: string | null }[],
+): Promise<void> {
+  const titles = await sheetTitles(ID());
+  const tab = monthTabName(yearBE, month);
+  const tabWrites: { range: string; values: unknown[][] }[] = [];
+  const webEntries: { key: string; value: string | null }[] = [];
+  for (const { key, value } of entries) {
+    const [secStr, col, dayStr] = key.split(":");
+    const sec = Number(secStr) as SectionNo;
+    const day = Number(dayStr);
+    const ci = colIndex(col);
+    const src = SECTION_MAP[sec]?.[ci];
+    if (!src || ci === 0 || !(day >= 1 && day <= 31)) throw new Error("ช่องนี้แก้ไม่ได้");
+    // ช่องจนท./เวชกรรมสังคม/SHE เขียนลงแท็บเดือนตามเดิม; ช่องอื่นเก็บในแท็บ WEB-ช่องเลือกเอง
+    if ((src.kind === "manual" || src.kind === "free") && titles.includes(tab)) {
+      const r = SECTION_FIRST_ROW[sec] + day - 1;
+      const flag = sec === 3 ? `$AP${r}` : `$AM${r}`;
+      const restore = src.kind === "manual" ? `=IF(${flag}=1,"จนท.","")` : "";
+      tabWrites.push({ range: `'${tab}'!${col}${r}`, values: [[value === null ? restore : value]] });
+    } else webEntries.push({ key, value });
+  }
+  if (tabWrites.length > 0) await batchUpdate(ID(), tabWrites);
+  if (webEntries.length === 0) return;
+  await ensureTab(titles, WEB_MANUAL_TAB, ["key (ปี-เดือน|ส่วน:คอลัมน์:วัน)", "ค่า"]);
+  const [g] = await batchGet(ID(), [`'${WEB_MANUAL_TAB}'!A2:B5000`], "FORMATTED_VALUE");
+  const map = new Map<string, string>();
+  for (const r of g) if (str(r[0]) !== "") map.set(str(r[0]), str(r[1]));
+  for (const { key, value } of webEntries) {
+    const full = `${ymString(yearBE, month)}|${key}`;
+    if (value === null) map.delete(full);
+    else map.set(full, value);
+  }
+  const rows = [...map.entries()].map(([k, v]) => [k, v]);
+  if (rows.length > 4999) throw new Error("เก็บช่องที่แก้เองได้สูงสุด 4,999 ช่อง");
+  while (rows.length < g.length) rows.push(["", ""]);
+  if (rows.length === 0) return;
+  await batchUpdate(ID(), [{ range: `'${WEB_MANUAL_TAB}'!A2:B${rows.length + 1}`, values: rows }]);
+}
+
+/** ตรวจก่อนบันทึก: ชื่อที่ใส่ซ้ำกับช่องอื่นในแถวเดียวกันหรือไม่ (คืนข้อความ error หรือ null) */
+export async function validateManual(yearBE: number, month: number, key: string, value: string | null): Promise<string | null> {
+  if (value === null || value.trim() === "") return null;
   const [secStr, col, dayStr] = key.split(":");
   const sec = Number(secStr) as SectionNo;
   const day = Number(dayStr);
-  const ci = colIndex(col);
-  const src = SECTION_MAP[sec]?.[ci];
-  if (!src || ci === 0 || !(day >= 1 && day <= 31)) throw new Error("ช่องนี้แก้ไม่ได้");
+  if (![1, 2, 3].includes(sec) || !(day >= 1 && day <= 31)) return "ช่องนี้แก้ไม่ได้";
+  const data = await loadShift3();
+  const st = await loadMonthState(data, yearBE, month);
+  const res = computeMonth(data.settings, data.leaves, { ...st.manual, [key]: value }, yearBE, month);
+  const row = res.sections[sec - 1].rows[day - 1];
+  if (!row || row.date === null) return "วันที่นี้ไม่มีในเดือน";
+  return conflictMessage(row.cells, colIndex(col), value, day);
+}
+
+/** รูปแบบรายช่อง: patch.bg/fg = ตั้งสี, null = ลบสีนั้น, undefined = ไม่แตะ; clear = ล้างรูปแบบทั้งหมดของช่อง */
+export async function saveStyles(
+  yearBE: number,
+  month: number,
+  keys: string[],
+  patch: { bg?: string | null; fg?: string | null; clear?: boolean },
+): Promise<void> {
   const titles = await sheetTitles(ID());
-  const tab = monthTabName(yearBE, month);
-  // ช่องจนท./เวชกรรมสังคม/SHE เขียนลงแท็บเดือนตามเดิม; ช่องอื่นเก็บในแท็บ WEB-ช่องเลือกเอง
-  if ((src.kind === "manual" || src.kind === "free") && titles.includes(tab)) {
-    const r = SECTION_FIRST_ROW[sec] + day - 1;
-    const flag = sec === 3 ? `$AP${r}` : `$AM${r}`;
-    const restore = src.kind === "manual" ? `=IF(${flag}=1,"จนท.","")` : "";
-    await batchUpdate(ID(), [{ range: `'${tab}'!${col}${r}`, values: [[value === null ? restore : value]] }]);
-    return;
+  await ensureTab(titles, WEB_STYLE_TAB, ["key (ปี-เดือน|ส่วน:คอลัมน์:วัน)", "สีพื้น", "สีตัวอักษร"]);
+  const [g] = await batchGet(ID(), [`'${WEB_STYLE_TAB}'!A2:C5000`], "FORMATTED_VALUE");
+  const map = new Map<string, { bg: string; fg: string }>();
+  for (const r of g) if (str(r[0]) !== "") map.set(str(r[0]), { bg: str(r[1]), fg: str(r[2]) });
+  const prefix = ymString(yearBE, month);
+  for (const k of keys) {
+    const full = `${prefix}|${k}`;
+    if (patch.clear) {
+      map.delete(full);
+      continue;
+    }
+    const cur = map.get(full) ?? { bg: "", fg: "" };
+    if (patch.bg !== undefined) cur.bg = patch.bg ?? "";
+    if (patch.fg !== undefined) cur.fg = patch.fg ?? "";
+    if (cur.bg === "" && cur.fg === "") map.delete(full);
+    else map.set(full, cur);
   }
-  if (!titles.includes(WEB_MANUAL_TAB)) {
-    await addSheet(ID(), WEB_MANUAL_TAB);
-    await batchUpdate(ID(), [{ range: `'${WEB_MANUAL_TAB}'!A1:B1`, values: [["key (ปี-เดือน|ส่วน:คอลัมน์:วัน)", "ค่า"]] }]);
-  }
-  const [g] = await batchGet(ID(), [`'${WEB_MANUAL_TAB}'!A2:B5000`]);
-  const fullKey = `${ymString(yearBE, month)}|${key}`;
-  const rows = g.map((r) => [str(r[0]), str(r[1])]).filter((r) => r[0] !== "" && r[0] !== fullKey);
-  if (value !== null) rows.push([fullKey, value]);
-  const padded = [...rows];
-  while (padded.length < g.length) padded.push(["", ""]);
-  await batchUpdate(ID(), [{ range: `'${WEB_MANUAL_TAB}'!A2:B${padded.length + 1}`, values: padded }]);
+  const rows = [...map.entries()].map(([k, v]) => [k, v.bg, v.fg]);
+  while (rows.length < g.length) rows.push(["", "", ""]);
+  if (rows.length === 0) return;
+  await batchUpdate(ID(), [{ range: `'${WEB_STYLE_TAB}'!A2:C${rows.length + 1}`, values: rows }]);
+}
+
+/** สีตัวอักษรตามชื่อพนักงาน (ทุกเดือน) */
+export async function loadPersonColors(): Promise<Record<string, string>> {
+  const titles = await sheetTitles(ID());
+  if (!titles.includes(WEB_COLOR_TAB)) return {};
+  const [g] = await batchGet(ID(), [`'${WEB_COLOR_TAB}'!A2:B500`], "FORMATTED_VALUE");
+  const out: Record<string, string> = {};
+  for (const r of g) if (str(r[0]) !== "" && str(r[1]) !== "") out[str(r[0])] = str(r[1]);
+  return out;
+}
+
+export async function savePersonColors(colors: Record<string, string>): Promise<void> {
+  const titles = await sheetTitles(ID());
+  await ensureTab(titles, WEB_COLOR_TAB, ["ชื่อพนักงาน", "สีตัวอักษร"]);
+  const [g] = await batchGet(ID(), [`'${WEB_COLOR_TAB}'!A2:B500`], "FORMATTED_VALUE");
+  const rows = Object.entries(colors).map(([n, c]) => [n, c]);
+  if (rows.length > 499) throw new Error("เก็บสีได้สูงสุด 499 ชื่อ");
+  while (rows.length < g.length) rows.push(["", ""]);
+  if (rows.length === 0) return;
+  await batchUpdate(ID(), [{ range: `'${WEB_COLOR_TAB}'!A2:B${rows.length + 1}`, values: rows }]);
 }
 
 // ---------- หน้าตั้งค่ารวม ----------

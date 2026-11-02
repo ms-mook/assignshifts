@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
+import { colIndex } from "@/lib/shift3/engine";
+import { COL_WIDTH, ROW_HEIGHT } from "@/lib/shift3/layout";
 import { SHEET_CSS } from "@/lib/shift3/render";
+import { rememberYm } from "./NavLinks";
+import { useToast } from "./Toast";
 
 interface Props {
   table: string;
@@ -15,78 +19,280 @@ interface Props {
   manualSource: "month-tab" | "web-tab";
   sectionHtml: string;
   names: string[];
+  personColors: Record<string, string>;
+  dupDays: number[];
   warning: string;
 }
 
-// Legal แนวนอน 14 x 8.5 นิ้ว ที่ 96dpi, ขอบ 6 มม.
-const PAGE_W = 14 * 96 - 2 * 23;
-const PAGE_H = 8.5 * 96 - 2 * 23;
+type Paper = "a4" | "legal";
+// กระดาษแนวนอน (px ที่ 96dpi) หักขอบ 5 มม. ทุกด้าน
+const MARGIN_MM = 5;
+const MM = 96 / 25.4;
+const PAPERS: Record<Paper, { label: string; css: string; w: number; h: number }> = {
+  a4: { label: "A4 แนวนอน", css: "A4 landscape", w: 297 * MM, h: 210 * MM },
+  legal: { label: "Legal แนวนอน", css: "legal landscape", w: 14 * 96, h: 8.5 * 96 },
+};
 
-// ช่องที่ค่าตั้งต้นคือ "จนท." (เลือกชื่อจากรายการ) — ช่องอื่นพิมพ์/เลือกชื่อทับได้ และคืนค่าสูตรได้
+// ขนาดจริงของตาราง (px) ตามความกว้างคอลัมน์/ความสูงแถวในชีต
+const NATURAL_W = COL_WIDTH.A + 36 * COL_WIDTH.other;
+const FIXED_H =
+  ROW_HEIGHT.title + ROW_HEIGHT.subtitle + ROW_HEIGHT.time + ROW_HEIGHT.header.reduce((a, b) => a + b, 0) + ROW_HEIGHT.sigGap + ROW_HEIGHT.sig * 2 + 40;
+
+/** ช่องที่ค่าตั้งต้นคือ "จนท." (เลือกชื่อจากรายการ) — ช่องอื่นพิมพ์/เลือกชื่อทับได้ */
 const OFFICER_COLS = ["D", "E", "F", "S", "T", "U", "AC"];
+
+const BG_SWATCHES: { c: string; t: string }[] = [
+  { c: "#7F7F7F", t: "เทาทึบ (ปิดให้บริการ)" },
+  { c: "#BFBFBF", t: "เทาอ่อน" },
+  { c: "#FFFFFF", t: "ขาว" },
+  { c: "#FFF2CC", t: "เหลือง" },
+  { c: "#FFC7CE", t: "ชมพู" },
+  { c: "#F8CBAD", t: "ส้ม" },
+  { c: "#C6E0B4", t: "เขียว" },
+  { c: "#BDD7EE", t: "ฟ้า" },
+  { c: "#E4DFEC", t: "ม่วง" },
+];
+const FG_SWATCHES: { c: string; t: string }[] = [
+  { c: "#000000", t: "ดำ" },
+  { c: "#C00000", t: "แดง" },
+  { c: "#C55A11", t: "ส้ม" },
+  { c: "#2E7D32", t: "เขียว" },
+  { c: "#1F4E9E", t: "น้ำเงิน" },
+  { c: "#7030A0", t: "ม่วง" },
+  { c: "#7F7F7F", t: "เทา" },
+  { c: "#FFFFFF", t: "ขาว" },
+];
+
+interface CellRef {
+  key: string;
+  c: number;
+  d: number;
+  el: HTMLElement;
+}
+
+async function post(url: string, body: unknown): Promise<{ ok: boolean; status: number; error: string; conflict: boolean }> {
+  try {
+    const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const j = (await r.json().catch(() => ({}))) as { error?: string; conflict?: boolean };
+    return { ok: r.ok, status: r.status, error: j.error ?? (r.ok ? "" : `ไม่สำเร็จ (รหัส ${r.status})`), conflict: j.conflict === true };
+  } catch {
+    return { ok: false, status: 0, error: "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่", conflict: false };
+  }
+}
 
 export default function ScheduleView(p: Props) {
   const router = useRouter();
+  const toast = useToast();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const cells = useRef<CellRef[]>([]);
+  const dragging = useRef(false);
   const [zoom, setZoom] = useState(0.35);
+  const [paper, setPaper] = useState<Paper>("a4");
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const anchor = useRef<string | null>(null);
   const [edit, setEdit] = useState<{ key: string; current: string; day: string; col: string; sec: string } | null>(null);
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  
+  const [colorsOpen, setColorsOpen] = useState(false);
+  const [colors, setColors] = useState<Record<string, string>>(p.personColors);
+
   useEffect(() => {
     try {
       const z = Number(localStorage.getItem("shift-zoom"));
       if (z > 0) setZoom(z);
+      const pp = localStorage.getItem("shift-paper");
+      if (pp === "a4" || pp === "legal") setPaper(pp);
     } catch {}
   }, []);
   useEffect(() => {
     try {
       localStorage.setItem("shift-zoom", String(zoom));
+      localStorage.setItem("shift-paper", paper);
     } catch {}
-  }, [zoom]);
+  }, [zoom, paper]);
+  useEffect(() => rememberYm(p.ym), [p.ym]);
+  useEffect(() => setColors(p.personColors), [p.personColors]);
 
-  // ขนาดจริงของตาราง (px) ตามความกว้างคอลัมน์/ความสูงแถวในชีต + เส้นขอบ
-  // ใช้คำนวณสเกลให้ 1 ตาราง = 1 หน้า Legal แนวนอน
-  const NATURAL_W = 44 + 36 * 145 + 40;
-  const NATURAL_H = 36 + 28 + 28 + 34 + 46 + 34 + 34 + 31 * 112 + 72 + 30 + 30 + 40;
-  const printZoom = Math.min(PAGE_W / NATURAL_W, PAGE_H / NATURAL_H);
+  // เตือนครั้งเดียวต่อการเปิดตาราง ถ้ามีชื่อซ้ำในแถวเดียวกัน
+  const warnedFor = useRef("");
+  useEffect(() => {
+    const k = `${p.table}/${p.ym}`;
+    if (p.dupDays.length > 0 && warnedFor.current !== k) {
+      warnedFor.current = k;
+      toast.error(`พบชื่อซ้ำในแถวเดียวกัน วันที่ ${p.dupDays.join(", ")} (กรอบแดงในตาราง) — พนักงาน 1 คนอยู่ได้ทีละจุด`);
+    }
+  }, [p.dupDays, p.table, p.ym, toast]);
 
-  const onClick = (e: MouseEvent) => {
-    const td = (e.target as HTMLElement).closest<HTMLTableCellElement>("td[data-k]");
+  // จัดทำดัชนีช่องในตาราง (ทุกครั้งที่ตารางถูกวาดใหม่) แล้วทาสีช่องที่เลือกอยู่
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    cells.current = Array.from(root.querySelectorAll<HTMLElement>("td[data-k]")).map((el) => {
+      const key = el.dataset.k!;
+      const [, col, day] = key.split(":");
+      return { key, c: colIndex(col), d: Number(day), el };
+    });
+    // ช่องที่เลือกไว้แต่ไม่มีแล้ว (เปลี่ยนเดือน) ให้ล้างออก
+    const have = new Set(cells.current.map((x) => x.key));
+    setSel((s) => (Array.from(s).every((k) => have.has(k)) ? s : new Set(Array.from(s).filter((k) => have.has(k)))));
+  }, [p.sectionHtml]);
+  useEffect(() => {
+    for (const x of cells.current) x.el.classList.toggle("sel", sel.has(x.key));
+  }, [sel, p.sectionHtml]);
+
+  // ----- พิมพ์ให้พอดีหน้า: ย่อทั้งตารางให้เต็มกระดาษ (ปรับความสูงแถวข้อมูลให้สัดส่วนเท่ากระดาษ ไม่เหลือที่ว่าง) -----
+  const fit = useMemo(() => {
+    const pg = PAPERS[paper];
+    const pw = pg.w - 2 * MARGIN_MM * MM;
+    const ph = pg.h - 2 * MARGIN_MM * MM;
+    const zoomPrint = (pw / NATURAL_W) * 0.995;
+    const rowH = Math.max(70, Math.min(160, (NATURAL_W * (ph / pw) - FIXED_H) / 31));
+    return { zoomPrint, rowH };
+  }, [paper]);
+
+  const rectKeys = useCallback((a: string, b: string): string[] => {
+    const pa = cells.current.find((x) => x.key === a);
+    const pb = cells.current.find((x) => x.key === b);
+    if (!pa || !pb) return [b];
+    const [c1, c2] = [Math.min(pa.c, pb.c), Math.max(pa.c, pb.c)];
+    const [d1, d2] = [Math.min(pa.d, pb.d), Math.max(pa.d, pb.d)];
+    return cells.current.filter((x) => x.c >= c1 && x.c <= c2 && x.d >= d1 && x.d <= d2).map((x) => x.key);
+  }, []);
+
+  const cellOf = (e: MouseEvent) => (e.target as HTMLElement).closest<HTMLTableCellElement>("td[data-k]");
+
+  const onMouseDown = (e: MouseEvent) => {
+    if (e.button !== 0) return;
+    const td = cellOf(e);
     if (!td) return;
     const key = td.dataset.k!;
+    if (e.shiftKey && anchor.current) {
+      setSel(new Set(rectKeys(anchor.current, key)));
+    } else if (e.ctrlKey || e.metaKey) {
+      setSel((s) => {
+        const n = new Set(s);
+        if (n.has(key)) n.delete(key);
+        else n.add(key);
+        return n;
+      });
+      anchor.current = key;
+    } else {
+      setSel(new Set([key]));
+      anchor.current = key;
+      dragging.current = true;
+      const stop = () => {
+        dragging.current = false;
+        window.removeEventListener("mouseup", stop);
+      };
+      window.addEventListener("mouseup", stop);
+    }
+  };
+  const onMouseOver = (e: MouseEvent) => {
+    if (!dragging.current || !anchor.current) return;
+    const td = cellOf(e);
+    if (td) setSel(new Set(rectKeys(anchor.current, td.dataset.k!)));
+  };
+
+  const openEdit = (key: string) => {
+    const x = cells.current.find((c) => c.key === key);
+    if (!x) return;
     const [sec, col, day] = key.split(":");
-    const current = td.textContent ?? "";
+    const current = x.el.textContent ?? "";
     setEdit({ key, current, sec, col, day });
     const officer = OFFICER_COLS.includes(col) || (sec === "1" && col === "B");
-    // ช่องพิมพ์/เลือกเอง: เริ่มว่างเพื่อให้รายการชื่อแสดงครบ (ค่าปัจจุบันดูได้จากบรรทัด "ค่าปัจจุบัน")
+    // ช่องพิมพ์เอง: เริ่มว่างเพื่อให้รายการชื่อแสดงครบ (ค่าปัจจุบันดูได้จากบรรทัด "ค่าปัจจุบัน")
     setValue(officer ? (current === "จนท." ? "" : current) : "");
     setErr("");
   };
+  const onDoubleClick = (e: MouseEvent) => {
+    const td = cellOf(e);
+    if (td) openEdit(td.dataset.k!);
+  };
 
-  const save = async (v: string | null) => {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !edit && !colorsOpen) setSel(new Set());
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [edit, colorsOpen]);
+
+  // ----- บันทึกชื่อ -----
+  const saveName = async (v: string | null) => {
     if (!edit) return;
     setBusy(true);
     setErr("");
-    const r = await fetch("/api/shift3/manual", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ym: p.ym, key: edit.key, value: v }),
-    });
+    const t = toast.loading("กำลังบันทึกลง Google Sheet… (รอสักครู่)");
+    const r = await post("/api/shift3/manual", { ym: p.ym, key: edit.key, value: v });
     setBusy(false);
-    if (!r.ok) return setErr((await r.json()).error ?? "บันทึกไม่สำเร็จ");
+    if (!r.ok) {
+      setErr(r.error);
+      return t.error(r.conflict ? `ชื่อซ้ำ: ${r.error}` : `บันทึกไม่สำเร็จ: ${r.error}`);
+    }
+    t.success(v === null ? "คืนค่าตามสูตรแล้ว" : v === "" ? "ล้างช่องแล้ว" : "บันทึกชื่อสำเร็จ");
     setEdit(null);
     router.refresh();
   };
 
+  const selKeys = Array.from(sel);
+  const bulkManual = async (v: null | "") => {
+    if (selKeys.length === 0) return;
+    const what = v === null ? "คืนค่าตามสูตร" : "ล้างช่องให้ว่าง";
+    if (selKeys.length > 1 && !window.confirm(`${what} ${selKeys.length} ช่อง?`)) return;
+    const t = toast.loading(`กำลัง${what} ${selKeys.length} ช่อง… (รอสักครู่)`);
+    const r = await post("/api/shift3/manual", { ym: p.ym, keys: selKeys, value: v });
+    if (!r.ok) return t.error(`${what}ไม่สำเร็จ: ${r.error}`);
+    t.success(`${what} ${selKeys.length} ช่อง สำเร็จ`);
+    router.refresh();
+  };
+
+  // ----- สีพื้น / สีตัวอักษร -----
+  const applyStyle = async (patch: { bg?: string | null; fg?: string | null; clear?: boolean }) => {
+    if (selKeys.length === 0) return;
+    // แสดงผลทันที แล้วค่อยบันทึก (ถ้าบันทึกไม่ได้ จะโหลดกลับเป็นค่าเดิม)
+    for (const x of cells.current) {
+      if (!sel.has(x.key)) continue;
+      if (typeof patch.bg === "string") x.el.style.background = patch.bg;
+      if (typeof patch.fg === "string") x.el.style.color = patch.fg;
+    }
+    const t = toast.loading("กำลังบันทึกสี… (รอสักครู่)");
+    const r = await post("/api/shift3/style", { ym: p.ym, keys: selKeys, ...patch });
+    if (!r.ok) {
+      t.error(`บันทึกสีไม่สำเร็จ: ${r.error}`);
+      return router.refresh();
+    }
+    t.success(patch.clear || patch.bg === null || patch.fg === null ? "ล้างสีแล้ว" : "บันทึกสีสำเร็จ");
+    router.refresh();
+  };
+
+  const savePersonColors = async () => {
+    const t = toast.loading("กำลังบันทึกสีพนักงาน… (รอสักครู่)");
+    const r = await post("/api/shift3/person-colors", { colors });
+    if (!r.ok) return t.error(`บันทึกสีพนักงานไม่สำเร็จ: ${r.error}`);
+    t.success("บันทึกสีพนักงานสำเร็จ");
+    setColorsOpen(false);
+    router.refresh();
+  };
+
+  const doPrint = () => {
+    if (p.dupDays.length > 0 && !window.confirm(`ตารางนี้ยังมีชื่อซ้ำในแถวเดียวกัน (วันที่ ${p.dupDays.join(", ")}) พิมพ์ต่อหรือไม่?`)) return;
+    window.print();
+  };
+
   const isOfficer = edit ? OFFICER_COLS.includes(edit.col) || (edit.sec === "1" && edit.col === "B") : false;
+  const uniqNames = useMemo(() => Array.from(new Set(p.names)), [p.names]);
+  const single = selKeys.length === 1 ? selKeys[0] : null;
 
   return (
-    <div className={"schedule"}>
+    <div className="schedule">
       <style>{SHEET_CSS}</style>
+      <style>{`@page{size:${PAPERS[paper].css};margin:${MARGIN_MM}mm}`}</style>
       <div className="toolbar no-print">
         <button onClick={() => router.push(`/schedule/${p.table}/${p.prevYm}`)}>◀ เดือนก่อน</button>
-        <strong className="month-label">{p.tableTitle} · {p.label}</strong>
+        <strong className="month-label">
+          {p.tableTitle} · {p.label}
+        </strong>
         <button onClick={() => router.push(`/schedule/${p.table}/${p.nextYm}`)}>เดือนถัดไป ▶</button>
         <input
           type="month"
@@ -102,18 +308,68 @@ export default function ScheduleView(p: Props) {
           <input type="range" min={0.2} max={1} step={0.05} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} />
           {Math.round(zoom * 100)}%
         </label>
-        <button className="primary" onClick={() => window.print()}>
-          พิมพ์ / บันทึก PDF ตารางนี้ (Legal แนวนอน)
+        <button onClick={() => setColorsOpen(true)}>🎨 สีตามชื่อพนักงาน</button>
+        <select value={paper} onChange={(e) => setPaper(e.target.value as Paper)} aria-label="ขนาดกระดาษ">
+          {(Object.keys(PAPERS) as Paper[]).map((k) => (
+            <option key={k} value={k}>
+              {PAPERS[k].label}
+            </option>
+          ))}
+        </select>
+        <button className="primary" onClick={doPrint}>
+          🖨 พิมพ์ / บันทึก PDF
         </button>
       </div>
+
+      {sel.size > 0 && (
+        <div className="seltools no-print" role="toolbar" aria-label="เครื่องมือช่องที่เลือก">
+          <strong>เลือก {sel.size} ช่อง</strong>
+          <button disabled={!single} onClick={() => single && openEdit(single)} title="ดับเบิลคลิกที่ช่องก็ได้">
+            ✎ เลือก/พิมพ์ชื่อ
+          </button>
+          <span className="grp">
+            สีพื้น
+            {BG_SWATCHES.map((s) => (
+              <button key={s.c} className="swatch" style={{ background: s.c }} title={s.t} aria-label={`สีพื้น ${s.t}`} onClick={() => applyStyle({ bg: s.c })} />
+            ))}
+            <input type="color" aria-label="สีพื้นอื่นๆ" defaultValue="#FFF2CC" onChange={(e) => applyStyle({ bg: e.target.value })} />
+            <button onClick={() => applyStyle({ bg: null })}>ล้างสีพื้น</button>
+          </span>
+          <span className="grp">
+            สีตัวอักษร
+            {FG_SWATCHES.map((s) => (
+              <button key={s.c} className="swatch fg" style={{ color: s.c, background: s.c === "#FFFFFF" ? "#444" : "#fff" }} title={s.t} aria-label={`สีตัวอักษร ${s.t}`} onClick={() => applyStyle({ fg: s.c })}>
+                ก
+              </button>
+            ))}
+            <input type="color" aria-label="สีตัวอักษรอื่นๆ" defaultValue="#C00000" onChange={(e) => applyStyle({ fg: e.target.value })} />
+            <button onClick={() => applyStyle({ fg: null })}>ล้างสีตัวอักษร</button>
+          </span>
+          <button onClick={() => applyStyle({ clear: true })}>ล้างสีทั้งหมด</button>
+          <button onClick={() => bulkManual("")}>ล้างชื่อให้ว่าง</button>
+          <button onClick={() => bulkManual(null)}>คืนค่าตามสูตร</button>
+          <span className="spacer" />
+          <button onClick={() => setSel(new Set())}>ยกเลิกเลือก (Esc)</button>
+        </div>
+      )}
+
       <div className="hint no-print">
-        คลิกช่องใดก็ได้ในตารางเพื่อเลือก/พิมพ์ชื่อ (หรือคืนค่าตามสูตร) ·{" "}
+        คลิกเลือกช่อง (ลากเมาส์/กด Shift เพื่อเลือกหลายช่อง · Ctrl+คลิกเพื่อเพิ่ม) · ดับเบิลคลิกเพื่อเลือก/พิมพ์ชื่อ ·{" "}
         {p.manualSource === "month-tab"
-          ? `บันทึกลงแท็บ ${p.tabName} ในชีต`
-          : `ชีตยังไม่มีแท็บ ${p.tabName} — ช่องที่เลือกเองจะเก็บในแท็บ WEB-ช่องเลือกเอง`}
+          ? `ช่อง จนท. บันทึกลงแท็บ ${p.tabName} ในชีต`
+          : `ชีตยังไม่มีแท็บ ${p.tabName} — ช่องที่แก้เองจะเก็บในแท็บ WEB-ช่องเลือกเอง`}
         {p.warning && <span className="warn"> · {p.warning}</span>}
+        {p.dupDays.length > 0 && <span className="warn"> · ⚠ ชื่อซ้ำในแถวเดียวกัน วันที่ {p.dupDays.join(", ")}</span>}
       </div>
-      <div className="sections" onClick={onClick} style={{ ["--print-zoom" as string]: printZoom } as CSSProperties}>
+
+      <div
+        ref={rootRef}
+        className="sections"
+        onMouseDown={onMouseDown}
+        onMouseOver={onMouseOver}
+        onDoubleClick={onDoubleClick}
+        style={{ ["--print-zoom" as string]: fit.zoomPrint, ["--print-row-h" as string]: `${fit.rowH}px` } as CSSProperties}
+      >
         <div className="print-page">
           <div className="screen-zoom" style={{ zoom }} dangerouslySetInnerHTML={{ __html: p.sectionHtml }} />
         </div>
@@ -123,15 +379,22 @@ export default function ScheduleView(p: Props) {
         <div className="modal-bg no-print" onClick={() => !busy && setEdit(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>
-              ส่วนที่ {edit.sec} · วันที่ {edit.day} · คอลัมน์ {edit.col}
+              {p.tableTitle} · วันที่ {edit.day} · คอลัมน์ {edit.col}
             </h3>
             <p className="muted">ค่าปัจจุบัน: {edit.current || "(ว่าง)"}</p>
             {!isOfficer ? (
-              <input list="names" value={value} onChange={(e) => setValue(e.target.value)} placeholder="พิมพ์หรือเลือกชื่อ" autoFocus />
+              <input
+                list="names"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && !busy && value !== "" && saveName(value)}
+                placeholder="พิมพ์หรือเลือกชื่อ"
+                autoFocus
+              />
             ) : (
               <select value={value} onChange={(e) => setValue(e.target.value)} autoFocus>
                 <option value="">— เลือกชื่อ —</option>
-                {p.names.map((n) => (
+                {uniqNames.map((n) => (
                   <option key={n} value={n}>
                     {n}
                   </option>
@@ -139,17 +402,18 @@ export default function ScheduleView(p: Props) {
               </select>
             )}
             <datalist id="names">
-              {p.names.map((n) => (
+              {uniqNames.map((n) => (
                 <option key={n} value={n} />
               ))}
             </datalist>
+            <p className="muted small">พนักงาน 1 คนอยู่ได้ทีละจุดในแถวเดียวกัน — ถ้าชื่อซ้ำ ระบบจะไม่บันทึก</p>
             {err && <div className="error">{err}</div>}
             <div className="modal-actions">
-              <button disabled={busy} onClick={() => save(null)}>
+              <button disabled={busy} onClick={() => saveName(null)}>
                 {isOfficer ? "คืนค่า จนท." : "คืนค่าตามสูตร"}
               </button>
               {!isOfficer && (
-                <button disabled={busy} onClick={() => save("")}>
+                <button disabled={busy} onClick={() => saveName("")}>
                   ล้างให้ว่าง
                 </button>
               )}
@@ -157,8 +421,43 @@ export default function ScheduleView(p: Props) {
               <button disabled={busy} onClick={() => setEdit(null)}>
                 ยกเลิก
               </button>
-              <button className="primary" disabled={busy || (isOfficer && value === "")} onClick={() => save(value)}>
+              <button className="primary" disabled={busy || value === ""} onClick={() => saveName(value)}>
                 {busy ? "กำลังบันทึก…" : "บันทึก"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {colorsOpen && (
+        <div className="modal-bg no-print" onClick={() => setColorsOpen(false)}>
+          <div className="modal wide" onClick={(e) => e.stopPropagation()}>
+            <h3>สีตัวอักษรตามชื่อพนักงาน</h3>
+            <p className="muted small">ตั้งสีให้ชื่อใด ชื่อนั้นจะเป็นสีนี้ทุกช่องในทุกตาราง ทุกเดือน (สีที่ตั้งรายช่องจะมาก่อน)</p>
+            <div className="colorlist">
+              {uniqNames.map((n) => (
+                <label key={n}>
+                  <span style={{ color: colors[n] ?? "#000" }}>{n}</span>
+                  <input type="color" value={colors[n] ?? "#000000"} onChange={(e) => setColors((c) => ({ ...c, [n]: e.target.value }))} />
+                  <button
+                    onClick={() =>
+                      setColors((c) => {
+                        const x = { ...c };
+                        delete x[n];
+                        return x;
+                      })
+                    }
+                  >
+                    ล้าง
+                  </button>
+                </label>
+              ))}
+            </div>
+            <div className="modal-actions">
+              <span className="spacer" />
+              <button onClick={() => setColorsOpen(false)}>ยกเลิก</button>
+              <button className="primary" onClick={savePersonColors}>
+                บันทึก
               </button>
             </div>
           </div>

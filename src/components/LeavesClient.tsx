@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PlanCalculator, leaveSpotOf, suggestedReplacement } from "@/lib/shift3/engine";
 import { toSerial } from "@/lib/sheets-date";
+import { useToast } from "./Toast";
 import type { Shift3Settings } from "@/lib/shift3/types";
 import type { LeaveForm } from "@/lib/shift3/repo";
 
@@ -16,6 +17,7 @@ interface Props {
 
 export default function LeavesClient({ initial, settings, staff, allNames }: Props) {
   const router = useRouter();
+  const toast = useToast();
   const [rows, setRows] = useState<LeaveForm[]>(initial);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -26,11 +28,23 @@ export default function LeavesClient({ initial, settings, staff, allNames }: Pro
   const save = async () => {
     setBusy(true);
     setMsg(null);
-    const res = await fetch("/api/shift3/leaves", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rows }) });
-    setBusy(false);
-    if (!res.ok) return setMsg({ ok: false, text: (await res.json()).error ?? "บันทึกไม่สำเร็จ" });
-    setMsg({ ok: true, text: "บันทึกลงชีต ลา-แลกเวร แล้ว" });
-    router.refresh();
+    const t = toast.loading("กำลังบันทึกการลา/แลกเวร… (รอสักครู่)");
+    try {
+      const res = await fetch("/api/shift3/leaves", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rows }) });
+      if (!res.ok) {
+        const text = (await res.json().catch(() => ({}))).error ?? `บันทึกไม่สำเร็จ (${res.status})`;
+        setMsg({ ok: false, text });
+        t.error(text);
+      } else {
+        setMsg({ ok: true, text: "บันทึกลงชีต ลา-แลกเวร แล้ว" });
+        t.success("บันทึกการลา/แลกเวรสำเร็จ ตารางจะอัปเดตตามอัตโนมัติ");
+        router.refresh();
+      }
+    } catch {
+      t.error("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (

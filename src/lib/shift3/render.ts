@@ -3,6 +3,7 @@
 
 import { COLORS, COL_WIDTH, HEADER_ROWS, ROW_HEIGHT, baseCellStyle, groupColor } from "./layout";
 import { colLetter } from "./engine";
+import { cellPerson, duplicateCols } from "./conflicts";
 import type { MonthResult, MonthRow, MonthSection, SectionNo } from "./types";
 
 const esc = (s: string) =>
@@ -10,7 +11,13 @@ const esc = (s: string) =>
 
 const MANUAL_WHITE_COLS = [1, 3, 4, 5, 18, 19, 20, 28]; // ส่วนที่ 1: B, D:F, S:U, AC
 
-function dataCellStyle(sec: MonthSection, row: MonthRow, col: number): string {
+function dataCellStyle(
+  sec: MonthSection,
+  row: MonthRow,
+  col: number,
+  over?: CellStyle,
+  personFg?: string,
+): string {
   const v = row.cells[col];
   const base = baseCellStyle(sec.section, col);
   let bg = base.bg ?? "#FFFFFF";
@@ -38,13 +45,25 @@ function dataCellStyle(sec: MonthSection, row: MonthRow, col: number): string {
           () => (has("→") ? ((fg = COLORS.moved), (italic = true), true) : false),
         ];
   for (const r of rules) if (r()) break;
+  if (personFg) fg = personFg;
+  if (over?.bg) bg = over.bg;
+  if (over?.fg) fg = over.fg;
   const size = col === 0 ? 14 : 16;
   return `background:${bg};color:${fg};font-size:${size}pt;font-weight:${bold ? 700 : 400};${italic ? "font-style:italic;" : ""}`;
 }
 
+export interface CellStyle {
+  bg?: string;
+  fg?: string;
+}
+
 export interface RenderOptions {
-  /** ทำให้ช่อง จนท./เวชกรรมสังคม/SHE คลิกแก้ได้ */
+  /** ทำให้ทุกช่องตำแหน่งคลิกเลือก/แก้ได้ */
   editable?: boolean;
+  /** รูปแบบรายช่อง (สีพื้น/สีตัวอักษร) key = `${ส่วน}:${คอลัมน์}:${วัน}` */
+  styles?: Record<string, CellStyle>;
+  /** สีตัวอักษรตามชื่อพนักงาน */
+  personColors?: Record<string, string>;
 }
 
 export function renderSection(sec: MonthSection, res: MonthResult, opt: RenderOptions = {}): string {
@@ -92,20 +111,21 @@ export function renderSection(sec: MonthSection, res: MonthResult, opt: RenderOp
   );
 
   // ข้อมูล 31 แถว
-  const editCols = new Set<number>();
-  if (opt.editable) {
-    for (let c = 1; c < 37; c++) editCols.add(c); // ทุกช่องตำแหน่ง (ยกเว้นคอลัมน์วันที่)
-  }
+  const personColors = new Map(Object.entries(opt.personColors ?? {}).map(([k, v]) => [k.toLowerCase(), v]));
   for (const row of sec.rows) {
+    const dups = row.date !== null ? duplicateCols(row.cells) : new Set<number>();
     const tds = row.cells.map((v, c) => {
-      const style = dataCellStyle(sec, row, c);
-      const edit =
-        opt.editable && editCols.has(c) && row.date !== null
-          ? ` data-k="${s}:${colLetter(c)}:${row.day}" class="d e${row.manualCols.includes(c) ? " m" : ""}"`
-          : ` class="d"`;
-      return `<td${edit} style="${style}">${esc(v)}</td>`;
+      const key = `${s}:${colLetter(c)}:${row.day}`;
+      const over = opt.styles?.[key];
+      const who = c > 0 ? cellPerson(v) : null;
+      const personFg = who ? personColors.get(who.toLowerCase()) : undefined;
+      const isDup = dups.has(c);
+      const style = dataCellStyle(sec, row, c, over, personFg);
+      const cls = `d${opt.editable && c > 0 && row.date !== null ? " e" : ""}${row.manualCols.includes(c) ? " m" : ""}${isDup ? " dup" : ""}`;
+      const attr = opt.editable && c > 0 && row.date !== null ? ` data-k="${key}"` : "";
+      return `<td${attr} class="${cls}" style="${style}"${isDup ? ' title="ชื่อซ้ำกับช่องอื่นในแถวเดียวกัน"' : ""}>${esc(v)}</td>`;
     });
-    out.push(`<tr style="height:${ROW_HEIGHT.data}px">${tds.join("")}</tr>`);
+    out.push(`<tr class="dr" style="height:${ROW_HEIGHT.data}px">${tds.join("")}</tr>`);
   }
 
   // ช่องลงนาม (X:AK merge)
@@ -123,8 +143,9 @@ export const SHEET_CSS = `
 .sheet td{padding:0 3px;overflow:hidden;text-align:center;vertical-align:middle}
 .sheet td.t{font-weight:700;white-space:normal}
 .sheet td.h{font-weight:700;white-space:normal;border:1px solid #000;line-height:1.15}
-.sheet td.d{border:1px solid #000;white-space:nowrap;text-overflow:clip}
+.sheet td.d{border:1px solid #000;white-space:normal;overflow-wrap:anywhere;line-height:1.1;text-overflow:clip}
 .sheet td.n{border:none}
+.sheet td.dup{outline:3px solid #C00000;outline-offset:-3px}
 .sheet td.sig{font-size:16pt;font-weight:700;white-space:normal;border:none}
 `;
 

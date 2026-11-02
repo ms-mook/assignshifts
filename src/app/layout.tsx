@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import "./globals.css";
 import LogoutButton from "@/components/LogoutButton";
 import NavLinks from "@/components/NavLinks";
+import { ToastProvider } from "@/components/Toast";
 
 export const metadata: Metadata = { title: "จัดตารางเวร", description: "ระบบจัดตารางเวร หน่วยเจาะเลือด เก็บสิ่งส่งตรวจและ POCT" };
 
@@ -15,6 +16,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet" />
       </head>
       <body>
+        <ToastProvider>
         <nav className="topnav no-print">
           <span className="brand">ตารางเวร</span>
           <NavLinks />
@@ -22,6 +24,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <LogoutButton />
         </nav>
         <main>{children}</main>
+        </ToastProvider>
       </body>
     </html>
   );

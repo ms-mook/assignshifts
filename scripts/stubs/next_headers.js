@@ -1,0 +1,1 @@
+exports.headers = () => ({ get: () => null });
