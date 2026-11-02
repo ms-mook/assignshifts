@@ -41,8 +41,9 @@ function Toasts() {
   return null;
 }
 
-createRoot(document.getElementById("root")!).render(
-  <ToastProvider>
+const root = createRoot(document.getElementById("root")!);
+const draw = (k: number) => root.render(
+  <ToastProvider key={k}>
     <Toasts />
     <nav className="topnav no-print">
       <span className="brand">
@@ -76,3 +77,5 @@ createRoot(document.getElementById("root")!).render(
     </main>
   </ToastProvider>,
 );
+draw(0);
+(window as any).__remount = (k: number) => draw(k);

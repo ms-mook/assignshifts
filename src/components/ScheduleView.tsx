@@ -110,6 +110,42 @@ async function post(url: string, body: unknown): Promise<{ ok: boolean; status: 
   }
 }
 
+// ----- สถานะที่ต้องอยู่รอดเมื่อหน้าโหลดตารางใหม่ (Next อาจสร้างคอมโพเนนต์ใหม่หลัง router.refresh) -----
+// เก็บแยกตาม ตาราง+เดือน: คิวบันทึก, ประวัติย้อนกลับ/ทำซ้ำ, ช่องที่เลือก, เวลาบันทึกล่าสุด
+interface PageStore {
+  queue: Promise<void>;
+  pending: number;
+  stale: boolean;
+  past: unknown[];
+  future: unknown[];
+  savedAt: string;
+  sel: string[];
+  anchor: string | null;
+  focus: string | null;
+  listeners: Set<() => void>;
+  refresh: () => void;
+}
+const STORES = new Map<string, PageStore>();
+function pageStore(k: string): PageStore {
+  let st = STORES.get(k);
+  if (!st) {
+    st = { queue: Promise.resolve(), pending: 0, stale: false, past: [], future: [], savedAt: "", sel: [], anchor: null, focus: null, listeners: new Set(), refresh: () => undefined };
+    STORES.set(k, st);
+  }
+  return st;
+}
+/** ตัวช่วยให้ใช้ค่าใน store ได้เหมือน useRef (.current) */
+function storeRef<K extends keyof PageStore, T = PageStore[K]>(st: PageStore, key: K): { current: T } {
+  return {
+    get current() {
+      return st[key] as unknown as T;
+    },
+    set current(v: T) {
+      (st as unknown as Record<string, unknown>)[key as string] = v;
+    },
+  };
+}
+
 // ตัวตารางเป็น HTML ล้วน: ห่อด้วย memo เพื่อไม่ให้ถูกวาดใหม่ทุกครั้งที่เลือกช่อง (ไม่เสียดัชนีช่อง/ไม่กระตุก)
 const SheetHtml = memo(function SheetHtml({ html, zoom }: { html: string; zoom: number }) {
   return <div className="screen-zoom" style={{ zoom }} dangerouslySetInnerHTML={{ __html: html }} />;
@@ -126,8 +162,10 @@ export default function ScheduleView(p: Props) {
   const downAt = useRef({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(0.35);
   const [paper, setPaper] = useState<Paper>("a4");
-  const [sel, setSel] = useState<Set<string>>(new Set());
-  const anchor = useRef<string | null>(null);
+  const store = pageStore(`${p.table}|${p.ym}`);
+  store.refresh = () => router.refresh();
+  const [sel, setSel] = useState<Set<string>>(() => new Set(store.sel));
+  const anchor = useRef<string | null>(store.anchor);
   const [edit, setEdit] = useState<{ key: string; current: string; day: string; col: string; sec: string } | null>(null);
   const [value, setValue] = useState("");
   const busy = false; // บันทึกเบื้องหลังแล้ว ไม่ต้องล็อกป๊อปอัป
@@ -229,6 +267,7 @@ export default function ScheduleView(p: Props) {
     const td = cellOf(e);
     if (!td) return;
     const key = td.dataset.k!;
+    focusKey.current = key; // ลูกศรคีย์บอร์ดเริ่มจากช่องที่คลิกล่าสุด
     if (e.shiftKey && anchor.current) {
       setSel(new Set(rectKeys(anchor.current, key)));
     } else if (e.ctrlKey || e.metaKey) {
@@ -274,26 +313,35 @@ export default function ScheduleView(p: Props) {
   // (กันบันทึกทับกันในแท็บ WEB) และโหลดตารางใหม่ครั้งเดียวเมื่อบันทึกครบทุกรายการ
   // สถานะการบันทึกแสดงเป็นป้ายเล็กบนแถบเครื่องมือ — เด้งแจ้งเตือนเฉพาะตอนผิดพลาด
   // ======================================================================
-  const queue = useRef<Promise<void>>(Promise.resolve());
-  const pending = useRef(0);
-  const stale = useRef(false);
-  const [savingN, setSavingN] = useState(0);
-  const [savedAt, setSavedAt] = useState<string>("");
+  const pending = storeRef<"pending">(store, "pending");
+  const stale = storeRef<"stale">(store, "stale");
+  const [savingN, setSavingN] = useState(store.pending);
+  const [savedAt, setSavedAt] = useState<string>(store.savedAt);
+  useEffect(() => {
+    const on = () => {
+      setSavingN(store.pending);
+      setSavedAt(store.savedAt);
+    };
+    store.listeners.add(on);
+    on();
+    return () => void store.listeners.delete(on);
+  }, [store]);
+  const notify = () => store.listeners.forEach((f) => f());
   const enqueue = (task: () => Promise<void>) => {
-    pending.current += 1;
-    setSavingN(pending.current);
-    queue.current = queue.current
+    store.pending += 1;
+    notify();
+    store.queue = store.queue
       .then(task)
       .catch(() => undefined)
       .finally(() => {
-        pending.current -= 1;
-        setSavingN(pending.current);
-        if (pending.current === 0) {
-          setSavedAt(new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }));
-          stale.current = true;
-          setTimeout(() => (stale.current = false), 10_000); // กันค้าง ถ้าตารางที่โหลดใหม่หน้าตาเหมือนเดิม
-          router.refresh();
+        store.pending -= 1;
+        if (store.pending === 0) {
+          store.savedAt = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+          store.stale = true;
+          setTimeout(() => (store.stale = false), 10_000); // กันค้าง ถ้าตารางที่โหลดใหม่หน้าตาเหมือนเดิม
+          store.refresh(); // ใช้ router ของหน้าที่แสดงอยู่ล่าสุด
         }
+        notify();
       });
   };
   // ตารางใหม่จาก server มาถึงแล้ว → PDF ใช้ข้อมูลล่าสุดได้
@@ -328,8 +376,8 @@ export default function ScheduleView(p: Props) {
   type NameAct = { kind: "name"; entries: { key: string; before: string | null; after: string | null; beforeText: string | null; afterText: string | null }[] };
   type StyleAct = { kind: "style"; entries: { key: string; before: CellStyle; after: CellStyle }[] };
   type Act = NameAct | StyleAct;
-  const past = useRef<Act[]>([]);
-  const future = useRef<Act[]>([]);
+  const past = storeRef<"past", Act[]>(store, "past");
+  const future = storeRef<"future", Act[]>(store, "future");
   const [, setHv] = useState(0);
   const bumpHistory = () => setHv((n) => n + 1);
   const dropAct = (a: Act) => {
@@ -565,7 +613,13 @@ export default function ScheduleView(p: Props) {
     }
     return best?.key ?? null;
   };
-  const focusKey = useRef<string | null>(null);
+  const focusKey = useRef<string | null>(store.focus);
+  // จำช่องที่เลือก/ตำแหน่งคีย์บอร์ดไว้ใน store (หน้าโหลดใหม่แล้วยังทำต่อได้)
+  useEffect(() => {
+    store.sel = Array.from(sel);
+    store.anchor = anchor.current;
+    store.focus = focusKey.current;
+  });
   const goTo = (key: string, extend = false) => {
     if (extend && anchor.current) setSel(new Set(rectKeys(anchor.current, key)));
     else {
