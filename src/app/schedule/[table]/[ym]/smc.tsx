@@ -42,6 +42,8 @@ export default async function SmcSchedule({ tdef, ym, yearBE, month }: { tdef: T
       sectionHtml={html}
       names={names}
       personColors={st.personColors}
+      manual={Object.fromEntries(Object.entries(st.manual).map(([k, v]) => [`m:${k}`, v]))}
+      cellStyles={st.styles}
       dupDays={dupDays}
       summary={summary}
       warning=""

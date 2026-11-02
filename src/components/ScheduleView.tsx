@@ -2,7 +2,10 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
-import { colIndex } from "@/lib/shift3/engine";
+import { colIndex, colLetter } from "@/lib/shift3/engine";
+import { cellPerson } from "@/lib/shift3/conflicts";
+import { pointLabel, type CrossInfo } from "@/lib/shift3/cross";
+import type { SectionNo } from "@/lib/shift3/types";
 import { COL_WIDTH, ROW_HEIGHT } from "@/lib/shift3/layout";
 import { SHEET_CSS } from "@/lib/shift3/render";
 import { rememberYm } from "./NavLinks";
@@ -37,7 +40,15 @@ interface Props {
   /** ตั้งค่าการสร้าง PDF */
   pdf?: { colA: number; colW: number; keepCols?: number[]; sheetCss?: string };
   warning: string;
+  /** ช่องที่ผู้จัดแก้เอง (key ช่อง → ค่า) ใช้ย้อนกลับให้ถูกต้อง */
+  manual?: Record<string, string>;
+  /** สีที่ตั้งรายช่อง (key ช่อง → สี) */
+  cellStyles?: Record<string, CellStyle>;
+  /** ตาราง 3 ช่วงเวลา: ข้อมูลตารางอื่นสำหรับ ใส่ชื่อเดียวกันหลายตาราง */
+  cross?: CrossInfo;
 }
+type CellStyle = { bg?: string; fg?: string };
+type StylePatch = { bg?: string | null; fg?: string | null; clear?: boolean };
 
 type Paper = "a4" | "legal";
 // กระดาษแนวนอน (px ที่ 96dpi) หักขอบ 5 มม. ทุกด้าน
@@ -253,41 +264,32 @@ export default function ScheduleView(p: Props) {
     setSel(new Set(rectKeys(anchor.current, td.dataset.k!)));
   };
 
-  function openEdit(key: string) {
-    ensureIndex();
-    const x = cells.current.find((c) => c.key === key);
-    if (!x) return;
-    const [sec, col, day] = key.split(":");
-    const current = x.el.textContent ?? "";
-    setEdit({ key, current, sec, col, day });
-    setValue(""); // ช่องค้นหา/พิมพ์ชื่อ เริ่มว่างเพื่อให้รายการชื่อแสดงครบ
-    setErr("");
-  }
   const onDoubleClick = (e: MouseEvent) => {
     const td = cellOf(e);
     if (td) openEdit(td.dataset.k!);
   };
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !edit && !colorsOpen) setSel(new Set());
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [edit, colorsOpen]);
-
-  // ----- บันทึกแบบไม่ต้องรอ: ปิดป๊อปอัปและแสดงชื่อในช่องทันที แล้วบันทึกลง Google Sheet เบื้องหลัง -----
-  // ส่งคำขอทีละรายการตามลำดับ (กันบันทึกทับกันในแท็บ WEB) และโหลดตารางใหม่ครั้งเดียวเมื่อบันทึกครบทุกรายการ
+  // ======================================================================
+  // บันทึกแบบไม่ต้องรอ: แสดงผลในตารางทันที แล้วบันทึกลง Google Sheet เบื้องหลังตามลำดับ
+  // (กันบันทึกทับกันในแท็บ WEB) และโหลดตารางใหม่ครั้งเดียวเมื่อบันทึกครบทุกรายการ
+  // สถานะการบันทึกแสดงเป็นป้ายเล็กบนแถบเครื่องมือ — เด้งแจ้งเตือนเฉพาะตอนผิดพลาด
+  // ======================================================================
   const queue = useRef<Promise<void>>(Promise.resolve());
   const pending = useRef(0);
+  const stale = useRef(false);
+  const [savingN, setSavingN] = useState(0);
+  const [savedAt, setSavedAt] = useState<string>("");
   const enqueue = (task: () => Promise<void>) => {
     pending.current += 1;
+    setSavingN(pending.current);
     queue.current = queue.current
       .then(task)
       .catch(() => undefined)
       .finally(() => {
         pending.current -= 1;
+        setSavingN(pending.current);
         if (pending.current === 0) {
+          setSavedAt(new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }));
           stale.current = true;
           setTimeout(() => (stale.current = false), 10_000); // กันค้าง ถ้าตารางที่โหลดใหม่หน้าตาเหมือนเดิม
           router.refresh();
@@ -295,7 +297,6 @@ export default function ScheduleView(p: Props) {
       });
   };
   // ตารางใหม่จาก server มาถึงแล้ว → PDF ใช้ข้อมูลล่าสุดได้
-  const stale = useRef(false);
   useEffect(() => {
     stale.current = false;
   }, [p.sectionHtml]);
@@ -311,82 +312,356 @@ export default function ScheduleView(p: Props) {
     return () => window.removeEventListener("beforeunload", onLeave);
   }, []);
 
-  // ----- บันทึกชื่อ -----
-  const saveName = (v: string | null) => {
-    if (!edit) return;
-    const key = edit.key;
+  // ----- สถานะปัจจุบันของช่อง (ใช้ย้อนกลับ/ทำซ้ำ และตรวจชื่อซ้ำ) -----
+  // manual: ช่องที่ผู้จัดแก้เอง (ไม่มี = เป็นค่าตามสูตร) · styles: สีที่ตั้งรายช่อง · local: ค่าที่เพิ่งใส่ (ยังไม่ได้ตารางใหม่จาก server)
+  const manualRef = useRef(new Map<string, string>(Object.entries(p.manual ?? {})));
+  const styleRef = useRef(new Map<string, CellStyle>(Object.entries(p.cellStyles ?? {})));
+  const localVals = useRef(new Map<string, string>());
+  useEffect(() => {
+    if (pending.current > 0) return; // ยังมีรายการกำลังบันทึก — ค่าที่จำไว้ในหน้าใหม่กว่า
+    manualRef.current = new Map(Object.entries(p.manual ?? {}));
+    styleRef.current = new Map(Object.entries(p.cellStyles ?? {}));
+    localVals.current = new Map();
+  }, [p.manual, p.cellStyles, p.sectionHtml]);
+
+  // ----- ประวัติสำหรับ ย้อนกลับ (Undo) / ทำซ้ำ (Redo) -----
+  type NameAct = { kind: "name"; entries: { key: string; before: string | null; after: string | null; beforeText: string | null; afterText: string | null }[] };
+  type StyleAct = { kind: "style"; entries: { key: string; before: CellStyle; after: CellStyle }[] };
+  type Act = NameAct | StyleAct;
+  const past = useRef<Act[]>([]);
+  const future = useRef<Act[]>([]);
+  const [, setHv] = useState(0);
+  const bumpHistory = () => setHv((n) => n + 1);
+  const dropAct = (a: Act) => {
+    past.current = past.current.filter((x) => x !== a);
+    future.current = future.current.filter((x) => x !== a);
+    bumpHistory();
+  };
+
+  const cellEl = (key: string) => {
     ensureIndex();
-    const cell = cells.current.find((c) => c.key === key)?.el;
-    const before = cell?.textContent ?? "";
-    if (cell) {
-      if (v !== null) cell.textContent = v; // คืนค่าตามสูตร: รอค่าจริงจากชีต
-      cell.classList.add("saving");
-    }
-    setEdit(null);
-    setErr("");
-    const t = toast.loading(v === null ? "กำลังคืนค่าตามสูตร…" : v === "" ? "กำลังล้างช่อง…" : `กำลังบันทึก “${v}”…`);
-    enqueue(async () => {
-      const r = await post(`${API}/manual`, { ym: p.ym, key, value: v });
-      cell?.classList.remove("saving");
-      if (!r.ok) {
-        if (cell) cell.textContent = before; // คืนค่าเดิมบนจอ
-        t.error(r.conflict ? `ไม่ได้บันทึก — ชื่อซ้ำ: ${r.error}` : `บันทึกไม่สำเร็จ: ${r.error}`);
-        return;
+    return cells.current.find((c) => c.key === key)?.el ?? null;
+  };
+
+  /** ใส่ค่าหลายช่อง (null = คืนค่าตามสูตร) แสดงผลทันทีแล้วบันทึกเบื้องหลัง */
+  const applyNames = (
+    entries: { key: string; value: string | null }[],
+    opt: { check?: boolean; record?: boolean; what?: string; display?: (string | null)[] } = {},
+  ) => {
+    if (entries.length === 0) return;
+    const prevText = entries.map((e) => cellEl(e.key)?.textContent ?? null);
+    const before = entries.map((e) => (manualRef.current.has(e.key) ? manualRef.current.get(e.key)! : null));
+    const shown = new Map<HTMLElement, string>();
+    entries.forEach((e, i) => {
+      const el = cellEl(e.key);
+      if (el) {
+        shown.set(el, el.textContent ?? "");
+        const txt = e.value ?? opt.display?.[i] ?? null; // คืนค่าตามสูตร: ใช้ค่าที่เคยเห็น (ถ้ามี) หรือรอค่าจริงจากชีต
+        if (txt !== null) el.textContent = txt;
+        el.classList.add("saving");
       }
-      t.success(v === null ? "คืนค่าตามสูตรแล้ว" : v === "" ? "ล้างช่องแล้ว" : `บันทึก “${v}” แล้ว`);
+      if (e.value === null) {
+        manualRef.current.delete(e.key);
+        localVals.current.delete(e.key);
+      } else {
+        manualRef.current.set(e.key, e.value);
+        localVals.current.set(e.key, e.value);
+      }
+    });
+    let act: Act | null = null;
+    if (opt.record !== false) {
+      act = { kind: "name", entries: entries.map((e, i) => ({ key: e.key, before: before[i], after: e.value, beforeText: prevText[i], afterText: e.value })) };
+      past.current = [...past.current.slice(-99), act];
+      future.current = [];
+      bumpHistory();
+    }
+    // ช่องเดียว: ใช้การตรวจชื่อซ้ำเดิมของแต่ละตาราง · หลายช่องคนละค่า: ส่งแบบ entries
+    const body =
+      entries.length === 1 && opt.check !== false
+        ? { ym: p.ym, key: entries[0].key, value: entries[0].value }
+        : { ym: p.ym, entries, check: opt.check === true };
+    enqueue(async () => {
+      const r = await post(`${API}/manual`, body);
+      for (const el of shown.keys()) el.classList.remove("saving");
+      if (r.ok) return;
+      for (const [el, txt] of shown) el.textContent = txt; // คืนค่าเดิมบนจอ
+      entries.forEach((e, i) => {
+        const b = before[i];
+        if (b === null) manualRef.current.delete(e.key);
+        else manualRef.current.set(e.key, b);
+        localVals.current.delete(e.key);
+      });
+      if (act) dropAct(act);
+      toast.error(r.conflict ? `ไม่ได้บันทึก — ชื่อซ้ำ: ${r.error}` : `${opt.what ?? "บันทึก"}ไม่สำเร็จ: ${r.error}`);
     });
   };
 
+  /** ตั้งสีหลายช่อง: patch แบบเดิม (bg/fg = null ล้าง, clear = ล้างทั้งหมด) หรือ states = สีที่ต้องการของแต่ละช่อง (ใช้ย้อนกลับ) */
+  const applyStyles = (keys: string[], patch: StylePatch | null, states: Map<string, CellStyle> | null, record = true) => {
+    if (keys.length === 0) return;
+    const before = new Map(keys.map((k) => [k, styleRef.current.get(k) ?? {}]));
+    const after = new Map<string, CellStyle>();
+    for (const k of keys) {
+      const b = before.get(k)!;
+      let a: CellStyle;
+      if (states) a = states.get(k) ?? {};
+      else if (patch!.clear) a = {};
+      else {
+        a = { ...b };
+        if (patch!.bg !== undefined) patch!.bg === null ? delete a.bg : (a.bg = patch!.bg);
+        if (patch!.fg !== undefined) patch!.fg === null ? delete a.fg : (a.fg = patch!.fg);
+      }
+      after.set(k, a);
+    }
+    const dom = new Map<HTMLElement, [string, string]>();
+    for (const k of keys) {
+      const el = cellEl(k);
+      const a = after.get(k)!;
+      if (!el) continue;
+      dom.set(el, [el.style.background, el.style.color]);
+      if (a.bg) el.style.background = a.bg;
+      if (a.fg) el.style.color = a.fg;
+      if (!a.bg || !a.fg) el.classList.add("saving"); // สีเดิมของตารางจะกลับมาเมื่อโหลดตารางใหม่
+      if (Object.keys(a).length === 0) styleRef.current.delete(k);
+      else styleRef.current.set(k, a);
+    }
+    let act: Act | null = null;
+    if (record) {
+      act = { kind: "style", entries: keys.map((k) => ({ key: k, before: before.get(k)!, after: after.get(k)! })) };
+      past.current = [...past.current.slice(-99), act];
+      future.current = [];
+      bumpHistory();
+    }
+    // คำขอ: patch เดิม 1 ครั้ง หรือรวมกลุ่มช่องที่ต้องการสีเหมือนกัน
+    const reqs: Record<string, unknown>[] = [];
+    if (!states) reqs.push({ ym: p.ym, keys, ...patch });
+    else {
+      const groups = new Map<string, string[]>();
+      for (const k of keys) {
+        const a = after.get(k)!;
+        const g = JSON.stringify([a.bg ?? null, a.fg ?? null]);
+        groups.set(g, [...(groups.get(g) ?? []), k]);
+      }
+      for (const [g, ks] of groups) {
+        const [bg, fg] = JSON.parse(g) as [string | null, string | null];
+        reqs.push(bg === null && fg === null ? { ym: p.ym, keys: ks, clear: true } : { ym: p.ym, keys: ks, bg, fg });
+      }
+    }
+    enqueue(async () => {
+      let ok = true;
+      let error = "";
+      for (const body of reqs) {
+        const r = await post(`${API}/style`, body);
+        if (!r.ok) {
+          ok = false;
+          error = r.error;
+          break;
+        }
+      }
+      for (const el of dom.keys()) el.classList.remove("saving");
+      if (ok) return;
+      for (const [el, [bg, fg]] of dom) {
+        el.style.background = bg;
+        el.style.color = fg;
+      }
+      for (const [k, b] of before) Object.keys(b).length === 0 ? styleRef.current.delete(k) : styleRef.current.set(k, b);
+      if (act) dropAct(act);
+      toast.error(`บันทึกสีไม่สำเร็จ: ${error}`);
+    });
+  };
+
+  const runAct = (a: Act, dir: "undo" | "redo") => {
+    if (a.kind === "name")
+      applyNames(
+        a.entries.map((e) => ({ key: e.key, value: dir === "undo" ? e.before : e.after })),
+        { check: false, record: false, what: dir === "undo" ? "ย้อนกลับ" : "ทำซ้ำ", display: a.entries.map((e) => (dir === "undo" ? e.beforeText : e.afterText)) },
+      );
+    else applyStyles(a.entries.map((e) => e.key), null, new Map(a.entries.map((e) => [e.key, dir === "undo" ? e.before : e.after])), false);
+  };
+  const undo = () => {
+    const a = past.current.pop();
+    if (!a) return;
+    future.current.push(a);
+    bumpHistory();
+    runAct(a, "undo");
+  };
+  const redo = () => {
+    const a = future.current.pop();
+    if (!a) return;
+    past.current.push(a);
+    bumpHistory();
+    runAct(a, "redo");
+  };
+
+  // ----- ใส่ชื่อเดียวกันลงตาราง 3 ช่วงเวลา (เฉพาะตาราง 6.00-8.30 / 8.30-12.30 / 12.30-16.30) -----
+  const rowNow = (sec: number, day: number): string[] | null => {
+    const base = p.cross?.sections.find((x) => x.sec === sec)?.rows[day];
+    if (!base) return null;
+    const r = [...base];
+    for (let c = 1; c < r.length; c++) {
+      const k = `${sec}:${colLetter(c)}:${day}`;
+      if (localVals.current.has(k)) r[c] = localVals.current.get(k)!;
+    }
+    return r;
+  };
+  /** ชื่อนี้อยู่ที่จุดอื่นในแถวเดียวกันแล้วหรือไม่ → คืนชื่อจุด */
+  const busyAt = (sec: number, day: number, col: string, name: string): string | null => {
+    const r = rowNow(sec, day);
+    const who = cellPerson(name);
+    if (!r || who === null) return null;
+    const ci = colIndex(col);
+    for (let c = 1; c < r.length; c++) {
+      if (c === ci) continue;
+      const q = cellPerson(r[c] ?? "");
+      if (q !== null && q.toLowerCase() === who.toLowerCase()) return pointLabel(sec as SectionNo, c) || `ช่อง ${colLetter(c)}`;
+    }
+    return null;
+  };
+  type CrossTarget = { sec: number; table: string; label: string; current: string };
+  const crossTargets = (key: string): CrossTarget[] => {
+    if (!p.cross) return [];
+    const [secStr, col, dayStr] = key.split(":");
+    const sec = Number(secStr);
+    const day = Number(dayStr);
+    const ci = p.cross.cols.indexOf(col);
+    if (ci < 0) return [];
+    const me = p.cross.sections.find((x) => x.sec === sec);
+    if (!me) return [];
+    return p.cross.sections
+      .filter((x) => x.sec !== sec && x.points[ci] === me.points[ci] && x.rows[day])
+      .map((x) => ({ sec: x.sec, table: x.table, label: x.label, current: (rowNow(x.sec, day) ?? [])[colIndex(col)] ?? "" }));
+  };
+  const [crossOn, setCrossOn] = useState<Record<number, boolean>>({});
+  const [hi, setHi] = useState(-1); // แถวที่ไฮไลต์ในรายชื่อ (ลูกศรขึ้น/ลง)
+  const searchRef = useRef<HTMLInputElement>(null);
+  // ป๊อปอัปของ daisyUI ค่อย ๆ ปรากฏ (ตอนแรกยังซ่อน) จึงต้องโฟกัสช่องค้นหาหลังเฟรมแรก ไม่ใช่ autoFocus
+  const editKey = edit?.key ?? "";
+  useEffect(() => {
+    if (!editKey) return;
+    let n = 0;
+    const tryFocus = () => {
+      const el = searchRef.current;
+      if (!el) return;
+      el.focus();
+      const len = el.value.length;
+      el.setSelectionRange(len, len);
+      if (document.activeElement !== el && n++ < 10) setTimeout(tryFocus, 30);
+    };
+    const t = setTimeout(tryFocus, 0);
+    return () => clearTimeout(t);
+  }, [editKey]);
+
+  /** ช่องถัดไป: ลง/ขึ้น = คอลัมน์เดิมวันถัดไป · ซ้าย/ขวา = วันเดิมคอลัมน์ถัดไป */
+  const neighbor = (key: string, dir: "up" | "down" | "left" | "right"): string | null => {
+    ensureIndex();
+    const cur = cells.current.find((x) => x.key === key);
+    if (!cur) return null;
+    let best: CellRef | null = null;
+    for (const x of cells.current) {
+      if (dir === "down" && x.c === cur.c && x.d > cur.d && (!best || x.d < best.d)) best = x;
+      if (dir === "up" && x.c === cur.c && x.d < cur.d && (!best || x.d > best.d)) best = x;
+      if (dir === "right" && x.d === cur.d && x.c > cur.c && (!best || x.c < best.c)) best = x;
+      if (dir === "left" && x.d === cur.d && x.c < cur.c && (!best || x.c > best.c)) best = x;
+    }
+    return best?.key ?? null;
+  };
+  const focusKey = useRef<string | null>(null);
+  const goTo = (key: string, extend = false) => {
+    if (extend && anchor.current) setSel(new Set(rectKeys(anchor.current, key)));
+    else {
+      setSel(new Set([key]));
+      anchor.current = key;
+    }
+    focusKey.current = key;
+    cellEl(key)?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  };
+
+  // ----- บันทึกชื่อจากป๊อปอัป -----
+  const saveName = (v: string | null) => {
+    if (!edit) return;
+    const key = edit.key;
+    const entries: { key: string; value: string | null }[] = [{ key, value: v }];
+    const skipped: string[] = [];
+    if (v !== null && v.trim() !== "") {
+      for (const t of crossTargets(key)) {
+        if (!crossOn[t.sec]) continue;
+        if (t.current.trim() === v.trim()) continue; // มีชื่อนี้อยู่แล้ว
+        const at = busyAt(t.sec, Number(edit.day), edit.col, v);
+        if (at) {
+          skipped.push(`ตาราง ${t.label}: อยู่ที่ ${at} แล้ว`);
+          continue;
+        }
+        entries.push({ key: `${t.sec}:${edit.col}:${edit.day}`, value: v });
+      }
+    }
+    setEdit(null);
+    setErr("");
+    applyNames(entries, { check: entries.length > 1 ? true : undefined });
+    if (skipped.length > 0) toast.error(`ไม่ได้ใส่ “${v}” ในตารางอื่นบางช่อง เพราะชื่อซ้ำในช่วงเวลาเดียวกัน — ${skipped.join(" · ")}`);
+    // ไปช่องถัดไป (วันถัดไป คอลัมน์เดิม) เพื่อทำต่อได้ทันที
+    const nx = neighbor(key, "down");
+    if (nx) goTo(nx);
+  };
+
   const selKeys = Array.from(sel);
-  const bulkManual = async (v: null | "") => {
+  const bulkManual = (v: null | "") => {
     if (selKeys.length === 0) return;
     const what = v === null ? "คืนค่าตามสูตร" : "ล้างช่องให้ว่าง";
     if (selKeys.length > 1 && !window.confirm(`${what} ${selKeys.length} ช่อง?`)) return;
     const keys = [...selKeys];
-    const t = toast.loading(`กำลัง${what} ${keys.length} ช่อง…`);
-    const before = new Map<HTMLElement, string>();
-    for (const x of cells.current) {
-      if (!sel.has(x.key)) continue;
-      before.set(x.el, x.el.textContent ?? "");
-      if (v === "") x.el.textContent = "";
-      x.el.classList.add("saving");
-    }
-    enqueue(async () => {
-      const r = await post(`${API}/manual`, { ym: p.ym, keys, value: v });
-      for (const [el, txt] of before) {
-        el.classList.remove("saving");
-        if (!r.ok) el.textContent = txt;
-      }
-      if (!r.ok) return void t.error(`${what}ไม่สำเร็จ: ${r.error}`);
-      t.success(`${what} ${keys.length} ช่อง สำเร็จ`);
-    });
+    // หลายช่องค่าเดียวกัน: ส่งแบบ keys เดิม (ตรวจเหมือนเดิม) — ประวัติเก็บค่าก่อนหน้าแยกรายช่อง
+    if (keys.length === 1) return applyNames([{ key: keys[0], value: v }], { what });
+    applyNames(keys.map((key) => ({ key, value: v })), { check: false, what });
   };
 
-  // ----- สีพื้น / สีตัวอักษร -----
-  const applyStyle = (patch: { bg?: string | null; fg?: string | null; clear?: boolean }) => {
-    if (selKeys.length === 0) return;
-    const keys = [...selKeys];
-    // แสดงผลทันที แล้วค่อยบันทึก (ถ้าบันทึกไม่ได้ คืนสีเดิมบนจอ)
-    const before = new Map<HTMLElement, [string, string]>();
-    for (const x of cells.current) {
-      if (!sel.has(x.key)) continue;
-      before.set(x.el, [x.el.style.background, x.el.style.color]);
-      if (typeof patch.bg === "string") x.el.style.background = patch.bg;
-      if (typeof patch.fg === "string") x.el.style.color = patch.fg;
-    }
-    const t = toast.loading("กำลังบันทึกสี…");
-    enqueue(async () => {
-      const r = await post(`${API}/style`, { ym: p.ym, keys, ...patch });
-      if (!r.ok) {
-        for (const [el, [bg, fg]] of before) {
-          el.style.background = bg;
-          el.style.color = fg;
-        }
-        return void t.error(`บันทึกสีไม่สำเร็จ: ${r.error}`);
+  const applyStyle = (patch: StylePatch) => applyStyles([...selKeys], patch, null);
+
+  function openEdit(key: string, typed = "") {
+    ensureIndex();
+    const x = cells.current.find((c) => c.key === key);
+    if (!x) return;
+    const [sec, col, day] = key.split(":");
+    const current = x.el.textContent ?? "";
+    setEdit({ key, current, sec, col, day });
+    setValue(typed); // ช่องค้นหา/พิมพ์ชื่อ (เริ่มว่าง หรือเป็นตัวอักษรที่เพิ่งกด)
+    setHi(typed ? 0 : -1);
+    setErr("");
+    // ตารางอื่นที่ช่องว่างอยู่ → ติ๊กให้อัตโนมัติ · มีชื่อคนอื่นแล้ว → ไม่ติ๊ก (ติ๊กเองได้ถ้าต้องการเขียนทับ)
+    setCrossOn(Object.fromEntries(crossTargets(key).map((t) => [t.sec, t.current.trim() === ""])));
+    focusKey.current = key;
+  }
+
+  // ----- คีย์บอร์ด: ลูกศร = เลื่อนช่อง · พิมพ์ = ค้นหาชื่อ · Enter = เปิดรายชื่อ · Delete = ล้าง · Ctrl+Z / Ctrl+Y -----
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      const inField = !!t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA" || t.isContentEditable);
+      if (edit || colorsOpen || sumOpen || inField) return;
+      const mod = e.ctrlKey || e.metaKey;
+      const k = e.key.toLowerCase();
+      if (mod && k === "z" && !e.shiftKey) return void (e.preventDefault(), undo());
+      if (mod && (k === "y" || (k === "z" && e.shiftKey))) return void (e.preventDefault(), redo());
+      if (e.key === "Escape") return setSel(new Set());
+      const cur = focusKey.current ?? anchor.current;
+      if (!cur || !sel.has(cur) && sel.size === 0) return;
+      const dirs: Record<string, "up" | "down" | "left" | "right"> = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
+      if (e.key in dirs) {
+        e.preventDefault();
+        const n = neighbor(cur, dirs[e.key]);
+        if (n) goTo(n, e.shiftKey);
+        return;
       }
-      t.success(patch.clear || patch.bg === null || patch.fg === null ? "ล้างสีแล้ว" : "บันทึกสีสำเร็จ");
-    });
-  };
+      if (e.key === "Enter" || e.key === "F2") return void (e.preventDefault(), openEdit(cur));
+      if (e.key === "Delete" || e.key === "Backspace") return void (e.preventDefault(), bulkManual(""));
+      if (!mod && !e.altKey && e.key.length === 1 && e.key.trim() !== "") {
+        e.preventDefault();
+        openEdit(cur, e.key);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
 
   const savePersonColors = async () => {
     const t = toast.loading("กำลังบันทึกสีพนักงาน… (รอสักครู่)");
@@ -422,6 +697,9 @@ export default function ScheduleView(p: Props) {
 
   const isOfficer = edit ? (p.officerCols ?? OFFICER_COLS).includes(edit.col) || (edit.sec === "1" && edit.col === "B") : false;
   const uniqNames = useMemo(() => Array.from(new Set(p.names)), [p.names]);
+  const xTargets = edit ? crossTargets(edit.key) : [];
+  /** ชื่อซ้ำกับจุดอื่นในช่วงเวลาเดียวกัน (เฉพาะตาราง 3 ช่วงเวลา) → ไม่ให้บันทึก */
+  const blocked = (n: string) => (edit ? n !== edit.current && busyAt(Number(edit.sec), Number(edit.day), edit.col, n) !== null : false);
   const single = selKeys.length === 1 ? selKeys[0] : null;
   const shown = useMemo(() => {
     const q = value.trim().toLowerCase();
@@ -443,6 +721,29 @@ export default function ScheduleView(p: Props) {
             <Icon name="ChevronRight" size={16} />
           </button>
         </div>
+        <div className="join">
+          <button className="btn btn-sm join-item" onClick={undo} disabled={past.current.length === 0} title="ย้อนกลับ (Ctrl+Z)" aria-label="ย้อนกลับ">
+            <Icon name="Undo2" size={16} />
+          </button>
+          <button className="btn btn-sm join-item" onClick={redo} disabled={future.current.length === 0} title="ทำซ้ำ (Ctrl+Y)" aria-label="ทำซ้ำ">
+            <Icon name="Redo2" size={16} />
+          </button>
+        </div>
+        <span className={savingN > 0 ? "savestat on" : "savestat"} role="status" aria-live="polite">
+          {savingN > 0 ? (
+            <>
+              <span className="loading loading-spinner loading-xs" /> กำลังบันทึก{savingN > 1 ? ` ${savingN} รายการ` : "…"}
+            </>
+          ) : savedAt ? (
+            <>
+              <Icon name="Check" size={14} /> บันทึกแล้ว {savedAt}
+            </>
+          ) : (
+            <>
+              <Icon name="Check" size={14} /> ข้อมูลล่าสุด
+            </>
+          )}
+        </span>
         <strong className={`month-chip tone-${p.table}`}>
           <Icon name="CalendarDays" size={16} />
           <span className="tt">{p.tableTitle}</span> · {p.label}
@@ -541,7 +842,11 @@ export default function ScheduleView(p: Props) {
 
       <div className="hint no-print">
         <Icon name="MousePointerClick" size={14} />
-        คลิกช่องเพื่อเลือกชื่อ · ลากเมาส์ หรือกด Shift เพื่อเลือกหลายช่อง (ใส่สี/ล้างชื่อ) · Ctrl+คลิกเพื่อเพิ่ม ·{" "}
+        คลิกช่องเพื่อเลือกชื่อ · ลากเมาส์ หรือกด Shift เพื่อเลือกหลายช่อง (ใส่สี/ล้างชื่อ) · Ctrl+คลิกเพื่อเพิ่ม ·
+        <span className="kbd-hint">
+          <Icon name="Keyboard" size={14} /> ลูกศร เลื่อนช่อง · พิมพ์ชื่อได้เลย · Enter เลือก · Delete ล้าง · Ctrl+Z ย้อนกลับ
+        </span>
+        ·{" "}
         {p.hint ??
           (p.manualSource === "month-tab"
             ? `ช่อง จนท. บันทึกลงแท็บ ${p.tabName} ในชีต`
@@ -588,25 +893,82 @@ export default function ScheduleView(p: Props) {
               <input
                 className="grow"
                 value={value}
-                onChange={(e) => setValue(e.target.value)}
+                onChange={(e) => {
+                  setValue(e.target.value);
+                  setHi(e.target.value.trim() ? 0 : -1);
+                }}
                 onKeyDown={(e) => {
+                  if (e.key === "Escape") return void (e.preventDefault(), setEdit(null));
+                  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                    e.preventDefault();
+                    const n = shown.length;
+                    if (n === 0) return;
+                    const next = e.key === "ArrowDown" ? (hi + 1) % n : (hi <= 0 ? n - 1 : hi - 1);
+                    setHi(next);
+                    document.getElementById(`nl-${next}`)?.scrollIntoView({ block: "nearest" });
+                    return;
+                  }
                   if (e.key !== "Enter" || busy) return;
-                  if (shown.length === 1) saveName(shown[0]);
-                  else if (!isOfficer && value.trim() !== "") saveName(value.trim());
+                  e.preventDefault();
+                  const pick = hi >= 0 && hi < shown.length ? shown[hi] : shown.length === 1 ? shown[0] : null;
+                  const name = pick ?? (!isOfficer && value.trim() !== "" ? value.trim() : null);
+                  if (name === null) return;
+                  const at = name === edit.current ? null : busyAt(Number(edit.sec), Number(edit.day), edit.col, name);
+                  if (at) setErr(`“${name}” อยู่ที่ ${at} ในช่วงเวลานี้แล้ว — เลือกคนอื่น หรือเอาออกจากจุดนั้นก่อน`);
+                  else saveName(name);
                 }}
                 placeholder={isOfficer ? "ค้นหาชื่อ…" : "ค้นหา หรือพิมพ์ชื่อใหม่แล้วกด Enter"}
-                autoFocus
+                ref={searchRef}
               />
             </label>
             <div className="namelist" role="listbox" aria-label="รายชื่อ">
-              {shown.map((n) => (
-                <button key={n} role="option" aria-selected={n === edit.current} className={n === edit.current ? "nl-item cur" : "nl-item"} disabled={busy} onClick={() => saveName(n)}>
-                  <span className="av" style={{ background: avColor(n) }}>{Array.from(n.replace(/^(นาย|นางสาว|นาง|น\.ส\.)\s*/, ""))[0] ?? "?"}</span>
-                  {n}
-                </button>
-              ))}
+              {shown.map((n, i) => {
+                const at = n === edit.current ? null : busyAt(Number(edit.sec), Number(edit.day), edit.col, n);
+                return (
+                  <button
+                    key={n}
+                    id={`nl-${i}`}
+                    role="option"
+                    aria-selected={n === edit.current}
+                    className={["nl-item", n === edit.current ? "cur" : "", i === hi ? "hi" : "", at ? "busy" : ""].filter(Boolean).join(" ")}
+                    disabled={busy || at !== null}
+                    title={at ? `อยู่ที่ ${at} ในช่วงเวลานี้แล้ว` : undefined}
+                    onMouseEnter={() => setHi(i)}
+                    onClick={() => saveName(n)}
+                  >
+                    <span className="av" style={{ background: avColor(n) }}>{Array.from(n.replace(/^(นาย|นางสาว|นาง|น\.ส\.)\s*/, ""))[0] ?? "?"}</span>
+                    {n}
+                    {at && (
+                      <span className="nl-busy">
+                        <Icon name="CircleAlert" size={13} /> อยู่ที่ {at} แล้ว
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
               {shown.length === 0 && <div className="muted small p-2">ไม่พบชื่อ{!isOfficer && value.trim() !== "" ? " — กด Enter เพื่อใช้ชื่อที่พิมพ์" : ""}</div>}
             </div>
+            {xTargets.length > 0 && (
+              <div className="cross-box">
+                <div className="cross-title">
+                  <Icon name="LayoutGrid" size={15} /> ใส่ชื่อเดียวกันในตารางอื่นด้วย <span className="muted">({pointLabel(Number(edit.sec) as SectionNo, colIndex(edit.col))} · วันที่ {edit.day})</span>
+                </div>
+                <div className="cross-list">
+                  {xTargets.map((t) => (
+                    <label key={t.sec} className={`cross-item tone-${t.table}${crossOn[t.sec] ? " on" : ""}`}>
+                      <input type="checkbox" className="checkbox checkbox-sm checkbox-primary" checked={!!crossOn[t.sec]} onChange={(e) => setCrossOn((o) => ({ ...o, [t.sec]: e.target.checked }))} />
+                      <span className="cross-name">{t.label}</span>
+                      <span className={t.current.trim() ? "cross-cur has" : "cross-cur"}>{t.current.trim() ? `มี: ${t.current}` : "ว่าง"}</span>
+                    </label>
+                  ))}
+                </div>
+                {xTargets.some((t) => crossOn[t.sec] && t.current.trim() !== "") && (
+                  <div className="cross-warn">
+                    <Icon name="TriangleAlert" size={13} /> ช่องที่มีชื่ออยู่แล้วจะถูกเขียนทับ
+                  </div>
+                )}
+              </div>
+            )}
             <p className="muted small">
               <Icon name="Info" size={13} /> {p.dupNote ?? "พนักงาน 1 คนอยู่ได้ทีละจุดในแถวเดียวกัน — ถ้าชื่อซ้ำ ระบบจะไม่บันทึก"}
             </p>
@@ -632,7 +994,7 @@ export default function ScheduleView(p: Props) {
                 ยกเลิก
               </button>
               {!isOfficer && value.trim() !== "" && (
-                <button className="btn btn-sm btn-primary" disabled={busy} onClick={() => saveName(value.trim())}>
+                <button className="btn btn-sm btn-primary" disabled={busy || blocked(value.trim())} onClick={() => saveName(value.trim())}>
                   {busy ? <span className="loading loading-spinner loading-xs" /> : <Icon name="Check" size={14} />}
                   {busy ? "กำลังบันทึก…" : `ใช้ชื่อ "${value.trim()}"`}
                 </button>

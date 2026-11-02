@@ -157,6 +157,37 @@ export async function saveManualMany(
   await batchUpdate(ID(), [{ range: `'${WEB_MANUAL_TAB}'!A2:B${rows.length + 1}`, values: rows }]);
 }
 
+/**
+ * ตรวจหลายช่องพร้อมกัน (เช่น ใส่ชื่อเดียวกันลงตาราง 3 ช่วงเวลา): คำนวณเดือนครั้งเดียวโดยใส่ทุกช่องแล้ว
+ * คืนรายการช่องที่ชื่อซ้ำกับจุดอื่นในแถว (ช่วงเวลา) เดียวกัน
+ */
+export async function validateManualEntries(
+  yearBE: number,
+  month: number,
+  entries: { key: string; value: string | null }[],
+): Promise<{ key: string; error: string }[]> {
+  const named = entries.filter((e) => e.value !== null && e.value.trim() !== "");
+  if (named.length === 0) return [];
+  const data = await loadShift3();
+  const st = await loadMonthState(data, yearBE, month);
+  const over: ManualCells = { ...st.manual };
+  for (const e of entries) if (e.value === null) delete over[e.key];
+  else over[e.key] = e.value;
+  const res = computeMonth(data.settings, data.leaves, over, yearBE, month);
+  const out: { key: string; error: string }[] = [];
+  for (const e of named) {
+    const [secStr, col, dayStr] = e.key.split(":");
+    const row = res.sections[Number(secStr) - 1]?.rows[Number(dayStr) - 1];
+    if (!row || row.date === null) {
+      out.push({ key: e.key, error: "วันที่นี้ไม่มีในเดือน" });
+      continue;
+    }
+    const m = conflictMessage(row.cells, colIndex(col), e.value as string, Number(dayStr));
+    if (m) out.push({ key: e.key, error: m });
+  }
+  return out;
+}
+
 /** ตรวจก่อนบันทึก: ชื่อที่ใส่ซ้ำกับช่องอื่นในแถวเดียวกันหรือไม่ (คืนข้อความ error หรือ null) */
 export async function validateManual(yearBE: number, month: number, key: string, value: string | null): Promise<string | null> {
   if (value === null || value.trim() === "") return null;

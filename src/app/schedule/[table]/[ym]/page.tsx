@@ -6,6 +6,7 @@ import { summarizeShifts } from "@/lib/shift-summary";
 import { dropdownNames } from "@/lib/shift3/parse";
 import { loadMonthState, loadShift3 } from "@/lib/shift3/repo";
 import { renderMonthHtml } from "@/lib/shift3/render";
+import { crossInfo } from "@/lib/shift3/cross";
 import { tableById } from "@/lib/tables";
 import ScheduleView from "@/components/ScheduleView";
 import OtSchedule from "./ot";
@@ -52,6 +53,9 @@ export default async function SchedulePage({ params }: { params: { table: string
       sectionHtml={html[tdef.section - 1]}
       names={names}
       personColors={st.personColors}
+      manual={st.manual}
+      cellStyles={st.styles}
+      cross={crossInfo(res, tdef.section)}
       dupDays={dupDays}
       summary={summary}
       warning={beforeStart ? "เดือนนี้อยู่ก่อนวันเริ่มตาราง (ตั้งค่า B3) จึงยังไม่มีการจัดคน" : ""}

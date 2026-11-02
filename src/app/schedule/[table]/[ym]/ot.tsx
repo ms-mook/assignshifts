@@ -45,6 +45,8 @@ export default async function OtSchedule({ tdef, ym, yearBE, month }: { tdef: Ta
       sectionHtml={html}
       names={names}
       personColors={st.personColors}
+      manual={Object.fromEntries(Object.entries(st.manual).map(([k, v]) => [`o:${k}`, v]))}
+      cellStyles={st.styles}
       dupDays={dupDays}
       summary={summary}
       warning={beforeStart ? "เดือนนี้อยู่ก่อนวันเริ่มตาราง (ตั้งค่า B4) จึงยังไม่มีการจัดคน" : ""}

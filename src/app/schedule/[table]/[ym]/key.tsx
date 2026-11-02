@@ -37,6 +37,8 @@ export default async function KeySchedule({ tdef, ym, yearBE, month }: { tdef: T
       sectionHtml={html}
       names={names}
       personColors={st.personColors}
+      manual={Object.fromEntries(Object.entries(st.manual).map(([k, v]) => [`k:${k}`, v]))}
+      cellStyles={st.styles}
       dupDays={dupDays}
       summary={[{ title: "สรุปวันทำงานเดือนนี้", rows: res.dayCounts }]}
       warning={checkText}

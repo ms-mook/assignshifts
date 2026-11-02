@@ -382,6 +382,24 @@
   .nl-item.cur { background: linear-gradient(90deg, rgb(226 234 244), rgb(232 238 246)); border-color: var(--color-primary); font-weight: 700; }
   .nl-item.cur::after { content: "ค่าปัจจุบัน"; margin-left: auto; font-size: 11px; font-weight: 700; color: var(--color-primary); }
 
+  .nl-item.hi { background: rgb(232 238 246); border-color: rgb(184 199 220); }
+  .nl-item.busy { opacity: 0.55; cursor: not-allowed; }
+  .nl-item.busy:hover { transform: none; background: transparent; border-color: transparent; }
+  .nl-busy { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--color-error); white-space: nowrap; }
+  .cross-box { padding: 10px 12px; border-radius: 14px; background: rgb(240 244 250 / 0.9); border: 1px solid rgb(184 199 220 / 0.8); display: grid; gap: 8px; }
+  .cross-title { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-weight: 700; font-size: 14px; color: #17305a; }
+  .cross-title .muted { font-weight: 500; font-size: 12.5px; }
+  .cross-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 6px; }
+  .cross-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 10px; background: #fff; border: 1px solid rgb(184 199 220 / 0.7); cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; }
+  .cross-item.on { border-color: color-mix(in oklab, var(--a) 60%, white); box-shadow: inset 3px 0 0 var(--a); }
+  .cross-name { font-weight: 700; color: color-mix(in oklab, var(--a) 85%, #1e293b); }
+  .cross-cur { margin-left: auto; font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 55%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+  .cross-cur.has { color: #8a5a00; font-weight: 600; }
+  .cross-warn { display: flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 600; color: #8a5a00; }
+  .savestat { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; min-height: 2rem; border-radius: 999px; font-size: 12.5px; font-weight: 600; white-space: nowrap; color: #2f7660; background: rgb(47 118 96 / 0.08); border: 1px solid rgb(47 118 96 / 0.18); transition: background 0.2s, color 0.2s; }
+  .savestat.on { color: #2f5d8f; background: rgb(47 93 143 / 0.08); border-color: rgb(47 93 143 / 0.2); }
+  .kbd-hint { display: inline-flex; align-items: center; gap: 4px; }
+
   .colorlist { display: grid; gap: 6px; max-height: 52vh; overflow: auto; padding: 4px; }
   .colorlist label { display: grid; grid-template-columns: 1fr 44px auto; gap: 8px; align-items: center; font-weight: 700; padding: 4px 8px; border-radius: 10px; background: rgb(255 255 255 / 0.6); }
 

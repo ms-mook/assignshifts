@@ -9,7 +9,7 @@ import { computeMonth } from "../../src/lib/shift3/engine";
 import { parseSettings, dropdownNames } from "../../src/lib/shift3/parse";
 import { renderMonthHtml } from "../../src/lib/shift3/render";
 import { duplicateCols } from "../../src/lib/shift3/conflicts";
-import { summarizeShifts } from "../../src/lib/shift-summary";
+import { crossInfo } from "../../src/lib/shift3/cross";
 import book from "../../fixtures/shift3-sheet.json";
 import "../../src/app/ui.css";
 import "../../src/app/globals.css";
@@ -68,6 +68,9 @@ createRoot(document.getElementById("root")!).render(
         personColors={{}}
         dupDays={dupDays}
         summary={summary}
+        manual={{}}
+        cellStyles={{}}
+        cross={crossInfo(res, sec as 1)}
         warning=""
       />
     </main>

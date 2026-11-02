@@ -244,6 +244,25 @@ async function main() {
   const afterLeave = computeMonth(d3.settings, d3.leaves, {}, 2570, 12);
   const lr = afterLeave.sections[0].rows[target.day - 1];
   ok(lr.cells.some((v: string) => v.startsWith("⚠") && v.includes(leaver)) || lr.cells.some((v: string) => v.includes("(แทน")), "ตารางแสดง ⚠ ลา");
+
+  console.log("12) ใส่ชื่อเดียวกันลงตาราง 3 ช่วงเวลา (ตรวจชื่อซ้ำทั้งหมดในครั้งเดียว)");
+  {
+    const day = row.day;
+    const ks = [1, 2, 3].map((sec) => `${sec}:I:${day}`);
+    eqv(await repo.validateManualEntries(2570, 12, ks.map((key) => ({ key, value: "MT ทดสอบ" }))), [], "ชื่อใหม่ไม่ซ้ำทั้ง 3 ตาราง → ผ่าน");
+    const fresh = computeMonth((await repo.loadShift3()).settings, [], (await repo.loadMonthState(data, 2570, 12)).manual, 2570, 12);
+    const busy = cellPerson(fresh.sections[1].rows[day - 1].cells[colIndex("V")] ?? "") ?? cellPerson(fresh.sections[1].rows[day - 1].cells[colIndex("G")] ?? "");
+    if (busy) {
+      const bad = await repo.validateManualEntries(2570, 12, ks.map((key) => ({ key, value: busy })));
+      ok(bad.some((b: any) => b.key === `2:I:${day}`), `"${busy}" อยู่จุดอื่นในตาราง 8.30-12.30 → ถูกกันช่อง 2:I`);
+    }
+    await repo.saveManualMany(2570, 12, ks.map((key) => ({ key, value: "MT ทดสอบ" })));
+    let st2 = await repo.loadMonthState(data, 2570, 12);
+    eqv(ks.map((k) => st2.manual[k]), ["MT ทดสอบ", "MT ทดสอบ", "MT ทดสอบ"], "บันทึกครบ 3 ตาราง");
+    await repo.saveManualMany(2570, 12, ks.map((key) => ({ key, value: null })));
+    st2 = await repo.loadMonthState(data, 2570, 12);
+    eqv(ks.some((k) => k in st2.manual), false, "ย้อนกลับ (คืนค่าสูตร) ครบ 3 ตาราง");
+  }
   console.log(`\nผ่าน ${pass} · ไม่ผ่าน ${fail} · เรียก API จำลอง ${apiCalls} ครั้ง`);
   process.exit(fail ? 1 : 0);
 }
