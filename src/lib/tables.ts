@@ -3,7 +3,7 @@ export interface TableDef {
   id: string;
   label: string;
   title: string;
-  kind: "shift3" | "ot" | "key";
+  kind: "shift3" | "ot" | "key" | "smc";
   section: 1 | 2 | 3;
 }
 
@@ -12,6 +12,7 @@ export const TABLES: TableDef[] = [
   { id: "s2", label: "8.30-12.30", title: "ตาราง 8.30-12.30", kind: "shift3", section: 2 },
   { id: "s3", label: "12.30-16.30", title: "ตาราง 12.30-16.30", kind: "shift3", section: 3 },
   { id: "key", label: "Key", title: "ตาราง Key", kind: "key", section: 1 },
+  { id: "smc", label: "SMC", title: "ตาราง SMC", kind: "smc", section: 1 },
   { id: "ot", label: "OT", title: "ตาราง OT", kind: "ot", section: 1 },
 ];
 

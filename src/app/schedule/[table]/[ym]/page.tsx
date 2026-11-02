@@ -10,6 +10,7 @@ import { tableById } from "@/lib/tables";
 import ScheduleView from "@/components/ScheduleView";
 import OtSchedule from "./ot";
 import KeySchedule from "./key";
+import SmcSchedule from "./smc";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ export default async function SchedulePage({ params }: { params: { table: string
   const tdef = tableById(params.table);
   const p = parseYm(params.ym);
   if (!tdef || !p) notFound();
+  if (tdef.kind === "smc") return <SmcSchedule tdef={tdef} ym={params.ym} yearBE={p.yearBE} month={p.month} />;
   if (tdef.kind === "key") return <KeySchedule tdef={tdef} ym={params.ym} yearBE={p.yearBE} month={p.month} />;
   if (tdef.kind === "ot") return <OtSchedule tdef={tdef} ym={params.ym} yearBE={p.yearBE} month={p.month} />;
   const data = await loadShift3();
