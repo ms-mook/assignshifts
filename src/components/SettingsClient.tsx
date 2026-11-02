@@ -265,20 +265,26 @@ export default function SettingsClient({ initial, info }: { initial: Shift3Setti
             </h2>
             <table className="form">
               <thead>
-                <tr><th style={{ width: 60 }}>ลำดับ</th><th>ชื่อ</th><th>หมายเหตุ</th><th style={{ width: 60 }}></th></tr>
+                <tr><th style={{ width: 60 }}>ลำดับ</th><th>ชื่อ</th><th style={{ width: 110 }}>ประเภท</th><th>หมายเหตุ</th><th style={{ width: 60 }}></th></tr>
               </thead>
               <tbody>
                 {f.mtrn.map((m, i) => (
                   <tr key={i}>
                     <td className="ro">{i + 1}</td>
                     <td><input className="y" value={m.name} onChange={(e) => set("mtrn", f.mtrn.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} /></td>
+                    <td>
+                      <select className="y" value={m.type} onChange={(e) => set("mtrn", f.mtrn.map((x, j) => (j === i ? { ...x, type: e.target.value as "MT" | "RN" } : x)))}>
+                        <option value="MT">MT</option>
+                        <option value="RN">RN</option>
+                      </select>
+                    </td>
                     <td><input value={m.note} onChange={(e) => set("mtrn", f.mtrn.map((x, j) => (j === i ? { ...x, note: e.target.value } : x)))} /></td>
                     <td><button onClick={() => set("mtrn", f.mtrn.filter((_, j) => j !== i))}>ลบ</button></td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <p><button onClick={() => set("mtrn", [...f.mtrn, { name: "", note: "" }])}>+ เพิ่มชื่อ</button></p>
+            <p><button onClick={() => set("mtrn", [...f.mtrn, { name: "", note: "", type: "MT" }])}>+ เพิ่มชื่อ</button></p>
           </section>
 
           <section className="card">

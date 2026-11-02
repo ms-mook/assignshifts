@@ -11,6 +11,7 @@ import {
   dropdownNames,
   parseLeaves,
   parseMtrn,
+  type Mtrn,
   parseSettings,
   str,
 } from "./parse";
@@ -25,7 +26,7 @@ const SECTION_FIRST_ROW: Record<SectionNo, number> = { 1: 8, 2: 49, 3: 90 };
 export interface Shift3Data {
   settings: Shift3Settings;
   leaves: LeaveRow[];
-  mtrn: { name: string; note: string }[];
+  mtrn: Mtrn[];
 }
 
 export async function loadShift3(): Promise<Shift3Data> {
@@ -243,7 +244,7 @@ export interface Shift3SettingsForm {
   holidays: { date: string; name: string }[];
   signerName: string;
   signerTitle: string;
-  mtrn: { name: string; note: string }[];
+  mtrn: Mtrn[];
 }
 
 const iso = (n: number | null) => (n === null ? "" : isoFromSerial(n));
@@ -337,6 +338,11 @@ export async function saveSettings(f: Shift3SettingsForm): Promise<void> {
     {
       range: `'รายชื่อ MT-RN'!C3:C200`,
       values: Array.from({ length: 198 }, (_, i) => [f.mtrn[i]?.note ?? ""]),
+    },
+    { range: `'รายชื่อ MT-RN'!D2`, values: [["ประเภท (MT/RN)"]] },
+    {
+      range: `'รายชื่อ MT-RN'!D3:D200`,
+      values: Array.from({ length: 198 }, (_, i) => [f.mtrn[i] ? (f.mtrn[i].type === "RN" ? "RN" : "MT") : ""]),
     },
   ];
   await batchUpdate(ID(), data);

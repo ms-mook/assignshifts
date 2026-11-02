@@ -8,6 +8,7 @@ import { SHEET_CSS } from "@/lib/shift3/render";
 import { rememberYm } from "./NavLinks";
 import { useToast } from "./Toast";
 import { downloadTablePdf } from "@/lib/pdf-export";
+import type { SummaryGroup } from "@/lib/shift-summary";
 
 interface Props {
   table: string;
@@ -30,6 +31,8 @@ interface Props {
   hint?: string;
   /** ข้อความเตือนชื่อซ้ำ (แทนข้อความเริ่มต้น) */
   dupNote?: string;
+  /** สรุปจำนวนเวรของแต่ละคนในเดือนนี้ (ปุ่ม สรุปเวร) */
+  summary?: SummaryGroup[];
   /** ตั้งค่าการสร้าง PDF */
   pdf?: { colA: number; colW: number; keepCols?: number[]; sheetCss?: string };
   warning: string;
@@ -114,6 +117,7 @@ export default function ScheduleView(p: Props) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [colorsOpen, setColorsOpen] = useState(false);
+  const [sumOpen, setSumOpen] = useState(false);
   const [colors, setColors] = useState<Record<string, string>>(p.personColors);
 
   useEffect(() => {
@@ -379,6 +383,7 @@ export default function ScheduleView(p: Props) {
           {Math.round(zoom * 100)}%
         </label>
         <button onClick={fitToScreen} title="ปรับขนาดให้ตารางเต็มความกว้างจอ">↔ พอดีจอ</button>
+        {p.summary && <button onClick={() => setSumOpen(true)}>📊 สรุปเวร</button>}
         <button onClick={() => setColorsOpen(true)}>🎨 สีตามชื่อพนักงาน</button>
         <select value={paper} onChange={(e) => setPaper(e.target.value as Paper)} aria-label="ขนาดกระดาษ">
           {(Object.keys(PAPERS) as Paper[]).map((k) => (
@@ -498,6 +503,48 @@ export default function ScheduleView(p: Props) {
         </div>
       )}
 
+      {sumOpen && p.summary && (
+        <div className="modal-bg no-print" onClick={() => setSumOpen(false)}>
+          <div className="modal sum-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="สรุปเวร">
+            <h3>
+              สรุปเวร · {p.tableTitle} · {p.label}
+            </h3>
+            <p className="muted small">จำนวนเวรที่แต่ละคนได้รับในเดือนนี้ (นับ 1 ช่อง = 1 เวร · ไม่นับช่องที่ลา &quot;⚠&quot; หรือ &quot;→ ไปช่วยจุดอื่น&quot;)</p>
+            <div className="sum-groups">
+              {p.summary.map((g) => {
+                const max = Math.max(1, ...g.rows.map((r) => r.count));
+                return (
+                  <table key={g.title} className="sum-table">
+                    <thead>
+                      <tr><th>{g.title}</th><th>จำนวนเวรที่ได้</th></tr>
+                    </thead>
+                    <tbody>
+                      {g.rows.map((r) => {
+                        const a = r.count / max;
+                        // ไล่สีขาว → ส้ม ตามจำนวนเวร (มากสุด = เข้มสุด)
+                        const bg = r.count === 0 ? "#fff" : `rgb(${Math.round(255 - 18 * a)},${Math.round(236 - 80 * a)},${Math.round(214 - 150 * a)})`;
+                        return (
+                          <tr key={r.name}>
+                            <td>{r.name}</td>
+                            <td className="num" style={{ background: bg }}>{r.count}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr><td>รวม</td><td className="num">{g.rows.reduce((a, r) => a + r.count, 0)}</td></tr>
+                    </tfoot>
+                  </table>
+                );
+              })}
+            </div>
+            <div className="modal-actions">
+              <span className="spacer" />
+              <button onClick={() => setSumOpen(false)}>ปิด</button>
+            </div>
+          </div>
+        </div>
+      )}
       {colorsOpen && (
         <div className="modal-bg no-print" onClick={() => setColorsOpen(false)}>
           <div className="modal wide" onClick={(e) => e.stopPropagation()}>

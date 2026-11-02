@@ -1,7 +1,9 @@
 // หน้าตาราง OT (จุดรับ-นำส่งสิ่งส่งตรวจ)
 import { shiftYm, monthTabName } from "@/lib/config";
 import { computeOtMonth } from "@/lib/ot/engine";
-import { otDupCols } from "@/lib/ot/conflicts";
+import { otDupCols, otPerson } from "@/lib/ot/conflicts";
+import { OT_EDIT_COLS } from "@/lib/ot/engine";
+import { summarizeShifts } from "@/lib/shift-summary";
 import { loadOt, loadOtMonthState } from "@/lib/ot/repo";
 import { OT_COL_W, OT_CSS, renderOtHtml } from "@/lib/ot/render";
 import { SHEET_CSS } from "@/lib/shift3/render";
@@ -20,6 +22,15 @@ export default async function OtSchedule({ tdef, ym, yearBE, month }: { tdef: Ta
   const html = `<style>${OT_CSS}</style>` + renderOtHtml(res, { editable: true, styles: st.styles, personColors: st.personColors, today: todaySerial() });
   const dupDays = res.rows.filter((r) => r.date !== null && otDupCols(r.cells).size > 0).map((r) => r.day);
   const names = Array.from(new Set([...data.settings.staff.map((s) => s.name), ...data.settings.dropdown].filter((n) => n.trim() !== "")));
+  // สรุปเวร: นับทุกช่อง B..N (ไม่รวมหมายเหตุ O)
+  const summary = summarizeShifts(
+    res.rows.filter((r) => r.date !== null).flatMap((r) => OT_EDIT_COLS.filter((c) => c !== "O").map((c) => r.cells[c] ?? "")),
+    otPerson,
+    [
+      { title: "พนักงาน", names: data.settings.staff.flatMap((s) => [s.name, s.rep]) },
+      { title: "รายชื่อใน dropdown", names: data.settings.dropdown },
+    ],
+  );
   const beforeStart = res.rows.every((r) => r.P === 0 || r.Q === null);
   return (
     <ScheduleView
@@ -35,6 +46,7 @@ export default async function OtSchedule({ tdef, ym, yearBE, month }: { tdef: Ta
       names={names}
       personColors={st.personColors}
       dupDays={dupDays}
+      summary={summary}
       warning={beforeStart ? "เดือนนี้อยู่ก่อนวันเริ่มตาราง (ตั้งค่า B4) จึงยังไม่มีการจัดคน" : ""}
       api="/api/ot"
       dupNote="ตรวจว่าตั้งใจให้ควบ 2 จุด (เช่น 06.00-08.30 คู่กับช่วงทั้งวัน) — บันทึกได้ ระบบแค่เตือน"

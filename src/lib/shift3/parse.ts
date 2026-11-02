@@ -103,10 +103,16 @@ export function parseLeaves(g: Grid): LeaveRow[] {
     .filter((l) => l.date !== null || l.name !== "" || l.replacement !== "");
 }
 
-export const MTRN_RANGE = "'รายชื่อ MT-RN'!A3:C200";
+export const MTRN_RANGE = "'รายชื่อ MT-RN'!A3:D200";
 
-export function parseMtrn(g: Grid): { name: string; note: string }[] {
-  return g.map((row) => ({ name: str(row?.[0]), note: str(row?.[2]) })).filter((r) => r.name !== "");
+export type MtrnType = "MT" | "RN";
+export interface Mtrn { name: string; note: string; type: MtrnType }
+
+/** คอลัมน์ D "ประเภท" (MT/RN) เพิ่มสำหรับเว็บ — ว่าง = MT */
+export function parseMtrn(g: Grid): Mtrn[] {
+  return g
+    .map((row) => ({ name: str(row?.[0]), note: str(row?.[2]), type: (str(row?.[3]).trim().toUpperCase() === "RN" ? "RN" : "MT") as MtrnType }))
+    .filter((r) => r.name !== "");
 }
 
 /**
