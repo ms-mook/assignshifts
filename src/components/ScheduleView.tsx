@@ -119,6 +119,7 @@ interface PageStore {
   past: unknown[];
   future: unknown[];
   savedAt: string;
+  failed: number;
   sel: string[];
   anchor: string | null;
   focus: string | null;
@@ -129,7 +130,7 @@ const STORES = new Map<string, PageStore>();
 function pageStore(k: string): PageStore {
   let st = STORES.get(k);
   if (!st) {
-    st = { queue: Promise.resolve(), pending: 0, stale: false, past: [], future: [], savedAt: "", sel: [], anchor: null, focus: null, listeners: new Set(), refresh: () => undefined };
+    st = { queue: Promise.resolve(), pending: 0, stale: false, past: [], future: [], savedAt: "", failed: 0, sel: [], anchor: null, focus: null, listeners: new Set(), refresh: () => undefined };
     STORES.set(k, st);
   }
   return st;
@@ -317,10 +318,12 @@ export default function ScheduleView(p: Props) {
   const stale = storeRef<"stale">(store, "stale");
   const [savingN, setSavingN] = useState(store.pending);
   const [savedAt, setSavedAt] = useState<string>(store.savedAt);
+  const [failedN, setFailedN] = useState(store.failed);
   useEffect(() => {
     const on = () => {
       setSavingN(store.pending);
       setSavedAt(store.savedAt);
+      setFailedN(store.failed);
     };
     store.listeners.add(on);
     on();
@@ -328,6 +331,7 @@ export default function ScheduleView(p: Props) {
   }, [store]);
   const notify = () => store.listeners.forEach((f) => f());
   const enqueue = (task: () => Promise<void>) => {
+    if (store.pending === 0) store.failed = 0; // รอบบันทึกใหม่
     store.pending += 1;
     notify();
     store.queue = store.queue
@@ -440,6 +444,7 @@ export default function ScheduleView(p: Props) {
         localVals.current.delete(e.key);
       });
       if (act) dropAct(act);
+      store.failed += 1;
       toast.error(r.conflict ? `ไม่ได้บันทึก — ชื่อซ้ำ: ${r.error}` : `${opt.what ?? "บันทึก"}ไม่สำเร็จ: ${r.error}`);
     });
   };
@@ -514,6 +519,7 @@ export default function ScheduleView(p: Props) {
       }
       for (const [k, b] of before) Object.keys(b).length === 0 ? styleRef.current.delete(k) : styleRef.current.set(k, b);
       if (act) dropAct(act);
+      store.failed += 1;
       toast.error(`บันทึกสีไม่สำเร็จ: ${error}`);
     });
   };
@@ -783,10 +789,14 @@ export default function ScheduleView(p: Props) {
             <Icon name="Redo2" size={16} />
           </button>
         </div>
-        <span className={savingN > 0 ? "savestat on" : "savestat"} role="status" aria-live="polite">
+        <span className={savingN > 0 ? "savestat on" : failedN > 0 ? "savestat bad" : "savestat"} role="status" aria-live="polite">
           {savingN > 0 ? (
             <>
               <span className="loading loading-spinner loading-xs" /> กำลังบันทึก{savingN > 1 ? ` ${savingN} รายการ` : "…"}
+            </>
+          ) : failedN > 0 ? (
+            <>
+              <Icon name="TriangleAlert" size={14} /> ไม่ได้บันทึก {failedN} รายการ (ดูข้อความแจ้ง)
             </>
           ) : savedAt ? (
             <>
