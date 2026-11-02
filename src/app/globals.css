@@ -41,7 +41,11 @@ input, select, textarea { border: 1px solid var(--line); border-radius: 6px; pad
 .toolbar label { display: flex; gap: 6px; align-items: center; }
 .month-label { font-size: 17px; min-width: 210px; text-align: center; }
 .hint { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
-.sections { overflow: auto; background: #fff; border: 1px solid var(--line); padding: 8px; }
+.sections { overflow: scroll; max-height: 76vh; background: #fff; border: 1px solid var(--line); padding: 8px; }
+/* แถบเลื่อนซ้าย-ขวา/ขึ้น-ลง แสดงตลอดและอยู่ในกรอบที่เห็นพอดีจอ (ไม่ต้องเลื่อนลงไปสุดหน้าเพื่อหาแถบเลื่อนแนวนอน) */
+.sections::-webkit-scrollbar { width: 14px; height: 14px; }
+.sections::-webkit-scrollbar-track { background: #eef0f4; }
+.sections::-webkit-scrollbar-thumb { background: #98a2b3; border-radius: 8px; border: 3px solid #eef0f4; }
 .print-page + .print-page { margin-top: 24px; }
 .sheet td.e { cursor: cell; user-select: none; -webkit-user-select: none; }
 .sheet td.e:hover { outline: 3px solid #8fb2f5; outline-offset: -3px; }
@@ -86,7 +90,7 @@ input.y, select.y { background: var(--yellow); }
   html, body { background: #fff; }
   main { padding: 0; }
   .no-print, .topnav { display: none !important; }
-  .sections { border: none; padding: 0; overflow: visible; }
+  .sections { border: none; padding: 0; overflow: visible; max-height: none; }
   .print-page { break-after: page; page-break-after: always; margin: 0 !important; }
   .print-page:last-child { break-after: auto; page-break-after: auto; }
   .screen-zoom { zoom: var(--print-zoom) !important; }
