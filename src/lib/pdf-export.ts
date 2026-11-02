@@ -88,8 +88,9 @@ function pdfFromJpeg(jpeg: Uint8Array, imgW: number, imgH: number, page: PdfPape
 export type ExportOpts = {
   sectionHtml: string;
   sheetCss: string;
-  naturalW: number; // px กว้างของตาราง
-  rowH: number; // px ความสูงแถวข้อมูลตอนพิมพ์
+  colA: number; // px คอลัมน์วันที่
+  colW: number; // px คอลัมน์อื่น (ค่าสูงสุด)
+  rowH: number; // px ความสูงแถวข้อมูลตอนพิมพ์ (ค่าเริ่มต้น จะคำนวณใหม่ให้เต็มหน้า)
   paper: "a4" | "legal";
   marginMm: number;
   fileName: string;
@@ -99,24 +100,58 @@ export async function downloadTablePdf(o: ExportOpts): Promise<void> {
   const fonts = await loadFontCss();
   const host = document.createElement("div");
   host.setAttribute("xmlns", "http://www.w3.org/1999/xhtml");
-  host.style.cssText = `position:fixed;left:-100000px;top:0;width:${o.naturalW}px;background:#fff`;
+  host.style.cssText = `position:fixed;left:-100000px;top:0;background:#fff`;
   host.innerHTML = o.sectionHtml;
   // ตัดสถานะหน้าจอ (เลือก/ซ้ำ/โฮเวอร์) ออก ให้เหลือเฉพาะเนื้อตาราง
   host.querySelectorAll("td").forEach((td) => td.classList.remove("sel", "dup", "e"));
   document.body.appendChild(host);
   const css = `${fonts}${o.sheetCss}
 .sheet{font-family:'Sarabun',sans-serif}
-.sheet tr.dr{height:${o.rowH}px !important}
 .sheet td.d{padding:0 2px}
 .sheet td.dup{outline:none}`;
   try {
     if (document.fonts?.ready) await document.fonts.ready;
-    const table = host.querySelector("table") as HTMLElement;
-    const W = Math.ceil(table.getBoundingClientRect().width);
-    // วัดความสูงจริงหลังใส่ CSS พิมพ์
+    const table = host.querySelector("table") as HTMLTableElement;
     const probe = document.createElement("style");
     probe.textContent = css.replace(/url\([^)]*\)/g, "url()");
     host.prepend(probe);
+
+    // 1) บีบความกว้างคอลัมน์ให้พอดีชื่อที่ยาวที่สุด (ชื่อเต็มไม่ตกบรรทัด) → ตัวหนังสือในหน้ากระดาษใหญ่ขึ้น
+    const special = (t: string) => /[⚠→]|\(แทน/.test(t);
+    const dcells = Array.from(table.querySelectorAll<HTMLElement>("tr.dr td.d"));
+    const ruler = document.createElement("span");
+    ruler.style.cssText = "position:absolute;visibility:hidden;white-space:nowrap";
+    host.appendChild(ruler);
+    let maxText = 0;
+    for (const td of dcells) {
+      const tx = (td.textContent ?? "").trim();
+      if (!tx || special(tx)) continue;
+      const cs = getComputedStyle(td);
+      ruler.style.font = cs.font;
+      ruler.textContent = tx;
+      maxText = Math.max(maxText, ruler.getBoundingClientRect().width);
+      td.style.whiteSpace = "nowrap";
+    }
+    ruler.remove();
+    const colW = Math.max(90, Math.min(o.colW, Math.ceil(maxText) + 12));
+    const cols = Array.from(table.querySelectorAll("col"));
+    cols.forEach((c, i) => ((c as HTMLElement).style.width = `${i === 0 ? o.colA : colW}px`));
+    const W = o.colA + (cols.length - 1) * colW;
+    table.style.width = `${W}px`;
+    host.style.width = `${W}px`;
+
+    // 2) ปรับความสูงแถวข้อมูลให้ตารางมีสัดส่วนเท่ากระดาษพอดี (เต็มหน้า)
+    const nRows = table.querySelectorAll("tr.dr").length || 1;
+    const pg = PAPER_PT[o.paper];
+    const mPt = (o.marginMm / 25.4) * 72;
+    const aspect = (pg.hPt - 2 * mPt) / (pg.wPt - 2 * mPt);
+    const rowStyle = document.createElement("style");
+    host.prepend(rowStyle);
+    const setRow = (h: number) => (rowStyle.textContent = `.sheet tr.dr{height:${h}px !important}`);
+    setRow(o.rowH);
+    const fixedH = table.getBoundingClientRect().height - nRows * o.rowH;
+    const rowH = Math.max(40, (W * aspect - fixedH) / nRows);
+    setRow(rowH);
     const H = Math.ceil(table.getBoundingClientRect().height);
     probe.remove();
 

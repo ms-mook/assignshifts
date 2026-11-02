@@ -63,7 +63,7 @@ export function groupColor(col: number): string {
   return "#FFFFFF";
 }
 
-export const COL_WIDTH = { A: 44, other: 145 };
+export const COL_WIDTH = { A: 72, other: 145 };
 export const ROW_HEIGHT = { title: 36, subtitle: 28, time: 28, header: [34, 46, 34, 34], data: 112, sigGap: 72, sig: 30 };
 
 export const COLORS = {

@@ -309,7 +309,8 @@ export default function ScheduleView(p: Props) {
       await downloadTablePdf({
         sectionHtml: p.sectionHtml,
         sheetCss: SHEET_CSS,
-        naturalW: NATURAL_W,
+        colA: COL_WIDTH.A,
+        colW: COL_WIDTH.other,
         rowH: fit.rowH,
         paper,
         marginMm: MARGIN_MM,
