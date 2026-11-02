@@ -43,6 +43,16 @@ export async function loadManual(
 ): Promise<{ manual: ManualCells; source: "month-tab" | "web-tab" }> {
   const titles = await sheetTitles(ID());
   const tab = monthTabName(yearBE, month);
+  // ช่องที่พิมพ์ทับ (ทุกช่องตำแหน่ง) เก็บในแท็บ WEB-ช่องเลือกเอง เสมอ — ไม่แตะสูตรในแท็บเดือน
+  const web: ManualCells = {};
+  if (titles.includes(WEB_MANUAL_TAB)) {
+    const [g] = await batchGet(ID(), [`'${WEB_MANUAL_TAB}'!A2:B5000`]);
+    const prefix = `${ymString(yearBE, month)}|`;
+    for (const r of g) {
+      const k = str(r[0]);
+      if (k.startsWith(prefix)) web[k.slice(prefix.length)] = str(r[1]);
+    }
+  }
   if (titles.includes(tab)) {
     const ranges = ([1, 2, 3] as SectionNo[]).map(
       (s) => `'${tab}'!A${SECTION_FIRST_ROW[s]}:AK${SECTION_FIRST_ROW[s] + 30}`,
@@ -59,17 +69,9 @@ export async function loadManual(
         }
       });
     });
-    return { manual, source: "month-tab" };
+    return { manual: { ...manual, ...web }, source: "month-tab" };
   }
-  if (!titles.includes(WEB_MANUAL_TAB)) return { manual: {}, source: "web-tab" };
-  const [g] = await batchGet(ID(), [`'${WEB_MANUAL_TAB}'!A2:B5000`]);
-  const prefix = `${ymString(yearBE, month)}|`;
-  const manual: ManualCells = {};
-  for (const r of g) {
-    const k = str(r[0]);
-    if (k.startsWith(prefix)) manual[k.slice(prefix.length)] = str(r[1]);
-  }
-  return { manual, source: "web-tab" };
+  return { manual: web, source: "web-tab" };
 }
 
 /** บันทึกช่องเลือกเอง; value = null หมายถึงคืนค่าสูตรตั้งต้น */
@@ -79,11 +81,11 @@ export async function saveManual(yearBE: number, month: number, key: string, val
   const day = Number(dayStr);
   const ci = colIndex(col);
   const src = SECTION_MAP[sec]?.[ci];
-  if (!src || (src.kind !== "manual" && src.kind !== "free") || !(day >= 1 && day <= 31))
-    throw new Error("ช่องนี้แก้ไม่ได้");
+  if (!src || ci === 0 || !(day >= 1 && day <= 31)) throw new Error("ช่องนี้แก้ไม่ได้");
   const titles = await sheetTitles(ID());
   const tab = monthTabName(yearBE, month);
-  if (titles.includes(tab)) {
+  // ช่องจนท./เวชกรรมสังคม/SHE เขียนลงแท็บเดือนตามเดิม; ช่องอื่นเก็บในแท็บ WEB-ช่องเลือกเอง
+  if ((src.kind === "manual" || src.kind === "free") && titles.includes(tab)) {
     const r = SECTION_FIRST_ROW[sec] + day - 1;
     const flag = sec === 3 ? `$AP${r}` : `$AM${r}`;
     const restore = src.kind === "manual" ? `=IF(${flag}=1,"จนท.","")` : "";

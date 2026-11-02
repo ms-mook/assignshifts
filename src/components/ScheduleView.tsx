@@ -22,7 +22,8 @@ interface Props {
 const PAGE_W = 14 * 96 - 2 * 23;
 const PAGE_H = 8.5 * 96 - 2 * 23;
 
-const FREE_COLS = ["AH", "AI", "AJ", "AK"];
+// ช่องที่ค่าตั้งต้นคือ "จนท." (เลือกชื่อจากรายการ) — ช่องอื่นพิมพ์/เลือกชื่อทับได้ และคืนค่าสูตรได้
+const OFFICER_COLS = ["D", "E", "F", "S", "T", "U", "AC"];
 
 export default function ScheduleView(p: Props) {
   const router = useRouter();
@@ -57,7 +58,9 @@ export default function ScheduleView(p: Props) {
     const [sec, col, day] = key.split(":");
     const current = td.textContent ?? "";
     setEdit({ key, current, sec, col, day });
-    setValue(current === "จนท." ? "" : current);
+    const officer = OFFICER_COLS.includes(col) || (sec === "1" && col === "B");
+    // ช่องพิมพ์/เลือกเอง: เริ่มว่างเพื่อให้รายการชื่อแสดงครบ (ค่าปัจจุบันดูได้จากบรรทัด "ค่าปัจจุบัน")
+    setValue(officer ? (current === "จนท." ? "" : current) : "");
     setErr("");
   };
 
@@ -76,7 +79,7 @@ export default function ScheduleView(p: Props) {
     router.refresh();
   };
 
-  const isFree = edit ? FREE_COLS.includes(edit.col) : false;
+  const isOfficer = edit ? OFFICER_COLS.includes(edit.col) || (edit.sec === "1" && edit.col === "B") : false;
 
   return (
     <div className={"schedule"}>
@@ -104,7 +107,7 @@ export default function ScheduleView(p: Props) {
         </button>
       </div>
       <div className="hint no-print">
-        คลิกช่อง จนท. / เวชกรรมสังคม / ออกหน่วย SHE เพื่อเลือกชื่อ ·{" "}
+        คลิกช่องใดก็ได้ในตารางเพื่อเลือก/พิมพ์ชื่อ (หรือคืนค่าตามสูตร) ·{" "}
         {p.manualSource === "month-tab"
           ? `บันทึกลงแท็บ ${p.tabName} ในชีต`
           : `ชีตยังไม่มีแท็บ ${p.tabName} — ช่องที่เลือกเองจะเก็บในแท็บ WEB-ช่องเลือกเอง`}
@@ -123,7 +126,7 @@ export default function ScheduleView(p: Props) {
               ส่วนที่ {edit.sec} · วันที่ {edit.day} · คอลัมน์ {edit.col}
             </h3>
             <p className="muted">ค่าปัจจุบัน: {edit.current || "(ว่าง)"}</p>
-            {isFree ? (
+            {!isOfficer ? (
               <input list="names" value={value} onChange={(e) => setValue(e.target.value)} placeholder="พิมพ์หรือเลือกชื่อ" autoFocus />
             ) : (
               <select value={value} onChange={(e) => setValue(e.target.value)} autoFocus>
@@ -143,13 +146,18 @@ export default function ScheduleView(p: Props) {
             {err && <div className="error">{err}</div>}
             <div className="modal-actions">
               <button disabled={busy} onClick={() => save(null)}>
-                {isFree ? "ล้างช่อง" : "คืนค่า จนท."}
+                {isOfficer ? "คืนค่า จนท." : "คืนค่าตามสูตร"}
               </button>
+              {!isOfficer && (
+                <button disabled={busy} onClick={() => save("")}>
+                  ล้างให้ว่าง
+                </button>
+              )}
               <span className="spacer" />
               <button disabled={busy} onClick={() => setEdit(null)}>
                 ยกเลิก
               </button>
-              <button className="primary" disabled={busy || value === ""} onClick={() => save(value)}>
+              <button className="primary" disabled={busy || (isOfficer && value === "")} onClick={() => save(value)}>
                 {busy ? "กำลังบันทึก…" : "บันทึก"}
               </button>
             </div>

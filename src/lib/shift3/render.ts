@@ -94,8 +94,7 @@ export function renderSection(sec: MonthSection, res: MonthResult, opt: RenderOp
   // ข้อมูล 31 แถว
   const editCols = new Set<number>();
   if (opt.editable) {
-    for (const c of [3, 4, 5, 18, 19, 20, 28, 33, 34, 35, 36]) editCols.add(c);
-    if (s === 1) editCols.add(1);
+    for (let c = 1; c < 37; c++) editCols.add(c); // ทุกช่องตำแหน่ง (ยกเว้นคอลัมน์วันที่)
   }
   for (const row of sec.rows) {
     const tds = row.cells.map((v, c) => {

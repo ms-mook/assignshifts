@@ -398,6 +398,16 @@ export function computeMonth(
         }
       });
 
+      // ผู้จัดพิมพ์ทับช่องสูตรเอง (เหมือนพิมพ์ทับสูตรในชีต) — ไม่มีผลกับช่องอื่นในแถว
+      map.forEach((src, ci) => {
+        if (ci === 0 || src.kind === "manual" || src.kind === "free") return;
+        const key = manualKey(sec, ci, day);
+        if (date !== null && key in manual) {
+          cells[ci] = manual[key];
+          manualCols.push(ci);
+        }
+      });
+
       rows.push({ day, date, workday, week, cells, manualCols });
     }
     return {
