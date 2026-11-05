@@ -17,9 +17,9 @@ createRoot(document.getElementById("root")!).render(
       <ScheduleView table="key" tableTitle="ตาราง Key" ym="2569-12" prevYm="2569-11" nextYm="2570-01" label={res.subtitle}
         tabName="ธ.ค.69" manualSource="web-tab" sectionHtml={html} names={s.dropdown} personColors={{}} dupDays={[]} warning={res.checks.status}
         summary={[{ title: "สรุปวันทำงานเดือนนี้", rows: res.dayCounts }]}
-        api="/api/key" officerCols={[]}
+        api="/api/key" officerCols={[]} rowGroups={[["B", "C", "D", "E", "F", "H", "I", "J", "K", "L", "M", "N", "O"]]} freeNames={["MT full-time", "ลา"]}
         guide={{ cols: ["B", "C", "D", "E", "F", "J", "K", "L", "M"], title: "จองเวรไว้ · จุดลงทะเบียนรายการตรวจ (เช้า)", byDay: {
-          2: [{ name: "น้ำทิพย์", booked: "น้ำทิพย์ จังพล", slot: "06:00-08:30" }, { name: "สุนิษา", booked: "สุนิษา จันทะดวง", slot: "06:00-08:30" }, { name: "สมพาน", booked: "สมพาน ทดสอบ", slot: "06:00-08:30" }],
+          2: [{ name: "น้ำทิพย์", booked: "น้ำทิพย์ จังพล", slot: "06:00-08:30" }, { name: "สุนิษา", booked: "สุนิษา จันทะดวง", slot: "06:00-08:30" }, { name: "สมพาน", booked: "สมพาน ทดสอบ", slot: "06:00-08:30" }, { name: "จีรินันท์", booked: "จีรินันท์ ทดสอบ", slot: "06:00-08:30" }, { name: "MT full-time", booked: "x", slot: "06:00-08:30" }],
           3: [{ name: "กฤษณา", booked: "กฤณา ฝาชัยภูมิ", slot: "06:00-08:30", note: 'ระบบจองสะกด "กฤณา"' }],
         } }} hint="ทดสอบ Key" pdf={{ colA: KEY_COL_W[0], colW: 125, keepCols: [15], sheetCss: SHEET_CSS + KEY_CSS }} />
     </main>

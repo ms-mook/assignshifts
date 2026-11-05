@@ -8,6 +8,7 @@ import { loadOt, loadOtMonthState } from "@/lib/ot/repo";
 import { OT_COL_W, OT_CSS, renderOtHtml } from "@/lib/ot/render";
 import { SHEET_CSS } from "@/lib/shift3/render";
 import type { TableDef } from "@/lib/tables";
+import { OT_COL_LABEL } from "@/lib/col-info";
 import { syncAllLeaves } from "@/lib/leave-sync";
 import { loadOtBookingGuide } from "@/lib/ot/booking";
 import ScheduleView from "@/components/ScheduleView";
@@ -56,6 +57,7 @@ export default async function OtSchedule({ tdef, ym, yearBE, month }: { tdef: Ta
       summary={summary}
       warning={beforeStart ? "เดือนนี้อยู่ก่อนวันเริ่มตาราง (ตั้งค่า B4) จึงยังไม่มีการจัดคน" : ""}
       guide={guide}
+      colLabels={OT_COL_LABEL}
       api="/api/ot"
       dupNote="ตรวจว่าตั้งใจให้ควบ 2 จุด (เช่น 06.00-08.30 คู่กับช่วงทั้งวัน) — บันทึกได้ ระบบแค่เตือน"
       officerCols={[]}

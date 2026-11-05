@@ -1,10 +1,11 @@
 // หน้าตาราง SMC
 import { shiftYm, monthTabName } from "@/lib/config";
-import { computeSmcMonth, smcDupCols, SMC_EDIT_COLS } from "@/lib/smc/engine";
+import { computeSmcMonth, smcDupCols, SMC_BLOCKS, SMC_EDIT_COLS } from "@/lib/smc/engine";
 import { loadSmc, loadSmcMonthState } from "@/lib/smc/repo";
 import { SMC_COL_W, SMC_CSS, renderSmcHtml } from "@/lib/smc/render";
 import { SHEET_CSS } from "@/lib/shift3/render";
 import type { TableDef } from "@/lib/tables";
+import { SMC_COL_LABEL } from "@/lib/col-info";
 import { syncAllLeaves, leaveContext } from "@/lib/leave-sync";
 import { loadSmcBookingGuides } from "@/lib/smc/booking";
 import ScheduleView from "@/components/ScheduleView";
@@ -54,6 +55,9 @@ export default async function SmcSchedule({ tdef, ym, yearBE, month }: { tdef: T
       warning=""
       api="/api/smc"
       officerCols={[]}
+      colLabels={SMC_COL_LABEL}
+      rowGroups={SMC_BLOCKS}
+      freeNames={[s.mt, s.pt].filter((x) => x.trim() !== "")}
       guide={guide}
       dupNote="พนักงาน 1 คนอยู่ได้ทีละจุดในช่วงเวลาเดียวกัน"
       hint="ช่องที่แก้เอง/พิมพ์ทับเก็บในแท็บ WEB-ช่องเลือกเอง (ไม่แตะสูตรในแท็บเดือน) · ชื่อที่ลาวันนั้นจะขึ้นสีส้มขีดฆ่า · บันทึกการลาที่หน้า ลา-แลกเวร (SMC)"

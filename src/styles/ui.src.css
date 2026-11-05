@@ -132,7 +132,7 @@
   }
 
   /* ปุ่ม/ช่องกรอกทั่วไปที่ยังไม่ได้ใส่คลาส → หน้าตา daisyUI */
-  :where(button:not(.btn, .swatch, .tab, .nl-item, .raw)) { @apply btn btn-sm; }
+  :where(button:not(.btn, .swatch, .tab, .nl-item, .raw, .chk-chip, .chk-go)) { @apply btn btn-sm; }
   :where(button.primary) { @apply btn-primary; }
   :where(input:not([type="range"], [type="color"], [type="checkbox"], [type="radio"], .input)) { @apply input input-sm; }
   :where(select:not(.select)) { @apply select select-sm; }
@@ -443,6 +443,35 @@
   .modal-box.sum-modal { max-width: min(1100px, calc(100vw - 32px)); width: min(1100px, calc(100vw - 32px)); }
   .modal-box.wide { max-width: min(600px, calc(100vw - 32px)); }
 
+  /* ตรวจทั้งระบบ */
+  .chk-count { display: inline-flex; gap: 3px; margin-left: 2px; }
+  .chk-count b { min-width: 20px; height: 18px; padding: 0 5px; border-radius: 9px; font-size: 11px; line-height: 18px; color: #fff; text-align: center; }
+  .chk-count b.e { background: #b42318; }
+  .chk-count b.w { background: #b7791f; }
+  .chk-modal { max-width: min(60rem, 96vw); width: 100%; }
+  .chk-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .chk-bar .spacer { flex: 1; }
+  .chk-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; border: 1px solid rgb(31 58 104 / 0.2); background: rgb(255 255 255 / 0.7); font-size: 13px; cursor: pointer; }
+  .chk-chip.on { background: #1f3a68; color: #fff; border-color: #1f3a68; }
+  .chk-chip.e { color: #b42318; } .chk-chip.e.on { background: #b42318; color: #fff; border-color: #b42318; }
+  .chk-chip.w { color: #8a5a12; } .chk-chip.w.on { background: #b7791f; color: #fff; border-color: #b7791f; }
+  .txt-e { color: #b42318; } .txt-w { color: #8a5a12; }
+  .chk-list { display: grid; gap: 12px; max-height: 60vh; overflow: auto; padding: 2px; }
+  .chk-ok { display: flex; align-items: center; gap: 8px; padding: 14px; border-radius: 12px; background: rgb(220 239 226 / 0.9); color: #23613f; font-weight: 600; }
+  .chk-group { display: grid; gap: 6px; }
+  .chk-gtitle { font-weight: 700; font-size: 14px; padding: 4px 10px; border-radius: 8px; background: rgb(31 58 104 / 0.07); }
+  .chk-item { display: flex; gap: 8px; padding: 8px 10px; border-radius: 10px; border: 1px solid; background: rgb(255 255 255 / 0.8); }
+  .chk-item.e { border-color: rgb(180 35 24 / 0.35); background: rgb(253 236 234 / 0.75); }
+  .chk-item.w { border-color: rgb(183 121 31 / 0.35); background: rgb(254 246 228 / 0.75); }
+  .chk-item.e .chk-ic { color: #b42318; margin-top: 2px; flex: none; }
+  .chk-item.w .chk-ic { color: #b7791f; margin-top: 2px; flex: none; }
+  .chk-body { display: grid; gap: 3px; min-width: 0; }
+  .chk-head { font-size: 14px; }
+  .chk-kind { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: rgb(31 58 104 / 0.08); margin-left: 4px; }
+  .chk-text { font-size: 14px; overflow-wrap: anywhere; }
+  .chk-places { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+  .chk-go { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 3px 9px; border-radius: 8px; border: 1px solid rgb(31 58 104 / 0.25); background: #fff; color: #1f3a68; cursor: pointer; }
+  .chk-go:hover { background: #1f3a68; color: #fff; }
   /* ไกด์ชื่อด้านขวาของป๊อปอัป (ระบบจองเวร) */
   .modal-box.has-guide { max-width: min(58rem, 96vw); width: 100%; }
   .pick-one { display: contents; }

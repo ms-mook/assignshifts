@@ -12,6 +12,7 @@ import { rememberYm } from "./NavLinks";
 import { useToast } from "./Toast";
 import { downloadTablePdf } from "@/lib/pdf-export";
 import Icon from "./Icon";
+import SystemCheck from "./SystemCheck";
 import type { SummaryGroup } from "@/lib/shift-summary";
 import type { BookingGuide } from "@/lib/guide-types";
 
@@ -49,6 +50,12 @@ interface Props {
   cross?: CrossInfo;
   /** ไกด์ชื่อด้านขวาของป๊อปอัปเลือกชื่อ (เช่น ระบบจองเวร) — เลือกจากไกด์หรือจากรายชื่อปกติก็ได้ */
   guide?: BookingGuide | BookingGuide[];
+  /** ตาราง Key/SMC/OT: กลุ่มคอลัมน์ที่ห้ามชื่อซ้ำในวันเดียวกัน (ใช้ทำเครื่องหมาย "อยู่ที่ … แล้ว" ในรายชื่อ/ไกด์) */
+  rowGroups?: string[][];
+  /** ชื่อที่ซ้ำได้ (ไม่ใช่ชื่อคน) เช่น MT full-time, Part-time, ลา */
+  freeNames?: string[];
+  /** ชื่อจุดของแต่ละคอลัมน์ (ใช้ในข้อความ "อยู่ที่ … แล้ว") */
+  colLabels?: Record<string, string>;
 }
 type CellStyle = { bg?: string; fg?: string };
 type StylePatch = { bg?: string | null; fg?: string | null; clear?: boolean };
@@ -574,6 +581,21 @@ export default function ScheduleView(p: Props) {
     }
     return null;
   };
+  /** ตารางที่ไม่มีข้อมูลข้ามตาราง (Key/SMC/OT): อ่านแถวจากตารางที่แสดงอยู่ ตามกลุ่มคอลัมน์ที่ห้ามซ้ำ */
+  const busyInGroup = (sec: string, day: number, col: string, name: string): string | null => {
+    const group = p.rowGroups?.find((g) => g.includes(col));
+    const who = name.trim().toLowerCase();
+    if (!group || who === "" || (p.freeNames ?? []).some((f) => f.toLowerCase() === who)) return null;
+    for (const c of group) {
+      if (c === col) continue;
+      const v = (cellEl(`${sec}:${c}:${day}`)?.textContent ?? "").trim().toLowerCase();
+      if (v === who) return p.colLabels?.[c] ?? `ช่อง ${c}`;
+    }
+    return null;
+  };
+  /** ชื่อนี้ใช้ในช่องที่กำลังแก้ไม่ได้ เพราะอยู่จุดอื่นในวัน/ช่วงเวลาเดียวกันแล้ว → คืนชื่อจุด */
+  const busyFor = (e: { sec: string; day: string; col: string }, name: string): string | null =>
+    p.cross ? busyAt(Number(e.sec), Number(e.day), e.col, name) : busyInGroup(e.sec, Number(e.day), e.col, name);
   type CrossTarget = { sec: number; table: string; label: string; current: string };
   const crossTargets = (key: string): CrossTarget[] => {
     if (!p.cross) return [];
@@ -638,6 +660,37 @@ export default function ScheduleView(p: Props) {
     focusKey.current = key;
     cellEl(key)?.scrollIntoView({ block: "nearest", inline: "nearest" });
   };
+
+  /** ไปที่ช่อง (จากผลตรวจทั้งระบบ) — เลือกช่อง เลื่อนให้เห็น และกะพริบให้สังเกต */
+  const jumpTo = (key: string) => {
+    const el = cellEl(key);
+    if (!el) return false;
+    goTo(key);
+    el.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+    el.classList.remove("cell-flash");
+    void el.offsetWidth;
+    el.classList.add("cell-flash");
+    setTimeout(() => el.classList.remove("cell-flash"), 3200);
+    return true;
+  };
+  // เปิดหน้าด้วย ?cell=… (กดจากผลตรวจทั้งระบบของตารางอื่น) → ไปที่ช่องนั้น
+  useEffect(() => {
+    let cell: string | null = null;
+    try {
+      cell = new URLSearchParams(window.location.search).get("cell");
+    } catch {
+      cell = null;
+    }
+    if (!cell) return;
+    let n = 0;
+    const tryJump = () => {
+      if (jumpTo(cell!) || n++ > 20) return;
+      setTimeout(tryJump, 100);
+    };
+    const t0 = setTimeout(tryJump, 150);
+    return () => clearTimeout(t0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.ym, p.table]);
 
   // ----- บันทึกชื่อจากป๊อปอัป -----
   const saveName = (v: string | null, crossPick?: Record<number, boolean>) => {
@@ -771,7 +824,7 @@ export default function ScheduleView(p: Props) {
   const uniqNames = useMemo(() => Array.from(new Set(p.names)), [p.names]);
   const xTargets = edit ? crossTargets(edit.key) : [];
   /** ชื่อซ้ำกับจุดอื่นในช่วงเวลาเดียวกัน (เฉพาะตาราง 3 ช่วงเวลา) → ไม่ให้บันทึก */
-  const blocked = (n: string) => (edit ? n !== edit.current && busyAt(Number(edit.sec), Number(edit.day), edit.col, n) !== null : false);
+  const blocked = (n: string) => (edit ? n !== edit.current && busyFor(edit, n) !== null : false);
   const single = selKeys.length === 1 ? selKeys[0] : null;
   const shown = useMemo(() => {
     const q = value.trim().toLowerCase();
@@ -850,6 +903,7 @@ export default function ScheduleView(p: Props) {
             สรุปเวร
           </button>
         )}
+        <SystemCheck ym={p.ym} table={p.table} monthLabel={p.label} onGo={(cell) => void jumpTo(cell)} />
         <button className="btn btn-sm btn-soft btn-secondary" onClick={() => setColorsOpen(true)}>
           <Icon name="Palette" size={16} />
           สีตามชื่อพนักงาน
@@ -991,7 +1045,7 @@ export default function ScheduleView(p: Props) {
                     const pick = hi >= 0 && hi < shown.length ? shown[hi] : shown.length === 1 ? shown[0] : null;
                     const name = pick ?? (!isOfficer && value.trim() !== "" ? value.trim() : null);
                     if (name === null) return;
-                    const at = name === edit.current ? null : busyAt(Number(edit.sec), Number(edit.day), edit.col, name);
+                    const at = name === edit.current ? null : busyFor(edit, name);
                     if (at) setErr(`“${name}” อยู่ที่ ${at} ในช่วงเวลานี้แล้ว — เลือกคนอื่น หรือเอาออกจากจุดนั้นก่อน`);
                     else saveName(name);
                   }}
@@ -1001,7 +1055,7 @@ export default function ScheduleView(p: Props) {
               </label>
               <div className="namelist" role="listbox" aria-label="รายชื่อ">
                 {shown.map((n, i) => {
-                  const at = n === edit.current ? null : busyAt(Number(edit.sec), Number(edit.day), edit.col, n);
+                  const at = n === edit.current ? null : busyFor(edit, n);
                   return (
                     <button
                       key={n}
@@ -1040,7 +1094,7 @@ export default function ScheduleView(p: Props) {
                   ) : (
                     <div className="pg-list">
                       {guideList.map((g) => {
-                        const at = g.name === edit.current ? null : busyAt(Number(edit.sec), Number(edit.day), edit.col, g.name);
+                        const at = g.name === edit.current ? null : busyFor(edit, g.name);
                         const here = g.name === edit.current;
                         return (
                           <button

@@ -5,6 +5,7 @@ import { loadKey, loadKeyMonthState } from "@/lib/key/repo";
 import { KEY_COL_W, KEY_CSS, keyDupCols, renderKeyHtml } from "@/lib/key/render";
 import { SHEET_CSS } from "@/lib/shift3/render";
 import type { TableDef } from "@/lib/tables";
+import { KEY_COL_LABEL } from "@/lib/col-info";
 import { syncAllLeaves } from "@/lib/leave-sync";
 import { loadKeyBookingGuide } from "@/lib/key/booking";
 import ScheduleView from "@/components/ScheduleView";
@@ -49,6 +50,9 @@ export default async function KeySchedule({ tdef, ym, yearBE, month }: { tdef: T
       warning={checkText}
       api="/api/key"
       officerCols={[]}
+      colLabels={KEY_COL_LABEL}
+      rowGroups={[["B", "C", "D", "E", "F", "H", "I", "J", "K", "L", "M", "N", "O"]]}
+      freeNames={["MT full-time", "ลา"]}
       guide={guide}
       hint="ช่องที่แก้เอง/พิมพ์ทับเก็บในแท็บ WEB-ช่องเลือกเอง (ไม่แตะสูตรในแท็บเดือน) · คนลา/ผู้แทน ให้บันทึกที่หน้า ลา-แลกเวร (Key)"
       pdf={{ colA: KEY_COL_W[0], colW: 125, keepCols: [15], sheetCss: SHEET_CSS + KEY_CSS }}
