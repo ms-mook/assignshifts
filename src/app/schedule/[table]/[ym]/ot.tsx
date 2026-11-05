@@ -9,6 +9,7 @@ import { OT_COL_W, OT_CSS, renderOtHtml } from "@/lib/ot/render";
 import { SHEET_CSS } from "@/lib/shift3/render";
 import type { TableDef } from "@/lib/tables";
 import { syncAllLeaves } from "@/lib/leave-sync";
+import { loadOtBookingGuide } from "@/lib/ot/booking";
 import ScheduleView from "@/components/ScheduleView";
 
 const todaySerial = () => {
@@ -33,6 +34,8 @@ export default async function OtSchedule({ tdef, ym, yearBE, month }: { tdef: Ta
       { title: "รายชื่อใน dropdown", names: data.settings.dropdown },
     ],
   );
+  // ไกด์ชื่อจากระบบจองเวร (จุดอื่นๆ บัตรคิว/นำ-ส่ง · ช่วงเช้า) — ช่อง (06.00-08.30) B, D, J
+  const guide = await loadOtBookingGuide(yearBE, month, [...names, ...data.settings.staff.map((s) => s.rep)]);
   const beforeStart = res.rows.every((r) => r.P === 0 || r.Q === null);
   return (
     <ScheduleView
@@ -52,6 +55,7 @@ export default async function OtSchedule({ tdef, ym, yearBE, month }: { tdef: Ta
       dupDays={dupDays}
       summary={summary}
       warning={beforeStart ? "เดือนนี้อยู่ก่อนวันเริ่มตาราง (ตั้งค่า B4) จึงยังไม่มีการจัดคน" : ""}
+      guide={guide}
       api="/api/ot"
       dupNote="ตรวจว่าตั้งใจให้ควบ 2 จุด (เช่น 06.00-08.30 คู่กับช่วงทั้งวัน) — บันทึกได้ ระบบแค่เตือน"
       officerCols={[]}
