@@ -20,7 +20,7 @@ export function loadShift3BookingGuide(yearBE: number, month: number, section: S
     slot: idx,
     meta: (b: Booking) => {
       const others = [0, 1, 2].filter((i) => i !== idx && b.slots[i]).map((i) => b.slots[i]);
-      return [b.room ? `ห้อง ${roomShort(b.room)}` : "", others.length ? `จองช่วง ${others.join(", ")} ด้วย → คลิกแล้วใส่ตารางนั้นด้วย` : ""].filter(Boolean).join(" · ");
+      return [b.room ? `ห้อง ${roomShort(b.room)}` : "", others.length ? `จองด้วย ${others.join(", ")}` : ""].filter(Boolean).join(" · ");
     },
     secs: (b: Booking) => [0, 1, 2].filter((i) => b.slots[i]).map((i) => String(i + 1)),
   }).then((g) => ({ ...g, sec: String(section), onlyEmpty: true }));

@@ -1086,7 +1086,10 @@ export default function ScheduleView(p: Props) {
                   <div className="pg-title">
                     <Icon name="CalendarCheck" size={15} /> {guideFor.title}
                   </div>
-                  <div className="pg-sub muted small">วันที่ {edit.day} · คลิกเพื่อใส่ชื่อ หรือเลือกจากรายชื่อด้านซ้ายแทนก็ได้</div>
+                  <div className="pg-sub muted small">
+                    วันที่ {edit.day} · คลิกเพื่อใส่ชื่อ หรือเลือกจากรายชื่อด้านซ้ายแทนก็ได้
+                    {guideList.some((g) => g.secs && g.secs.length > 1) && " · คนที่ “จองด้วย” ช่วงอื่น จะลงตารางช่วงนั้นให้ด้วย"}
+                  </div>
                   {guideFor.error ? (
                     <div className="error small">{guideFor.error}</div>
                   ) : guideList.length === 0 ? (
@@ -1110,7 +1113,15 @@ export default function ScheduleView(p: Props) {
                             <span className="av" style={{ background: avColor(g.name) }}>{Array.from(g.name)[0] ?? "?"}</span>
                             <span className="pg-text">
                               <span className="pg-name">{g.name}</span>
-                              <span className="pg-meta">{g.booked}{g.slot ? ` · ${g.slot}` : ""}{g.note ? ` · ${g.note}` : ""}</span>
+                              {g.booked && g.booked !== g.name && <span className="pg-full">{g.booked}</span>}
+                              {g.slot && (
+                                <span className="pg-tags">
+                                  {g.slot.split(" · ").map((x, k) => (
+                                    <span key={k} className={x.startsWith("จองด้วย") ? "pg-tag also" : "pg-tag"}>{x}</span>
+                                  ))}
+                                </span>
+                              )}
+                              {g.note && <span className="pg-note">{g.note}</span>}
                             </span>
                             {at && (
                               <span className="nl-busy">

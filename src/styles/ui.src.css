@@ -480,12 +480,19 @@
   @media (max-width: 760px) { .pick-grid { grid-template-columns: minmax(0, 1fr); } }
   .pick-guide { display: grid; gap: 8px; align-content: start; padding: 10px 12px; border-radius: 14px; background: rgb(236 244 238 / 0.85); border: 1px solid rgb(47 107 82 / 0.28); min-width: 0; }
   .pick-guide .pg-title { display: flex; align-items: center; gap: 6px; font-weight: 700; color: #2f5d47; font-size: 14px; }
-  .pick-guide .pg-list { display: grid; gap: 4px; max-height: 42vh; overflow: auto; }
+  .pick-guide .pg-list { display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow: auto; padding-right: 2px; }
   .pick-guide .pg-empty { padding: 8px 2px; }
-  .pick-guide .pg-item { background: rgb(255 255 255 / 0.75); border-color: rgb(47 107 82 / 0.18); }
-  .pick-guide .pg-text { display: grid; line-height: 1.2; min-width: 0; }
-  .pick-guide .pg-name { font-weight: 600; }
-  .pick-guide .pg-meta { font-size: 12px; opacity: 0.7; overflow-wrap: anywhere; }
+  .pick-guide .pg-item { flex: none; height: auto; min-height: 0; align-items: flex-start; padding: 8px 10px; background: rgb(255 255 255 / 0.85); border-color: rgb(47 107 82 / 0.2); white-space: normal; }
+  .pick-guide .pg-item .av { margin-top: 1px; }
+  .pick-guide .pg-item .nl-busy { align-self: center; }
+  .pick-guide .pg-text { display: flex; flex-direction: column; gap: 3px; line-height: 1.3; min-width: 0; flex: 1; }
+  .pick-guide .pg-name { font-weight: 700; font-size: 16px; }
+  .pick-guide .pg-full { font-size: 12.5px; color: rgb(30 41 59 / 0.72); }
+  .pick-guide .pg-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+  .pick-guide .pg-tag { font-size: 11.5px; line-height: 1.5; padding: 0 7px; border-radius: 999px; background: rgb(31 58 104 / 0.08); color: #1f3a68; white-space: nowrap; }
+  .pick-guide .pg-tag.also { background: rgb(47 107 82 / 0.14); color: #23613f; font-weight: 600; white-space: normal; }
+  .pick-guide .pg-note { font-size: 12px; font-weight: 600; color: #8a5a12; }
+
   .namelist { display: grid; gap: 4px; max-height: 42vh; overflow: auto; padding: 6px; border-radius: 14px; background: rgb(255 255 255 / 0.7); border: 1px solid rgb(31 58 104 / 0.15); }
   .nl-item {
     display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; cursor: pointer;
