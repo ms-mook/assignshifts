@@ -113,7 +113,8 @@ export async function buildGuide(o: {
       if (list.some((x) => x.name === m.name)) continue;
       const extra = o.meta?.(b);
       const item: GuideItem = { name: m.name, booked: `${b.first}${b.last ? " " + b.last : ""}`, slot: extra ? `${slot} · ${extra}` : slot };
-      if (m.matched === "none") item.note = m.similar ? `ไม่มีในรายชื่อตาราง (ใกล้กับ "${m.similar}" — ตรวจว่าเป็นคนเดียวกันหรือไม่)` : "ไม่มีในรายชื่อตาราง";
+      // ชื่อที่สะกดคล้ายกันถือเป็นคนละคน (ผู้ใช้ยืนยัน: นภาพร ≠ นิภาพร · ปรียาพร ≠ ประภาพร) — ไม่เตือน ไม่จับคู่
+      if (m.matched === "none") item.note = "ไม่มีในรายชื่อตาราง";
       list.push(item);
     }
   } catch (e) {

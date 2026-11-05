@@ -145,7 +145,7 @@ const ok = (c: boolean, msg: string) => { if (c) pass++; else { fail++; console.
   const gd = await bk.loadKeyBookingGuide(2569, 12, [...s.dropdown, ...s.rot]);
   ok(!gd.error, "อ่านระบบจองได้: " + (gd.error ?? ""));
   ok(JSON.stringify((gd.byDay[2] ?? []).map((x: any) => x.name)) === JSON.stringify(["น้ำทิพย์", "กฤณา"]), "วันที่ 2: เฉพาะจุดลงทะเบียน · ไม่ซ้ำ · ชื่อไม่ตรงไม่เดาแทน: " + JSON.stringify(gd.byDay[2]));
-  ok((gd.byDay[2] ?? [])[1]?.note?.includes("ใกล้กับ \"กฤษณา\"") && (gd.byDay[2] ?? [])[1]?.booked === "กฤณา ฝาชัยภูมิ", "ชื่อสะกดใกล้กัน → แนะนำ ไม่แทนอัตโนมัติ");
+  ok((gd.byDay[2] ?? [])[1]?.note === "ไม่มีในรายชื่อตาราง" && (gd.byDay[2] ?? [])[1]?.booked === "กฤณา ฝาชัยภูมิ", "ชื่อสะกดคล้ายกัน = คนละคน (ไม่จับคู่ ไม่เตือน)");
   ok(!gd.byDay[5] && !Object.values(gd.byDay).flat().some((x: any) => x.name === "ธัญญาธร"), "ไม่ดึงช่วงสาย (ไม่ใช่ H) / ไม่ดึงจุดอื่น / ไม่ดึงเดือนอื่น");
   ok((gd.byDay[3] ?? [])[0]?.name === "คนใหม่" && (gd.byDay[3] ?? [])[0]?.note === "ไม่มีในรายชื่อตาราง", "ชื่อที่ไม่มีในรายชื่อ ยังแสดง (เลือกเองได้)");
   ok(bk.matchName("สมพาน", ["สมพาน", "สมพร"]).matched === "exact" && bk.matchName("นภาพร", ["นิภาพร"]).name === "นภาพร" && bk.matchName("นางสาวฐิติยา ", ["ฐิติยา"]).name === "ฐิติยา", "จับคู่ชื่อ: ตรงกัน · ตัดคำนำหน้า · ชื่อคล้ายไม่จับคู่ (นภาพร ≠ นิภาพร)");
