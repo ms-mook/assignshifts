@@ -56,3 +56,12 @@ table.plan tr.rowbad td:first-child { background: #ffd7d9; }
 @keyframes cellflash { 0%, 100% { box-shadow: inset 0 0 0 3px rgb(180 35 24 / 0); } 20%, 60% { box-shadow: inset 0 0 0 4px rgb(180 35 24 / 0.95); } 40%, 80% { box-shadow: inset 0 0 0 4px rgb(240 180 40 / 0.95); } }
 .sheet td.cell-flash { animation: cellflash 1.6s ease-in-out 2; }
 @media print { .sheet td.cell-flash { animation: none; box-shadow: none; } }
+
+/* footer ผู้พัฒนา (ซ่อนตอนพิมพ์ด้วย .no-print) */
+.site-foot {
+  padding: 14px 16px 18px;
+  text-align: center;
+  font-size: 12.5px;
+  color: #6b7280;
+  letter-spacing: 0.01em;
+}
