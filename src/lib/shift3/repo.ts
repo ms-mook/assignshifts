@@ -392,9 +392,13 @@ export interface LeaveForm {
   ref?: string;
 }
 
+/** จำนวนแถวข้อมูลในแท็บ ลา-แลกเวร (แถว 5..5004) */
+export const LEAVE_ROWS = 5000;
+
 export async function saveLeaves(rows: LeaveForm[]): Promise<void> {
-  if (rows.length > 396) throw new Error("บันทึกได้สูงสุด 396 แถว (A5:A400)");
-  const n = 396;
+  // สูตรในแท็บเดือนอ่าน ลา-แลกเวร!A5:A5004 (ขยายจาก 400 เมื่อ 5 พ.ย. 69 ให้เก็บประวัติได้หลายปี)
+  if (rows.length > LEAVE_ROWS) throw new Error(`บันทึกได้สูงสุด ${LEAVE_ROWS} แถว (A5:A${LEAVE_ROWS + 4})`);
+  const n = LEAVE_ROWS;
   const pad = <T,>(arr: T[], empty: T) => Array.from({ length: n }, (_, i) => arr[i] ?? empty);
   const ad = pad(
     rows.map((r, i) => [checkDate(r.date, `A${5 + i}`), r.name, r.replacement, r.type]),
@@ -403,8 +407,8 @@ export async function saveLeaves(rows: LeaveForm[]): Promise<void> {
   const g = pad(rows.map((r) => [r.note, r.ref ?? ""]), ["", ""]);
   // E, F เป็นสูตร ไม่เขียนทับ · H = รหัสจากระบบลา
   await batchUpdate(ID(), [
-    { range: `'ลา-แลกเวร'!A5:D400`, values: ad },
-    { range: `'ลา-แลกเวร'!G5:H400`, values: g },
+    { range: `'ลา-แลกเวร'!A5:D${LEAVE_ROWS + 4}`, values: ad },
+    { range: `'ลา-แลกเวร'!G5:H${LEAVE_ROWS + 4}`, values: g },
   ]);
 }
 
