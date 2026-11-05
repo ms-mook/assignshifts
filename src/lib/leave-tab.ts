@@ -6,6 +6,7 @@ import { batchGet, batchUpdate } from "./google";
 import { parseYm, ymString } from "./config";
 import { isoFromSerial, serialFromYMD, toSerial } from "./sheets-date";
 import { invalidateApprovedLeaves, readApprovedLeaves } from "./leave-system";
+import { assertLeaveRows } from "./leave-rules";
 
 export const LEAVE_TAB = "ลา-แลกเวร";
 export const LEAVE_ROWS = 5000;
@@ -114,6 +115,8 @@ export async function saveLeaveTabMonth(sheetId: string, ym: string, rows: Leave
   const cur = current ?? (await readLeaveTab(sheetId));
   const others = cur.filter((r) => !inMonth(r, w));
   const mine = rows.filter((r) => r.date !== "" || r.name !== "" || r.replacement !== "");
+  // ห้ามคนมาแทนเป็นคนลาเอง / คนที่ลาวันเดียวกัน (ตรวจรวมแถวเดือนอื่นด้วย กันกรณีวันที่หลุดเดือน)
+  assertLeaveRows([...others, ...mine].map((r, i) => (i < others.length ? { ...r, replacement: "" } : r)));
   await writeLeaveTab(sheetId, [...others, ...mine].sort(byDate));
 }
 

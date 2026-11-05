@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { PlanCalculator, leaveSpotOf, suggestedReplacement } from "@/lib/shift3/engine";
 import { MONTH_SHORT, parseYm, shiftYm } from "@/lib/config";
 import { serialFromYMD, toSerial } from "@/lib/sheets-date";
+import { leaveRowProblems } from "@/lib/leave-rules";
 import { useToast } from "./Toast";
 import Icon from "./Icon";
 import type { Shift3Settings } from "@/lib/shift3/types";
@@ -37,6 +38,7 @@ export default function LeavesClient({ initial, settings, staff, allNames, sync,
   const winS = pmo ? serialFromYMD(pmo.yearBE - 543, pmo.month, 1) : null;
   const winE = pmo ? serialFromYMD(pmo.yearBE - 543, pmo.month + 1, 0) : null;
   const outside = winS === null || winE === null ? 0 : rows.filter((r) => { const d = toSerial(r.date); return d !== null && (d < winS || d > winE); }).length;
+  const problems = leaveRowProblems(rows);
   const dirty = JSON.stringify(rows) !== JSON.stringify(initial);
   const upd = (i: number, k: keyof LeaveForm, v: string) => setRows((r) => r.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
 
@@ -160,7 +162,10 @@ export default function LeavesClient({ initial, settings, staff, allNames, sync,
                       <td><input className="y" list="staff" value={r.name} onChange={(e) => upd(i, "name", e.target.value)} /></td>
                     </>
                   )}
-                  <td><input className="y" list="all" value={r.replacement} onChange={(e) => upd(i, "replacement", e.target.value)} /></td>
+                  <td>
+                    <input className={problems.has(i) ? "y input-error" : "y"} list="all" value={r.replacement} style={problems.has(i) ? { background: "#FDE2E1", borderColor: "#C00000" } : undefined} title={problems.get(i)} onChange={(e) => upd(i, "replacement", e.target.value)} />
+                    {problems.has(i) && <div className="error small">{problems.get(i)}</div>}
+                  </td>
                   <td>{r.ref ? <span className="ro">{r.type}</span> : <input className="y" value={r.type} onChange={(e) => upd(i, "type", e.target.value)} />}</td>
                   <td className="ro">{r.name && d !== null ? leaveSpotOf(plan, d, r.name) : ""}</td>
                   <td className="ro">{d !== null ? suggestedReplacement(plan, d) : ""}</td>
@@ -182,8 +187,9 @@ export default function LeavesClient({ initial, settings, staff, allNames, sync,
         {outside > 0 && <p className="error small">มี {outside} แถวที่วันที่ไม่อยู่ในเดือน {monthLabel} — บันทึกได้ แต่แถวนั้นจะไปอยู่ในเดือนของวันที่นั้น (เลื่อนเดือนเพื่อดู)</p>}
       </section>
       <div className="savebar">
-        <button className="btn btn-primary" disabled={busy || !dirty} onClick={save}>{busy ? <span className="loading loading-spinner loading-xs" /> : <Icon name="Save" size={16} />}{busy ? "กำลังบันทึก…" : "บันทึก"}</button>
+        <button className="btn btn-primary" disabled={busy || !dirty || problems.size > 0} onClick={save}>{busy ? <span className="loading loading-spinner loading-xs" /> : <Icon name="Save" size={16} />}{busy ? "กำลังบันทึก…" : "บันทึก"}</button>
         <button className="btn btn-ghost" disabled={busy || !dirty} onClick={() => setRows(initial)}><Icon name="Undo2" size={16} />ยกเลิกการแก้ไข</button>
+        {problems.size > 0 && <span className="error">แก้ช่องคนมาแทนที่ขึ้นสีแดง {problems.size} แถวก่อน จึงจะบันทึกได้</span>}
         {msg && <span className={msg.ok ? "ok" : "error"}>{msg.text}</span>}
       </div>
     </div>

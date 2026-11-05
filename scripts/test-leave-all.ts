@@ -165,6 +165,21 @@ const ok = (c: boolean, msg: string) => { if (c) pass++; else { fail++; console.
   console.log("2) ดึงซ้ำ ไม่เพิ่มแถวซ้ำ");
   const again = await ls.syncAllLeaves("2569-12", true);
   ok(Object.values(again).every((r: any) => r.added === 0 && r.removed === 0), "ไม่เพิ่ม/ไม่ลบ");
+  console.log("2b) คนมาแทนต้องไม่ใช่คนลาเอง / ไม่ใช่คนที่ลาวันเดียวกัน");
+  const rules = require("../src/lib/leave-rules");
+  const pr = rules.leaveRowProblems([
+    { date: "2026-12-18", name: "สมพาน", replacement: "สมพาน" },
+    { date: "2026-12-18", name: "เดือน", replacement: " สมพาน " },
+    { date: "2026-12-19", name: "เดือน", replacement: "สมพาน" },
+    { date: "2026-12-18", name: "จีรินันท์", replacement: "" },
+  ]);
+  ok(pr.has(0) && pr.has(1) && !pr.has(2) && !pr.has(3), "ตรวจ: แทนตัวเอง / แทนโดยคนที่ลาวันนั้น · ต่างวันได้");
+  let blocked = "";
+  try {
+    await lt.saveLeaveTabMonth("KEY", "2569-12", [{ date: "2026-12-18", name: "สมพาน", replacement: "สมพาน", type: "ลาพักร้อน", note: "" }]);
+  } catch (e) { blocked = (e as Error).message; }
+  ok(blocked.includes("คนลาเอง"), "บันทึกแทนตัวเองไม่ได้ (ฝั่งเซิร์ฟเวอร์): " + blocked);
+  ok((await names("KEY")).join() === rk.join(), "ข้อมูลเดิมไม่ถูกเขียนทับเมื่อบันทึกไม่ผ่าน");
   console.log("3) ชีตหนึ่งผิดพลาด ไม่กระทบชีตอื่น");
   books.get("SMC")!.delete("ลา-แลกเวร");
   books.get("LEAVE")!.get("Leave")!.push(["", `${k} ข`, "", "ลาป่วย", "21/12/2026", "21/12/2026", "1", "Approve", "A6"]);

@@ -8,6 +8,7 @@ import { MONTH_SHORT, parseYm, shiftYm } from "@/lib/config";
 import { serialFromYMD, toSerial } from "@/lib/sheets-date";
 import { keyLeaveSpot, type KeySettings } from "@/lib/key/engine";
 import { leaveInfo, type OtSettings } from "@/lib/ot/engine";
+import { leaveRowProblems } from "@/lib/leave-rules";
 import { useToast } from "./Toast";
 import Icon from "./Icon";
 import type { LeaveForm, LeaveSyncResult } from "@/lib/leave-tab";
@@ -44,6 +45,7 @@ export default function TableLeavesClient({ table, title, ym, initial, names, sy
   const winS = pm ? serialFromYMD(pm.yearBE - 543, pm.month, 1) : null;
   const winE = pm ? serialFromYMD(pm.yearBE - 543, pm.month + 1, 0) : null;
   const outside = winS === null || winE === null ? 0 : rows.filter((r) => { const d = toSerial(r.date); return d !== null && (d < winS || d > winE); }).length;
+  const problems = leaveRowProblems(rows);
   const dirty = JSON.stringify(rows) !== JSON.stringify(initial);
   const upd = (i: number, k: keyof LeaveForm, v: string) => setRows((r) => r.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
 
@@ -168,7 +170,10 @@ export default function TableLeavesClient({ table, title, ym, initial, names, sy
                     <td><input className="y" list={`${table}-names`} value={r.name} onChange={(e) => upd(i, "name", e.target.value)} /></td>
                   </>
                 )}
-                <td><input className="y" list={`${table}-names`} value={r.replacement} onChange={(e) => upd(i, "replacement", e.target.value)} /></td>
+                <td>
+                    <input className={problems.has(i) ? "y input-error" : "y"} list={`${table}-names`} value={r.replacement} style={problems.has(i) ? { background: "#FDE2E1", borderColor: "#C00000" } : undefined} title={problems.get(i)} onChange={(e) => upd(i, "replacement", e.target.value)} />
+                    {problems.has(i) && <div className="error small">{problems.get(i)}</div>}
+                  </td>
                 <td>{r.ref ? <span className="ro">{r.type}</span> : <input className="y" list="leave-types" value={r.type} onChange={(e) => upd(i, "type", e.target.value)} />}</td>
                 {auto(r).map((v, k) => <td key={k} className="ro">{v}</td>)}
                 <td><input value={r.note} onChange={(e) => upd(i, "note", e.target.value)} /></td>
@@ -188,8 +193,9 @@ export default function TableLeavesClient({ table, title, ym, initial, names, sy
         {outside > 0 && <p className="error small">มี {outside} แถวที่วันที่ไม่อยู่ในเดือน {monthLabel} — บันทึกได้ แต่แถวนั้นจะไปอยู่ในเดือนของวันที่นั้น (เลื่อนเดือนเพื่อดู)</p>}
       </section>
       <div className="savebar">
-        <button className="btn btn-primary" disabled={busy || !dirty} onClick={save}>{busy ? <span className="loading loading-spinner loading-xs" /> : <Icon name="Save" size={16} />}{busy ? "กำลังบันทึก…" : "บันทึก"}</button>
+        <button className="btn btn-primary" disabled={busy || !dirty || problems.size > 0} onClick={save}>{busy ? <span className="loading loading-spinner loading-xs" /> : <Icon name="Save" size={16} />}{busy ? "กำลังบันทึก…" : "บันทึก"}</button>
         <button className="btn btn-ghost" disabled={busy || !dirty} onClick={() => setRows(initial)}><Icon name="Undo2" size={16} />ยกเลิกการแก้ไข</button>
+        {problems.size > 0 && <span className="error">แก้ช่องคนมาแทนที่ขึ้นสีแดง {problems.size} แถวก่อน จึงจะบันทึกได้</span>}
       </div>
     </div>
   );
