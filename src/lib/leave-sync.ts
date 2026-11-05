@@ -1,6 +1,7 @@
 // ตั้งค่าการลาของแต่ละชีต (ทั้ง 4 ชีตใช้แท็บ ลา-แลกเวร รูปแบบเดียวกัน) + ดึงการลาจากระบบลา
 import "server-only";
 import { SHEETS } from "./config";
+import { invalidateApprovedLeaves } from "./leave-system";
 import { readLeaveTab, rowsOfMonth, syncLeaveTab, type LeaveForm, type LeaveSyncResult } from "./leave-tab";
 import { loadKey } from "./key/repo";
 import { loadSmc } from "./smc/repo";
@@ -47,11 +48,11 @@ export async function leaveContext(t: Exclude<LeaveTable, "shift3">): Promise<{ 
 }
 
 /** ดึงการลาที่ Approve ของเดือนนั้นเข้าแท็บ ลา-แลกเวร ของชีตนั้น (ไม่ force = ดึงซ้ำไม่เกินนาทีละครั้ง) */
-export async function syncLeaves(t: LeaveTable, ym: string | undefined, force = false): Promise<LeaveSyncResult> {
-  if (t === "shift3") return syncLeaveSystem({ ym, force });
+export async function syncLeaves(t: LeaveTable, ym: string | undefined, force = false, freshRead = force): Promise<LeaveSyncResult> {
+  if (t === "shift3") return syncLeaveSystem({ ym, force, freshRead });
   try {
     const ctx = await leaveContext(t);
-    return await syncLeaveTab({ table: t, sheetId: leaveSheetId(t), ym, force, staff: ctx.staff, holidays: ctx.holidays });
+    return await syncLeaveTab({ table: t, sheetId: leaveSheetId(t), ym, force, freshRead, staff: ctx.staff, holidays: ctx.holidays });
   } catch (e) {
     return { added: 0, removed: 0, at: "", ym: ym ?? "", error: (e as Error).message, skippedNames: [] };
   }
@@ -62,7 +63,8 @@ export async function syncLeaves(t: LeaveTable, ym: string | undefined, force = 
  * แต่ละชีตรับเฉพาะพนักงานของตารางตัวเอง · ชีตไหนผิดพลาดไม่กระทบชีตอื่น
  */
 export async function syncAllLeaves(ym: string | undefined, force = false): Promise<Record<LeaveTable, LeaveSyncResult>> {
-  const res = await Promise.all(LEAVE_TABLES.map((t) => syncLeaves(t, ym, force)));
+  if (force) invalidateApprovedLeaves(); // กดดึงข้อมูลล่าสุด → อ่านระบบลาใหม่ 1 ครั้ง ใช้ร่วมกันทั้ง 4 ชีต
+  const res = await Promise.all(LEAVE_TABLES.map((t) => syncLeaves(t, ym, force, false)));
   return Object.fromEntries(LEAVE_TABLES.map((t, i) => [t, res[i]])) as Record<LeaveTable, LeaveSyncResult>;
 }
 

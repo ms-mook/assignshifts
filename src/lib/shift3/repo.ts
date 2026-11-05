@@ -418,7 +418,7 @@ export async function saveShift3SummaryRange(from: string, to: string): Promise<
 // ---------- ดึงการลาจากระบบลา (Approve แล้ว) มาใส่หน้า ลา-แลกเวร ----------
 
 /** ดึงการลาเฉพาะเดือนที่กำลังจัดทำ (ym = ปี พ.ศ.-เดือน · ไม่ระบุ = เดือนปัจจุบัน) */
-export async function syncLeaveSystem(opt: { force?: boolean; ym?: string } = {}): Promise<LeaveSyncResult> {
+export async function syncLeaveSystem(opt: { force?: boolean; ym?: string; freshRead?: boolean } = {}): Promise<LeaveSyncResult> {
   let data: Shift3Data;
   try {
     data = await loadShift3();
@@ -431,6 +431,7 @@ export async function syncLeaveSystem(opt: { force?: boolean; ym?: string } = {}
     sheetId: ID(),
     ym: opt.ym,
     force: opt.force,
+    freshRead: opt.freshRead,
     staff: [...s.persons.flatMap((p) => [p.name, p.replacement]), s.pairOddKw8, s.pairOddOpd11],
     holidays: s.holidays.map((h) => h.date).filter((d): d is number => d !== null),
     current: leavesToForm(data.leaves),

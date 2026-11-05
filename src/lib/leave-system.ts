@@ -20,6 +20,11 @@ const str = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim
 /** คอลัมน์: B ชื่อ-นามสกุล · D ประเภทการลา · E เริ่มต้น · F สิ้นสุด · H สถานะ · I LeaveID */
 let memo: { at: number; p: Promise<SystemLeave[]> } | null = null;
 
+/** ล้างผลที่จำไว้ (กดดึงข้อมูลล่าสุด = อ่านใหม่จริง) */
+export function invalidateApprovedLeaves() {
+  memo = null;
+}
+
 /** อ่านครั้งเดียวใช้ได้ทั้ง 4 ชีต (จำผลไว้ 15 วินาที) */
 export function readApprovedLeaves(): Promise<SystemLeave[]> {
   if (memo && Date.now() - memo.at < 15_000) return memo.p;

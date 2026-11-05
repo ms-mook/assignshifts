@@ -5,7 +5,7 @@ import "server-only";
 import { batchGet, batchUpdate } from "./google";
 import { parseYm, ymString } from "./config";
 import { isoFromSerial, serialFromYMD, toSerial } from "./sheets-date";
-import { readApprovedLeaves } from "./leave-system";
+import { invalidateApprovedLeaves, readApprovedLeaves } from "./leave-system";
 
 export const LEAVE_TAB = "ลา-แลกเวร";
 export const LEAVE_ROWS = 5000;
@@ -132,6 +132,8 @@ export interface SyncOptions {
   staff: string[];
   /** วันหยุด (serial) — ไม่สร้างแถวในวันหยุด */
   holidays: number[];
+  /** อ่านชีตระบบลาใหม่ (ไม่ใช้ผลที่จำไว้) — ค่าเริ่มต้น = force · ดึงทั้ง 4 ชีตจะล้างครั้งเดียวแล้วส่ง false */
+  freshRead?: boolean;
   /** แถวปัจจุบันในแท็บ (ถ้ามีอยู่แล้ว ไม่ต้องอ่านซ้ำ) */
   current?: LeaveForm[];
 }
@@ -149,6 +151,7 @@ export async function syncLeaveTab(o: SyncOptions): Promise<LeaveSyncResult> {
   if (!o.force && last && Date.now() - last.at < 60_000) return last.result;
   const running = syncing.get(key);
   if (running) return running;
+  if (o.freshRead ?? o.force) invalidateApprovedLeaves();
   const job = (async () => {
     const at = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(11, 16);
     let result: LeaveSyncResult;
