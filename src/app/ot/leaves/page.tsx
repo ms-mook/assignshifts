@@ -9,5 +9,5 @@ export default async function OtLeavesPage({ searchParams }: { searchParams: { y
   const ym = currentYm(searchParams.ym);
   const d = await loadLeavePage("ot", ym);
   const o = await loadOt();
-  return <TableLeavesClient table="ot" title="ตาราง OT" ym={ym} initial={d.rows} names={d.names} sync={d.sync} otSettings={o.settings} />;
+  return <TableLeavesClient table="ot" title="ตาราง OT" ym={ym} initial={d.rows} names={d.names} sync={d.sync} syncAll={d.syncAll} otSettings={o.settings} />;
 }

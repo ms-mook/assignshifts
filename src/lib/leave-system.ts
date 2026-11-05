@@ -18,7 +18,18 @@ const TYPES = ["ลาป่วย", "ลากิจ", "ลาพักร้�
 const str = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim());
 
 /** คอลัมน์: B ชื่อ-นามสกุล · D ประเภทการลา · E เริ่มต้น · F สิ้นสุด · H สถานะ · I LeaveID */
-export async function readApprovedLeaves(): Promise<SystemLeave[]> {
+let memo: { at: number; p: Promise<SystemLeave[]> } | null = null;
+
+/** อ่านครั้งเดียวใช้ได้ทั้ง 4 ชีต (จำผลไว้ 15 วินาที) */
+export function readApprovedLeaves(): Promise<SystemLeave[]> {
+  if (memo && Date.now() - memo.at < 15_000) return memo.p;
+  const p = readApprovedLeavesNow();
+  memo = { at: Date.now(), p };
+  p.catch(() => (memo = null));
+  return p;
+}
+
+async function readApprovedLeavesNow(): Promise<SystemLeave[]> {
   const [g] = await batchGet(SHEETS.leaveSystem, ["'Leave'!A2:M10000"]);
   const out: SystemLeave[] = [];
   for (const r of g) {

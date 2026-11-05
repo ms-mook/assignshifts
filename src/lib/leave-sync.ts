@@ -57,13 +57,22 @@ export async function syncLeaves(t: LeaveTable, ym: string | undefined, force = 
   }
 }
 
+/**
+ * ดึงการลาของเดือนนั้นเข้าแท็บ ลา-แลกเวร ครบทั้ง 4 ชีตในครั้งเดียว (อ่านชีตระบบลาครั้งเดียว)
+ * แต่ละชีตรับเฉพาะพนักงานของตารางตัวเอง · ชีตไหนผิดพลาดไม่กระทบชีตอื่น
+ */
+export async function syncAllLeaves(ym: string | undefined, force = false): Promise<Record<LeaveTable, LeaveSyncResult>> {
+  const res = await Promise.all(LEAVE_TABLES.map((t) => syncLeaves(t, ym, force)));
+  return Object.fromEntries(LEAVE_TABLES.map((t, i) => [t, res[i]])) as Record<LeaveTable, LeaveSyncResult>;
+}
+
 export async function readLeaves(t: LeaveTable): Promise<LeaveForm[]> {
   return readLeaveTab(leaveSheetId(t));
 }
 
 /** ข้อมูลหน้า ลา-แลกเวร ของ Key / SMC / OT: ดึงจากระบบลาของเดือนนั้นก่อน แล้วอ่านแถวของเดือนนั้น */
 export async function loadLeavePage(t: Exclude<LeaveTable, "shift3">, ym: string) {
-  const sync = await syncLeaves(t, ym, true);
+  const syncAll = await syncAllLeaves(ym, true);
   const [all, ctx] = await Promise.all([readLeaves(t), leaveContext(t)]);
-  return { sync, rows: rowsOfMonth(all, ym), names: ctx.names };
+  return { sync: syncAll[t], syncAll, rows: rowsOfMonth(all, ym), names: ctx.names };
 }

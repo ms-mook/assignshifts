@@ -5,7 +5,7 @@ import { loadKey, loadKeyMonthState } from "@/lib/key/repo";
 import { KEY_COL_W, KEY_CSS, keyDupCols, renderKeyHtml } from "@/lib/key/render";
 import { SHEET_CSS } from "@/lib/shift3/render";
 import type { TableDef } from "@/lib/tables";
-import { syncLeaves } from "@/lib/leave-sync";
+import { syncAllLeaves } from "@/lib/leave-sync";
 import ScheduleView from "@/components/ScheduleView";
 
 const todaySerial = () => {
@@ -14,7 +14,7 @@ const todaySerial = () => {
 };
 
 export default async function KeySchedule({ tdef, ym, yearBE, month }: { tdef: TableDef; ym: string; yearBE: number; month: number }) {
-  await syncLeaves("key", ym); // การลาที่ Approve ในระบบลา เฉพาะเดือนนี้ (ดึงซ้ำไม่เกินนาทีละครั้ง)
+  await syncAllLeaves(ym); // การลาที่ Approve ในระบบลา เฉพาะเดือนนี้ → ทั้ง 4 ชีต (ดึงซ้ำไม่เกินนาทีละครั้ง)
   const s = await loadKey();
   const st = await loadKeyMonthState(s, yearBE, month);
   const res = computeKeyMonth(s, st.manual, yearBE, month);

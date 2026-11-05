@@ -5,7 +5,7 @@ import { loadSmc, loadSmcMonthState } from "@/lib/smc/repo";
 import { SMC_COL_W, SMC_CSS, renderSmcHtml } from "@/lib/smc/render";
 import { SHEET_CSS } from "@/lib/shift3/render";
 import type { TableDef } from "@/lib/tables";
-import { syncLeaves } from "@/lib/leave-sync";
+import { syncAllLeaves } from "@/lib/leave-sync";
 import ScheduleView from "@/components/ScheduleView";
 
 const todaySerial = () => {
@@ -14,7 +14,7 @@ const todaySerial = () => {
 };
 
 export default async function SmcSchedule({ tdef, ym, yearBE, month }: { tdef: TableDef; ym: string; yearBE: number; month: number }) {
-  await syncLeaves("smc", ym); // การลาที่ Approve ในระบบลา เฉพาะเดือนนี้ (ดึงซ้ำไม่เกินนาทีละครั้ง)
+  await syncAllLeaves(ym); // การลาที่ Approve ในระบบลา เฉพาะเดือนนี้ → ทั้ง 4 ชีต (ดึงซ้ำไม่เกินนาทีละครั้ง)
   const s = await loadSmc();
   const st = await loadSmcMonthState(s, yearBE, month);
   const res = computeSmcMonth(s, st.manual, yearBE, month);

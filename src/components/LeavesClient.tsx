@@ -10,16 +10,20 @@ import Icon from "./Icon";
 import type { Shift3Settings } from "@/lib/shift3/types";
 import type { LeaveForm, LeaveSyncResult } from "@/lib/shift3/repo";
 
+const TABLE_NAME: Record<string, string> = { shift3: "3 ช่วงเวลา", key: "Key", smc: "SMC", ot: "OT" };
+
 interface Props {
   initial: LeaveForm[];
   settings: Shift3Settings;
   staff: string[];
   allNames: string[];
   sync?: LeaveSyncResult;
+  /** ผลการดึงของทุกชีต (ดึงครั้งเดียวเข้าครบ 4 ชีต) */
+  syncAll?: Record<string, LeaveSyncResult>;
   ym: string;
 }
 
-export default function LeavesClient({ initial, settings, staff, allNames, sync, ym }: Props) {
+export default function LeavesClient({ initial, settings, staff, allNames, sync, syncAll, ym }: Props) {
   const router = useRouter();
   const toast = useToast();
   const [rows, setRows] = useState<LeaveForm[]>(initial);
@@ -43,9 +47,15 @@ export default function LeavesClient({ initial, settings, staff, allNames, sync,
     const t = toast.loading("กำลังดึงการลาจากระบบลา…");
     try {
       const r = await fetch("/api/shift3/leaves/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ym }) });
-      const j = (await r.json().catch(() => ({}))) as Partial<LeaveSyncResult>;
+      const j = (await r.json().catch(() => ({}))) as Partial<LeaveSyncResult> & { all?: Record<string, LeaveSyncResult> };
       if (!r.ok || j.error) t.error(j.error ?? `ดึงข้อมูลไม่สำเร็จ (${r.status})`);
-      else t.success(`ดึงข้อมูลแล้ว · เพิ่ม ${j.added ?? 0} · นำออก ${j.removed ?? 0} รายการ`);
+      else {
+        const all = Object.values(j.all ?? {}) as LeaveSyncResult[];
+        const add = all.reduce((n, x) => n + (x.added ?? 0), 0);
+        const rem = all.reduce((n, x) => n + (x.removed ?? 0), 0);
+        const bad = all.filter((x) => x.error).length;
+        t.success(`ดึงข้อมูลแล้ว ทั้ง 4 ชีต · ตารางนี้ เพิ่ม ${j.added ?? 0} · นำออก ${j.removed ?? 0} · รวมทุกชีต เพิ่ม ${add} · นำออก ${rem}${bad ? ` · ผิดพลาด ${bad} ชีต` : ""}`);
+      }
       router.refresh();
     } catch {
       t.error("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
@@ -86,11 +96,22 @@ export default function LeavesClient({ initial, settings, staff, allNames, sync,
       <div className={sync?.error ? "sync-bar bad" : "sync-bar"}>
         <Icon name={sync?.error ? "TriangleAlert" : "CalendarCheck"} size={18} />
         <div className="sync-text">
-          <b>ดึงอัตโนมัติจากระบบลา</b> — เฉพาะที่ Approve แล้ว (ลาป่วย / ลากิจ / ลาพักร้อน / ลาอื่นๆ) เฉพาะเดือน <b>{monthLabel}</b> ที่กำลังจัดทำ · 1 แถวต่อ 1 วันทำการ
+          <b>ดึงอัตโนมัติจากระบบลา</b> (ดึงครั้งเดียวเข้าครบทั้ง 4 ชีต) — เฉพาะที่ Approve แล้ว (ลาป่วย / ลากิจ / ลาพักร้อน / ลาอื่นๆ) เฉพาะเดือน <b>{monthLabel}</b> ที่กำลังจัดทำ · 1 แถวต่อ 1 วันทำการ
           {sync && !sync.error && (
             <span className="muted"> · ล่าสุด {sync.at} น. เพิ่ม {sync.added} · นำออก {sync.removed}</span>
           )}
           {sync?.error && <div className="error">{sync.error}</div>}
+          {syncAll && (
+            <div className="muted small">
+              ดึงครั้งเดียวเข้าแท็บ ลา-แลกเวร ครบทั้ง 4 ชีต:{" "}
+              {(Object.entries(syncAll) as [string, LeaveSyncResult][]).map(([t, r], i) => (
+                <span key={t} className={r.error ? "error" : undefined}>
+                  {i > 0 ? " · " : ""}
+                  {TABLE_NAME[t] ?? t} {r.error ? "ผิดพลาด" : `+${r.added} −${r.removed}`}
+                </span>
+              ))}
+            </div>
+          )}
           {sync && sync.skippedNames.length > 0 && (
             <div className="muted small">ไม่ได้ดึง (ไม่ใช่พนักงานตารางนี้): {sync.skippedNames.join(", ")}</div>
           )}

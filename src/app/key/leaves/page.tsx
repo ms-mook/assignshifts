@@ -9,5 +9,5 @@ export default async function KeyLeavesPage({ searchParams }: { searchParams: { 
   const ym = currentYm(searchParams.ym);
   const d = await loadLeavePage("key", ym);
   const s = await loadKey();
-  return <TableLeavesClient table="key" title="ตาราง Key" ym={ym} initial={d.rows} names={d.names} sync={d.sync} keySettings={s} />;
+  return <TableLeavesClient table="key" title="ตาราง Key" ym={ym} initial={d.rows} names={d.names} sync={d.sync} syncAll={d.syncAll} keySettings={s} />;
 }

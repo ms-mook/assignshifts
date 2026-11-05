@@ -4,7 +4,8 @@ import { computeMonth } from "@/lib/shift3/engine";
 import { cellPerson, duplicateCols } from "@/lib/shift3/conflicts";
 import { summarizeShifts } from "@/lib/shift-summary";
 import { dropdownNames } from "@/lib/shift3/parse";
-import { loadMonthState, loadShift3, syncLeaveSystem } from "@/lib/shift3/repo";
+import { loadMonthState, loadShift3 } from "@/lib/shift3/repo";
+import { syncAllLeaves } from "@/lib/leave-sync";
 import { renderMonthHtml } from "@/lib/shift3/render";
 import { crossInfo } from "@/lib/shift3/cross";
 import { tableById } from "@/lib/tables";
@@ -22,7 +23,7 @@ export default async function SchedulePage({ params }: { params: { table: string
   if (tdef.kind === "smc") return <SmcSchedule tdef={tdef} ym={params.ym} yearBE={p.yearBE} month={p.month} />;
   if (tdef.kind === "key") return <KeySchedule tdef={tdef} ym={params.ym} yearBE={p.yearBE} month={p.month} />;
   if (tdef.kind === "ot") return <OtSchedule tdef={tdef} ym={params.ym} yearBE={p.yearBE} month={p.month} />;
-  await syncLeaveSystem({ ym: params.ym }); // การลาที่ Approve ในระบบลา เฉพาะเดือนนี้ (ดึงซ้ำไม่เกินนาทีละครั้ง)
+  await syncAllLeaves(params.ym); // การลาที่ Approve ในระบบลา เฉพาะเดือนนี้ → ทั้ง 4 ชีต (ดึงซ้ำไม่เกินนาทีละครั้ง)
   const data = await loadShift3();
   const st = await loadMonthState(data, p.yearBE, p.month);
   const res = computeMonth(data.settings, data.leaves, st.manual, p.yearBE, p.month);
