@@ -5,7 +5,8 @@ import { loadSmc, loadSmcMonthState } from "@/lib/smc/repo";
 import { SMC_COL_W, SMC_CSS, renderSmcHtml } from "@/lib/smc/render";
 import { SHEET_CSS } from "@/lib/shift3/render";
 import type { TableDef } from "@/lib/tables";
-import { syncAllLeaves } from "@/lib/leave-sync";
+import { syncAllLeaves, leaveContext } from "@/lib/leave-sync";
+import { loadSmcBookingGuides } from "@/lib/smc/booking";
 import ScheduleView from "@/components/ScheduleView";
 
 const todaySerial = () => {
@@ -21,6 +22,8 @@ export default async function SmcSchedule({ tdef, ym, yearBE, month }: { tdef: T
   const html = `<style>${SMC_CSS}</style>` + renderSmcHtml(res, s, { editable: true, styles: st.styles, personColors: st.personColors, today: todaySerial() });
   const dupDays = res.rows.filter((r) => r.date !== null && smcDupCols(s, r.cells).size > 0).map((r) => r.day);
   const names = Array.from(new Set([...s.listJ, ...s.listL, ...s.listN, ...s.listP, ...s.listT, s.mt, s.pt].filter((n) => n.trim() !== "")));
+  // ไกด์ชื่อจากระบบจองเวร (ห้องเจาะเลือด SMC) — ช่อง3/4/5 และ ช่อง3,4/5
+  const guide = await loadSmcBookingGuides(yearBE, month, [...names, ...(await leaveContext("smc")).staff]);
   // สรุปเวร: จำนวนเวร (ช่อง) ที่แต่ละคนได้ในเดือนนี้ ตามรายชื่อในสรุปของชีต (X8:X)
   const summary = [
     {
@@ -51,8 +54,9 @@ export default async function SmcSchedule({ tdef, ym, yearBE, month }: { tdef: T
       warning=""
       api="/api/smc"
       officerCols={[]}
+      guide={guide}
       dupNote="พนักงาน 1 คนอยู่ได้ทีละจุดในช่วงเวลาเดียวกัน"
-      hint="ช่องที่แก้เอง/พิมพ์ทับเก็บในแท็บ WEB-ช่องเลือกเอง (ไม่แตะสูตรในแท็บเดือน) · ชื่อที่อยู่ในตารางลาจะขึ้นสีส้มขีดฆ่า · บันทึกการลาที่หน้า ตารางลา (SMC)"
+      hint="ช่องที่แก้เอง/พิมพ์ทับเก็บในแท็บ WEB-ช่องเลือกเอง (ไม่แตะสูตรในแท็บเดือน) · ชื่อที่ลาวันนั้นจะขึ้นสีส้มขีดฆ่า · บันทึกการลาที่หน้า ลา-แลกเวร (SMC)"
       pdf={{ colA: SMC_COL_W[0], colW: 175, sheetCss: SHEET_CSS + SMC_CSS }}
     />
   );

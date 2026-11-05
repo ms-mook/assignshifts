@@ -44,7 +44,7 @@ export default function NavLinks() {
     ctx === "smc"
       ? [
           { href: "/smc/plan", label: "สรุปรายปี", icon: "ChartColumn" },
-          { href: "/smc/leaves", label: "ตารางลา", icon: "CalendarX" },
+          { href: "/smc/leaves", label: "ลา-แลกเวร", icon: "Repeat" },
           { href: "/smc/settings", label: "ตั้งค่า", icon: "Settings" },
         ]
       : ctx === "key"

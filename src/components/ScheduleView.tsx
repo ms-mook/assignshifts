@@ -48,7 +48,7 @@ interface Props {
   /** ตาราง 3 ช่วงเวลา: ข้อมูลตารางอื่นสำหรับ ใส่ชื่อเดียวกันหลายตาราง */
   cross?: CrossInfo;
   /** ไกด์ชื่อด้านขวาของป๊อปอัปเลือกชื่อ (เช่น ระบบจองเวร) — เลือกจากไกด์หรือจากรายชื่อปกติก็ได้ */
-  guide?: BookingGuide;
+  guide?: BookingGuide | BookingGuide[];
 }
 type CellStyle = { bg?: string; fg?: string };
 type StylePatch = { bg?: string | null; fg?: string | null; clear?: boolean };
@@ -589,8 +589,9 @@ export default function ScheduleView(p: Props) {
       .map((x) => ({ sec: x.sec, table: x.table, label: x.label, current: (rowNow(x.sec, day) ?? [])[colIndex(col)] ?? "" }));
   };
   const [crossOn, setCrossOn] = useState<Record<number, boolean>>({});
-  const showGuide = !!(edit && p.guide && p.guide.cols.includes(edit.col));
-  const guideList = showGuide && edit && p.guide ? (p.guide.byDay[Number(edit.day)] ?? []) : [];
+  const guideFor = edit && p.guide ? (Array.isArray(p.guide) ? p.guide : [p.guide]).find((g) => g.cols.includes(edit.col)) : undefined;
+  const showGuide = !!guideFor;
+  const guideList = guideFor && edit ? (guideFor.byDay[Number(edit.day)] ?? []) : [];
   const [hi, setHi] = useState(-1); // แถวที่ไฮไลต์ในรายชื่อ (ลูกศรขึ้น/ลง)
   const searchRef = useRef<HTMLInputElement>(null);
   // ป๊อปอัปของ daisyUI ค่อย ๆ ปรากฏ (ตอนแรกยังซ่อน) จึงต้องโฟกัสช่องค้นหาหลังเฟรมแรก ไม่ใช่ autoFocus
@@ -1020,14 +1021,14 @@ export default function ScheduleView(p: Props) {
                 {shown.length === 0 && <div className="muted small p-2">ไม่พบชื่อ{!isOfficer && value.trim() !== "" ? " — กด Enter เพื่อใช้ชื่อที่พิมพ์" : ""}</div>}
               </div>
               </div>
-              {showGuide && p.guide && (
+              {showGuide && guideFor && (
                 <aside className="pick-guide" aria-label="ไกด์จากระบบจองเวร">
                   <div className="pg-title">
-                    <Icon name="CalendarCheck" size={15} /> {p.guide.title}
+                    <Icon name="CalendarCheck" size={15} /> {guideFor.title}
                   </div>
                   <div className="pg-sub muted small">วันที่ {edit.day} · คลิกเพื่อใส่ชื่อ หรือเลือกจากรายชื่อด้านซ้ายแทนก็ได้</div>
-                  {p.guide.error ? (
-                    <div className="error small">{p.guide.error}</div>
+                  {guideFor.error ? (
+                    <div className="error small">{guideFor.error}</div>
                   ) : guideList.length === 0 ? (
                     <div className="muted small pg-empty">ไม่มีคนจองจุดนี้ในวันที่ {edit.day}</div>
                   ) : (
