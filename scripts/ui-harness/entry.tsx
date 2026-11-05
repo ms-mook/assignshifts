@@ -7,6 +7,7 @@ import { parseSettings } from "../../src/lib/shift3/parse";
 import { renderMonthHtml } from "../../src/lib/shift3/render";
 import { duplicateCols } from "../../src/lib/shift3/conflicts";
 import { dropdownNames } from "../../src/lib/shift3/parse";
+import { crossInfo } from "../../src/lib/shift3/cross";
 import book from "../../fixtures/shift3-sheet.json";
 import "../../src/app/ui.css";
 import "../../src/app/globals.css";
@@ -39,6 +40,13 @@ createRoot(document.getElementById("root")!).render(
         personColors={{}}
         dupDays={dupDays}
         warning=""
+        cross={crossInfo(res, sec as 1 | 2 | 3)}
+        guide={{ cols: ["*"], sec: String(sec), onlyEmpty: true, title: "จองเวรไว้ · จุดเจาะเลือด (เช้า 06:00-08:30)", byDay: {
+          2: [
+            { name: "ธัญญาธร", booked: "ธัญญาธร นนท์ขุนทด", slot: "06:00-08:30 · ห้อง OPD · จองช่วง 08:30-12:30, 12:30-16:30 ด้วย", secs: ["1", "2", "3"] },
+            { name: "ปรางทิพย์", booked: "ปรางทิพย์ ชาญพานิชย์", slot: "06:00-08:30 · ห้อง SMC", note: "ไม่มีในรายชื่อตาราง", secs: ["1"] },
+          ],
+        } }}
       />
     </main>
   </ToastProvider>,

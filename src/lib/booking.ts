@@ -96,6 +96,8 @@ export async function buildGuide(o: {
   slot: number;
   /** ข้อความเพิ่มในแต่ละชื่อ (เช่น จุดที่จอง) */
   meta?: (b: Booking) => string;
+  /** ส่วนของตารางที่จองไว้ (ใช้กับ "ใส่ชื่อเดียวกันในตารางอื่นด้วย") */
+  secs?: (b: Booking) => string[];
 }): Promise<BookingGuide> {
   const guide: BookingGuide = { cols: o.cols, title: o.title, byDay: {} };
   try {
@@ -110,11 +112,17 @@ export async function buildGuide(o: {
       const day = ymdFromSerial(b.date).d;
       const m = matchName(b.first, known);
       const list = (guide.byDay[day] ??= []);
-      if (list.some((x) => x.name === m.name)) continue;
+      const dup = list.find((x) => x.name === m.name);
+      if (dup) {
+        // จองหลายแถววันเดียวกัน → รวมช่วงที่จองไว้
+        if (o.secs && dup.secs) dup.secs = Array.from(new Set([...dup.secs, ...o.secs(b)])).sort();
+        continue;
+      }
       const extra = o.meta?.(b);
       const item: GuideItem = { name: m.name, booked: `${b.first}${b.last ? " " + b.last : ""}`, slot: extra ? `${slot} · ${extra}` : slot };
       // ชื่อที่สะกดคล้ายกันถือเป็นคนละคน (ผู้ใช้ยืนยัน: นภาพร ≠ นิภาพร · ปรียาพร ≠ ประภาพร) — ไม่เตือน ไม่จับคู่
       if (m.matched === "none") item.note = "ไม่มีในรายชื่อตาราง";
+      if (o.secs) item.secs = o.secs(b);
       list.push(item);
     }
   } catch (e) {

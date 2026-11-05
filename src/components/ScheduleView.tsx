@@ -589,9 +589,6 @@ export default function ScheduleView(p: Props) {
       .map((x) => ({ sec: x.sec, table: x.table, label: x.label, current: (rowNow(x.sec, day) ?? [])[colIndex(col)] ?? "" }));
   };
   const [crossOn, setCrossOn] = useState<Record<number, boolean>>({});
-  const guideFor = edit && p.guide ? (Array.isArray(p.guide) ? p.guide : [p.guide]).find((g) => g.cols.includes(edit.col)) : undefined;
-  const showGuide = !!guideFor;
-  const guideList = guideFor && edit ? (guideFor.byDay[Number(edit.day)] ?? []) : [];
   const [hi, setHi] = useState(-1); // แถวที่ไฮไลต์ในรายชื่อ (ลูกศรขึ้น/ลง)
   const searchRef = useRef<HTMLInputElement>(null);
   // ป๊อปอัปของ daisyUI ค่อย ๆ ปรากฏ (ตอนแรกยังซ่อน) จึงต้องโฟกัสช่องค้นหาหลังเฟรมแรก ไม่ใช่ autoFocus
@@ -643,14 +640,15 @@ export default function ScheduleView(p: Props) {
   };
 
   // ----- บันทึกชื่อจากป๊อปอัป -----
-  const saveName = (v: string | null) => {
+  const saveName = (v: string | null, crossPick?: Record<number, boolean>) => {
     if (!edit) return;
+    const on = crossPick ?? crossOn;
     const key = edit.key;
     const entries: { key: string; value: string | null }[] = [{ key, value: v }];
     const skipped: string[] = [];
     if (v !== null && v.trim() !== "") {
       for (const t of crossTargets(key)) {
-        if (!crossOn[t.sec]) continue;
+        if (!on[t.sec]) continue;
         if (t.current.trim() === v.trim()) continue; // มีชื่อนี้อยู่แล้ว
         const at = busyAt(t.sec, Number(edit.day), edit.col, v);
         if (at) {
@@ -762,6 +760,14 @@ export default function ScheduleView(p: Props) {
   };
 
   const isOfficer = edit ? (p.officerCols ?? OFFICER_COLS).includes(edit.col) || (edit.sec === "1" && edit.col === "B") : false;
+  const guideFor =
+    edit && p.guide && !isOfficer
+      ? (Array.isArray(p.guide) ? p.guide : [p.guide]).find(
+          (g) => (g.sec === undefined || g.sec === edit.sec) && (g.cols.includes("*") || g.cols.includes(edit.col)) && (!g.onlyEmpty || edit.current.trim() === ""),
+        )
+      : undefined;
+  const showGuide = !!guideFor;
+  const guideList = guideFor && edit ? (guideFor.byDay[Number(edit.day)] ?? []) : [];
   const uniqNames = useMemo(() => Array.from(new Set(p.names)), [p.names]);
   const xTargets = edit ? crossTargets(edit.key) : [];
   /** ชื่อซ้ำกับจุดอื่นในช่วงเวลาเดียวกัน (เฉพาะตาราง 3 ช่วงเวลา) → ไม่ให้บันทึก */
@@ -1042,7 +1048,10 @@ export default function ScheduleView(p: Props) {
                             className={["nl-item", "pg-item", here ? "cur" : "", at ? "busy" : ""].filter(Boolean).join(" ")}
                             disabled={busy || at !== null || here}
                             title={at ? `อยู่ที่ ${at} ในช่วงเวลานี้แล้ว` : g.booked}
-                            onClick={() => saveName(g.name)}
+                            onClick={() =>
+                              // คนที่จองหลายช่วง: ใส่ในตารางช่วงอื่นที่จองไว้ด้วย (เฉพาะช่องที่ยังว่าง) · ช่วงที่ไม่ได้จอง → ไม่ใส่
+                              saveName(g.name, g.secs ? Object.fromEntries(xTargets.map((x) => [x.sec, g.secs!.includes(String(x.sec)) && x.current.trim() === ""])) : undefined)
+                            }
                           >
                             <span className="av" style={{ background: avColor(g.name) }}>{Array.from(g.name)[0] ?? "?"}</span>
                             <span className="pg-text">

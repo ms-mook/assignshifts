@@ -6,6 +6,7 @@ import { summarizeShifts } from "@/lib/shift-summary";
 import { dropdownNames } from "@/lib/shift3/parse";
 import { loadMonthState, loadShift3 } from "@/lib/shift3/repo";
 import { syncAllLeaves } from "@/lib/leave-sync";
+import { loadShift3BookingGuide } from "@/lib/shift3/booking";
 import { renderMonthHtml } from "@/lib/shift3/render";
 import { crossInfo } from "@/lib/shift3/cross";
 import { tableById } from "@/lib/tables";
@@ -32,6 +33,8 @@ export default async function SchedulePage({ params }: { params: { table: string
   const beforeStart = res.sections[0].rows.every((r) => r.workday === 0 || r.week === null);
   const dupDays = sec.rows.filter((r) => r.date !== null && duplicateCols(r.cells).size > 0).map((r) => r.day);
   const names = dropdownNames(data.settings, data.mtrn);
+  // ไกด์ชื่อจากระบบจองเวร (จุดเจาะเลือด · ช่วงเวลาตามตารางนี้) — แสดงที่ช่องว่าง
+  const guide = await loadShift3BookingGuide(p.yearBE, p.month, tdef.section, names);
   // สรุปเวรของตารางนี้ในเดือนนี้ (นับทุกช่องในแถววันที่)
   const summary = summarizeShifts(
     sec.rows.filter((r) => r.date !== null).flatMap((r) => r.cells.slice(1)),
@@ -58,6 +61,7 @@ export default async function SchedulePage({ params }: { params: { table: string
       manual={st.manual}
       cellStyles={st.styles}
       cross={crossInfo(res, tdef.section)}
+      guide={guide}
       dupDays={dupDays}
       summary={summary}
       warning={beforeStart ? "เดือนนี้อยู่ก่อนวันเริ่มตาราง (ตั้งค่า B3) จึงยังไม่มีการจัดคน" : ""}
