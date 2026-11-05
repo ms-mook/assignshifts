@@ -6,13 +6,13 @@ import { isoFromSerial } from "../sheets-date";
 import { readWebState, writeManual, writePersonColors, writeStyles } from "../webtabs";
 import { computeKeyMonth, KEY_EDIT_COLS, type KeySettings } from "./engine";
 import { keyDupCols } from "./render";
-import { KEY_SETTINGS_RANGE, parseKeySettings, str } from "./parse";
+import { KEY_LEAVES_RANGE, KEY_SETTINGS_RANGE, parseKeySettings, str } from "./parse";
 
 const ID = () => SHEETS.key;
 
 export async function loadKey(): Promise<KeySettings> {
-  const [g] = await batchGet(ID(), [KEY_SETTINGS_RANGE]);
-  return parseKeySettings(g);
+  const [g, lg] = await batchGet(ID(), [KEY_SETTINGS_RANGE, KEY_LEAVES_RANGE]);
+  return parseKeySettings(g, lg);
 }
 
 /** ช่องพิมพ์เอง = ค่าในแท็บเดือน (แถว 10-40) ที่ต่างจากสูตร + แท็บ WEB (ทับอีกชั้น) */
@@ -74,7 +74,7 @@ export const saveKeyStyles = (y: number, m: number, keys: string[], patch: { bg?
   writeStyles(ID(), ymString(y, m), keys.map((k) => k.slice(2)), patch);
 export const saveKeyPersonColors = (c: Record<string, string>) => writePersonColors(ID(), c);
 
-// ---------- ตั้งค่า (รวมตารางลา/แลกเวร ตั้งค่า!M13:P112) ----------
+// ---------- ตั้งค่า (การลาอยู่แท็บ ลา-แลกเวร) ----------
 const iso = (n: number | null) => (n === null ? "" : isoFromSerial(n));
 export interface KeyForm {
   rotStart: string;
@@ -111,11 +111,8 @@ export function keyToForm(s: KeySettings): KeyForm {
 const pad = <T,>(a: T[], n: number, f: T) => [...a, ...Array(Math.max(0, n - a.length)).fill(f)].slice(0, n);
 
 export async function saveKeyForm(f: KeyForm, part: "settings" | "leaves") {
-  if (part === "leaves") {
-    if (f.leaves.length > 100) throw new Error("ตารางลาได้สูงสุด 100 แถว (ตั้งค่า M13:P112)");
-    await batchUpdate(ID(), [{ range: "'ตั้งค่า'!M13:P112", values: pad(f.leaves, 100, { date: "", who: "", sub: "", note: "" }).map((l) => [l.date, l.who, l.sub, l.note]) }]);
-    return;
-  }
+  // การลาย้ายไปแท็บ ลา-แลกเวร แล้ว (บันทึกผ่าน /api/leaves/key)
+  if (part === "leaves") throw new Error("การลาบันทึกที่หน้า ลา-แลกเวร (แท็บ ลา-แลกเวร) แล้ว");
   if (f.holidays.length > 46) throw new Error("วันหยุดได้สูงสุด 46 รายการ (ตั้งค่า E13:F58)");
   if (f.dropdown.length > 46) throw new Error("รายชื่อ dropdown ได้สูงสุด 46 ชื่อ (ตั้งค่า J13:J58)");
   if (f.heads.length > 8) throw new Error("หัวหน้าเวรได้สูงสุด 8 ชื่อ (ตั้งค่า R13:R20)");

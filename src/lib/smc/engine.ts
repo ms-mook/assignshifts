@@ -22,7 +22,7 @@ export interface SmcSettings {
   listN: string[]; // N17:N46 dropdown 08.30–12.30
   listP: string[]; // P17:P46 dropdown 12.30–16.00
   listT: string[]; // T17:T20 ผู้แทนอัมพร
-  leaves: SmcLeave[]; // ตารางลา!A5:F200
+  leaves: SmcLeave[]; // ลา-แลกเวร!A5:H5004 (1 แถว = 1 วัน: start = end = วันที่)
 }
 
 export const SMC_COLS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T"];

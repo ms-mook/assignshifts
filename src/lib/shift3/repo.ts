@@ -1,8 +1,8 @@
 // อ่าน/เขียนข้อมูลตาราง 3 ช่วงเวลา กับ Google Sheet
 import "server-only";
 import { addSheet, batchGet, batchUpdate, sheetTitles } from "../google";
-import { SHEETS, monthTabName, parseYm, ymString } from "../config";
-import { isoFromSerial, serialFromYMD, toSerial } from "../sheets-date";
+import { SHEETS, monthTabName, ymString } from "../config";
+import { isoFromSerial, toSerial } from "../sheets-date";
 import { PlanCalculator, colIndex, colLetter, computeMonth, editableCols, manualKey, SECTION_MAP } from "./engine";
 import {
   LEAVES_RANGE,
@@ -16,7 +16,7 @@ import {
   str,
 } from "./parse";
 import { conflictMessage } from "./conflicts";
-import { readApprovedLeaves } from "../leave-system";
+import { saveLeaveTabMonth, syncLeaveTab, writeLeaveTab, type LeaveForm, type LeaveSyncResult } from "../leave-tab";
 import type { CellStyle } from "./render";
 import type { LeaveRow, ManualCells, SectionNo, Shift3Settings } from "./types";
 
@@ -380,61 +380,24 @@ export async function saveSettings(f: Shift3SettingsForm): Promise<void> {
   await batchUpdate(ID(), data);
 }
 
-// ---------- ลา-แลกเวร ----------
+// ---------- ลา-แลกเวร (แท็บรูปแบบเดียวกันทุกชีต: ../leave-tab) ----------
 
-export interface LeaveForm {
-  date: string;
-  name: string;
-  replacement: string;
-  type: string;
-  note: string;
-  /** รหัสจากระบบลา (ว่าง = กรอกเอง) */
-  ref?: string;
-}
+export type { LeaveForm, LeaveSyncResult } from "../leave-tab";
+export { LEAVE_ROWS, monthWindow } from "../leave-tab";
 
-/** จำนวนแถวข้อมูลในแท็บ ลา-แลกเวร (แถว 5..5004) */
-export const LEAVE_ROWS = 5000;
-
+/** เขียนทั้งตาราง ลา-แลกเวร (A:D, G:H) */
 export async function saveLeaves(rows: LeaveForm[]): Promise<void> {
-  // สูตรในแท็บเดือนอ่าน ลา-แลกเวร!A5:A5004 (ขยายจาก 400 เมื่อ 5 พ.ย. 69 ให้เก็บประวัติได้หลายปี)
-  if (rows.length > LEAVE_ROWS) throw new Error(`บันทึกได้สูงสุด ${LEAVE_ROWS} แถว (A5:A${LEAVE_ROWS + 4})`);
-  const n = LEAVE_ROWS;
-  const pad = <T,>(arr: T[], empty: T) => Array.from({ length: n }, (_, i) => arr[i] ?? empty);
-  const ad = pad(
-    rows.map((r, i) => [checkDate(r.date, `A${5 + i}`), r.name, r.replacement, r.type]),
-    ["", "", "", ""],
-  );
-  const g = pad(rows.map((r) => [r.note, r.ref ?? ""]), ["", ""]);
-  // E, F เป็นสูตร ไม่เขียนทับ · H = รหัสจากระบบลา
-  await batchUpdate(ID(), [
-    { range: `'ลา-แลกเวร'!A5:D${LEAVE_ROWS + 4}`, values: ad },
-    { range: `'ลา-แลกเวร'!G5:H${LEAVE_ROWS + 4}`, values: g },
-  ]);
+  await writeLeaveTab(ID(), rows);
 }
 
-/** ช่วงวันที่ของเดือน (ym = ปี พ.ศ.-เดือน) เป็น serial */
-export function monthWindow(ym: string): { start: number; end: number } | null {
-  const p = parseYm(ym);
-  if (!p) return null;
-  return { start: serialFromYMD(p.yearBE - 543, p.month, 1), end: serialFromYMD(p.yearBE - 543, p.month + 1, 0) };
-}
-
-/**
- * บันทึกการลาเฉพาะเดือนเดียว: แทนที่เฉพาะแถวที่วันที่อยู่ในเดือนนั้น
- * แถวของเดือนอื่น (ประวัติ) คงไว้ตามเดิมทุกแถว · เรียงทั้งตารางตามวันที่
- */
+/** บันทึกเฉพาะเดือนเดียว — แถวเดือนอื่น (ประวัติ) คงไว้ */
 export async function saveLeavesMonth(ym: string, rows: LeaveForm[]): Promise<void> {
-  const w = monthWindow(ym);
-  if (!w) throw new Error(`เดือนไม่ถูกต้อง: ${ym}`);
   const data = await loadShift3();
-  const others: LeaveForm[] = data.leaves
-    .filter((l) => l.date === null || l.date < w.start || l.date > w.end)
-    .map((l) => ({ date: l.date === null ? "" : isoFromSerial(l.date), name: l.name, replacement: l.replacement, type: l.type, note: l.note, ref: l.ref ?? "" }))
-    .filter((r) => r.date !== "" || r.name !== "");
-  const mine = rows.filter((r) => r.date !== "" || r.name !== "" || r.replacement !== "");
-  const all = [...others, ...mine].sort((a, b) => (toSerial(a.date) ?? 9e9) - (toSerial(b.date) ?? 9e9) || a.name.localeCompare(b.name));
-  await saveLeaves(all);
+  await saveLeaveTabMonth(ID(), ym, rows, leavesToForm(data.leaves));
 }
+
+const leavesToForm = (ls: LeaveRow[]): LeaveForm[] =>
+  ls.map((l) => ({ date: l.date === null ? "" : isoFromSerial(l.date), name: l.name, replacement: l.replacement, type: l.type, note: l.note, ref: l.ref ?? "" }));
 
 export { colLetter };
 
@@ -454,98 +417,22 @@ export async function saveShift3SummaryRange(from: string, to: string): Promise<
 
 // ---------- ดึงการลาจากระบบลา (Approve แล้ว) มาใส่หน้า ลา-แลกเวร ----------
 
-export interface LeaveSyncResult {
-  added: number;
-  removed: number;
-  at: string;
-  /** เดือนที่ดึง (ปี พ.ศ.-เดือน) */
-  ym: string;
-  error?: string;
-  /** ชื่อในระบบลาที่จับคู่กับพนักงานในตารางนี้ไม่ได้ (ไม่ได้ดึงมา) */
-  skippedNames: string[];
-}
-let syncing: Promise<LeaveSyncResult> | null = null;
-let syncingYm = "";
-let lastSync = 0;
-let lastResult: LeaveSyncResult | null = null;
-let lastYm = "";
-
-/**
- * เทียบรายการลาที่ Approve (ลาป่วย/ลากิจ/ลาพักร้อน/ลาอื่นๆ) กับแถวในแท็บ ลา-แลกเวร
- *  - 1 แถวต่อ 1 คน 1 วันทำการ (ข้ามเสาร์-อาทิตย์และวันหยุดในตั้งค่า) เฉพาะ "เดือนที่กำลังจัดทำ" (ym = ปี พ.ศ.-เดือน) ไม่ดึงทั้งชีต
- *  - แถวนอกเดือนนั้น (เดือนอื่นที่เคยดึงไว้แล้ว) ไม่ถูกแตะต้อง
- *  - ใส่ วันที่ / ชื่อ / ประเภท / รหัส (H) · คนแทน และหมายเหตุ เว้นว่างให้ผู้จัดกรอกเอง
- *  - ถ้าการลาถูกยกเลิก/ไม่อนุมัติภายหลัง แถวที่ดึงมาจะถูกนำออก (ข้อมูลที่ผู้จัดกรอกในแถวนั้นหายไปด้วย)
- */
+/** ดึงการลาเฉพาะเดือนที่กำลังจัดทำ (ym = ปี พ.ศ.-เดือน · ไม่ระบุ = เดือนปัจจุบัน) */
 export async function syncLeaveSystem(opt: { force?: boolean; ym?: string } = {}): Promise<LeaveSyncResult> {
-  const nowTH = new Date(Date.now() + 7 * 3600 * 1000);
-  const pm = opt.ym ? parseYm(opt.ym) : null;
-  const yearBE = pm ? pm.yearBE : nowTH.getUTCFullYear() + 543;
-  const month = pm ? pm.month : nowTH.getUTCMonth() + 1;
-  const ymKey = ymString(yearBE, month);
-  if (!opt.force && lastResult && lastYm === ymKey && Date.now() - lastSync < 60_000) return lastResult;
-  if (syncing && syncingYm === ymKey) return syncing;
-  syncingYm = ymKey;
-  syncing = (async () => {
-    const at = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(11, 16);
-    try {
-      const data = await loadShift3();
-      const s = data.settings;
-      const staff = Array.from(new Set([...s.persons.flatMap((p) => [p.name, p.replacement]), s.pairOddKw8, s.pairOddOpd11].map((x) => x.trim()).filter((x) => x !== "")));
-      const windowStart = serialFromYMD(yearBE - 543, month, 1); // วันที่ 1 ของเดือนที่จัดทำ
-      const windowEnd = serialFromYMD(yearBE - 543, month + 1, 0); // วันสุดท้ายของเดือน
-      const holidays = new Set(s.holidays.map((h) => h.date).filter((d): d is number => d !== null));
-      const sys = await readApprovedLeaves();
-      const skipped = new Set<string>();
-      const want = new Map<string, LeaveForm>();
-      for (const l of sys) {
-        const name = staff.find((n) => n.toLowerCase() === l.firstName.toLowerCase());
-        if (!name) {
-          skipped.add(l.fullName);
-          continue;
-        }
-        if (l.end < windowStart || l.start > windowEnd) continue;
-        for (let d = Math.max(l.start, windowStart); d <= Math.min(l.end, windowEnd); d++) {
-          const wd = new Date((d - 25569) * 86400000).getUTCDay();
-          if (wd === 0 || wd === 6 || holidays.has(d)) continue;
-          const ref = `${l.leaveId}|${isoFromSerial(d)}`;
-          want.set(ref, { date: isoFromSerial(d), name, replacement: "", type: l.type, note: "", ref });
-        }
-      }
-      const cur: LeaveForm[] = data.leaves.map((l) => ({
-        date: l.date === null ? "" : isoFromSerial(l.date),
-        name: l.name,
-        replacement: l.replacement,
-        type: l.type,
-        note: l.note,
-        ref: l.ref ?? "",
-      }));
-      const seen = new Set<string>();
-      let removed = 0;
-      const keep = cur.filter((r) => {
-        if (!r.ref) return true;
-        if (seen.has(r.ref)) return (removed++, false); // แถวซ้ำ
-        seen.add(r.ref);
-        const d = toSerial(r.date);
-        if (want.has(r.ref) || d === null || d < windowStart || d > windowEnd) return true; // นอกเดือนนี้ ไม่แตะ
-        removed++;
-        return false;
-      });
-      const add = Array.from(want.values()).filter((r) => !seen.has(r.ref!)).sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
-      if (add.length > 0 || removed > 0) await saveLeaves([...keep, ...add]);
-      lastYm = ymKey;
-      return (lastResult = { added: add.length, removed, at, ym: ymKey, skippedNames: Array.from(skipped) });
-    } catch (e) {
-      const msg = (e as Error).message;
-      const error = /\b(403|404)\b|PERMISSION|not found/i.test(msg)
-        ? "อ่านชีตระบบลาไม่ได้ — ต้องแชร์ชีตระบบลาให้บัญชีของเว็บ (assignshifts@assignshifts.iam.gserviceaccount.com) สิทธิ์ผู้อ่าน"
-        : `ดึงข้อมูลระบบลาไม่สำเร็จ: ${msg.slice(0, 200)}`;
-      lastYm = ymKey;
-      return (lastResult = { added: 0, removed: 0, at, ym: ymKey, error, skippedNames: [] });
-    } finally {
-      lastSync = Date.now();
-      syncing = null;
-    }
-  })();
-  return syncing;
+  let data: Shift3Data;
+  try {
+    data = await loadShift3();
+  } catch (e) {
+    return { added: 0, removed: 0, at: "", ym: opt.ym ?? "", error: (e as Error).message, skippedNames: [] };
+  }
+  const s = data.settings;
+  return syncLeaveTab({
+    table: "shift3",
+    sheetId: ID(),
+    ym: opt.ym,
+    force: opt.force,
+    staff: [...s.persons.flatMap((p) => [p.name, p.replacement]), s.pairOddKw8, s.pairOddOpd11],
+    holidays: s.holidays.map((h) => h.date).filter((d): d is number => d !== null),
+    current: leavesToForm(data.leaves),
+  });
 }

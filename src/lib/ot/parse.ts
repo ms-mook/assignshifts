@@ -4,7 +4,7 @@ import type { OtLeave, OtSettings } from "./engine";
 
 export type Grid = unknown[][];
 export const OT_SETTINGS_RANGE = "'ตั้งค่า'!A1:P55";
-export const OT_LEAVES_RANGE = "'ลา-แลกเวร'!A5:D300";
+export const OT_LEAVES_RANGE = "'ลา-แลกเวร'!A5:H5004";
 export const OT_SUMMARY_RANGE = "'สรุป'!B2:B3";
 
 export const str = (v: unknown) => (v === null || v === undefined ? "" : String(v));

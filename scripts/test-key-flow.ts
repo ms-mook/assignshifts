@@ -28,7 +28,7 @@ S.holidays.forEach((h: any, i: number) => { put(13 + i, 5, iso(h.date)); put(13 
 S.monthNames.forEach((n: string, i: number) => put(13 + i, 8, n));
 S.dropdown.forEach((n: string, i: number) => put(13 + i, 10, n));
 S.heads.forEach((n: string, i: number) => put(13 + i, 18, n));
-const wb = new Map<string, string[][]>([["ตั้งค่า", setG]]);
+const wb = new Map<string, string[][]>([["ตั้งค่า", setG], ["ลา-แลกเวร", [[], [], [], []]]]);
 let calls = 0;
 const colNum = (L: string) => [...L].reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0);
 function pr(r: string) {
@@ -92,15 +92,14 @@ const ok = (c: boolean, msg: string) => { if (c) pass++; else { fail++; console.
   st = await repo.loadKeyMonthState(s, 2569, 12);
   m = eng.computeKeyMonth(s, st.manual, 2569, 12);
   ok(m.rows[0].cells.B === "", "คืนค่าสูตรช่องที่พิมพ์ไว้ในแท็บเดิม");
-  console.log("4) ตารางลา + ตั้งค่า");
+  console.log("4) ลา-แลกเวร (แท็บรูปแบบเดียวกันทุกชีต) + ตั้งค่า");
+  const lt = require("../src/lib/leave-tab");
   const f = repo.keyToForm(s);
-  f.leaves = [{ date: "2026-12-15", who: "สมพาน", sub: "", note: "" }];
-  await repo.saveKeyForm(f, "leaves");
+  await lt.saveLeaveTabMonth("KEYSHEET", "2569-12", [{ date: "2026-12-15", name: "สมพาน", replacement: "", type: "", note: "" }]);
   s = await repo.loadKey();
   m = eng.computeKeyMonth(s, {}, 2569, 12);
   ok(m.rows[14].cells.F === "ลา" && m.rows[14].cells.P === "สมพาน ลา" && m.checks.vacancy === 1, "ลายังไม่มีผู้แทน");
-  f.leaves[0].sub = "ปณิชา";
-  await repo.saveKeyForm(f, "leaves");
+  await lt.saveLeaveTabMonth("KEYSHEET", "2569-12", [{ date: "2026-12-15", name: "สมพาน", replacement: "ปณิชา", type: "", note: "" }]);
   s = await repo.loadKey();
   m = eng.computeKeyMonth(s, {}, 2569, 12);
   ok(m.rows[14].cells.F === "ปณิชา" && m.checks.status === "✓ ปกติ", "มีผู้แทน");
@@ -112,7 +111,25 @@ const ok = (c: boolean, msg: string) => { if (c) pass++; else { fail++; console.
   s = await repo.loadKey();
   m = eng.computeKeyMonth(s, {}, 2569, 12);
   ok(m.rows[0].cells.L === "เดือนใหม่" && m.rows[0].cells.G === "ชัชวิชญ์", "แก้ตั้งค่าแล้วตารางเปลี่ยนตาม");
-  ok(JSON.stringify(repo.keyToForm(s).leaves) === JSON.stringify(f.leaves), "อ่านตารางลากลับตรง");
+  ok(s.leaves.length === 1 && s.leaves[0].sub === "ปณิชา", "อ่านการลากลับจากแท็บ ลา-แลกเวร");
+  ok(setG.slice(12).every((r) => r.slice(12, 16).every((v) => v === "")), "ไม่เขียน ตั้งค่า M13:P112 (ตารางเก่า) แล้ว");
+  let threw = false;
+  try { await repo.saveKeyForm(f, "leaves"); } catch { threw = true; }
+  ok(threw, "บันทึกการลาผ่านฟอร์มตั้งค่าแบบเดิมไม่ได้แล้ว");
+  console.log("4b) ดึงการลาจากระบบลา (เฉพาะเดือน · เฉพาะพนักงานตาราง Key)");
+  wb.set("Leave", [
+    ["Timestamp", "ชื่อ - นามสกุล", "ตำแหน่ง", "ประเภทการลา", "เริ่มต้น", "สิ้นสุด", "จำนวน", "สถานะ", "LeaveID"],
+    ["", "จีรินันท์ ทดสอบ", "", "ลาป่วย", "16/12/2026", "17/12/2026", "2", "Approve", "K1"],
+    ["", "ปณิชา ทดสอบ", "", "ลากิจ", "16/12/2026", "16/12/2026", "1", "Approve", "K2"],
+    ["", "จีรินันท์ ทดสอบ", "", "ลาพักร้อน", "05/01/2027", "05/01/2027", "1", "Approve", "K3"],
+  ]);
+  const ls = require("../src/lib/leave-sync");
+  const r = await ls.syncLeaves("key", "2569-12", true);
+  ok(r.added === 2 && !r.error && r.skippedNames.includes("ปณิชา ทดสอบ"), "ดึง ธ.ค. 2 วัน · คนที่ไม่ใช่พนักงาน Key ไม่ดึง: " + JSON.stringify(r));
+  s = await repo.loadKey();
+  ok(s.leaves.length === 3 && s.leaves.every((l: any) => l.date < 46388), "ไม่ดึงเดือน ม.ค. · แถวเดิม 15 ธ.ค. ยังอยู่");
+  m = eng.computeKeyMonth(s, {}, 2569, 12);
+  ok(m.rows[15].cells.P.includes("จีรินันท์ ลา") && Object.values(m.rows[15].cells).includes("ลา"), "ตารางวันที่ 16 ธ.ค. ขึ้นการลา");
   console.log("5) สี");
   await repo.saveKeyStyles(2569, 12, ["k:B:2"], { bg: "#7F7F7F" });
   await repo.saveKeyPersonColors({ "สมพาน": "#C00000" });

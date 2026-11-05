@@ -8,6 +8,7 @@ import { loadOt, loadOtMonthState } from "@/lib/ot/repo";
 import { OT_COL_W, OT_CSS, renderOtHtml } from "@/lib/ot/render";
 import { SHEET_CSS } from "@/lib/shift3/render";
 import type { TableDef } from "@/lib/tables";
+import { syncLeaves } from "@/lib/leave-sync";
 import ScheduleView from "@/components/ScheduleView";
 
 const todaySerial = () => {
@@ -16,6 +17,7 @@ const todaySerial = () => {
 };
 
 export default async function OtSchedule({ tdef, ym, yearBE, month }: { tdef: TableDef; ym: string; yearBE: number; month: number }) {
+  await syncLeaves("ot", ym); // การลาที่ Approve ในระบบลา เฉพาะเดือนนี้ (ดึงซ้ำไม่เกินนาทีละครั้ง)
   const data = await loadOt();
   const st = await loadOtMonthState(data, yearBE, month);
   const res = computeOtMonth(data.settings, data.leaves, st.manual, yearBE, month);

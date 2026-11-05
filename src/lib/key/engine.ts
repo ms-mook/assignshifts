@@ -18,7 +18,7 @@ export interface KeySettings {
   monthNames: string[]; // H13:H24
   dropdown: string[]; // J13:J58 (ตามแถว รวมช่องว่าง 46 ช่อง)
   heads: string[]; // R13:R20 (ตามแถว)
-  leaves: KeyLeave[]; // M13:P112 (ตามแถว)
+  leaves: KeyLeave[]; // ลา-แลกเวร!A5:H5004 (ตามแถว)
 }
 
 export const KEY_COLS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"];

@@ -49,49 +49,6 @@ export default function SmcFormClient({ initial, part }: { initial: SmcForm; par
     </div>
   );
 
-  if (part === "leaves")
-    return (
-      <div>
-        <div className="page-head">
-          <h1>ตารางวันลา / ขอสลับเวร / ไม่อยู่ปฏิบัติงาน — ตาราง SMC</h1>
-          <span className="muted">กรอก 1 แถวต่อ 1 รายการ · ถ้าใส่คนแทน ช่องของคนนั้นในตารางเวรจะเปลี่ยนเป็นคนแทนอัตโนมัติ · ถ้าชื่อยังค้างในตารางเวร จะขึ้นสีส้มเตือน</span>
-        </div>
-        <datalist id="smc-names">{allNames.map((n) => <option key={n} value={n} />)}</datalist>
-        <section className="card scroll-x">
-          <table className="form">
-            <thead><tr><th>ชื่อพนักงาน</th><th style={{ width: 160 }}>วันที่เริ่ม</th><th style={{ width: 160 }}>วันที่สิ้นสุด (ว่าง = วันเดียว)</th><th>ประเภท</th><th>คนแทน / คู่สลับเวร</th><th>หมายเหตุ</th><th>จำนวนวัน (อัตโนมัติ)</th><th></th></tr></thead>
-            <tbody>
-              {f.leaves.map((l, i) => {
-                const u = (k: keyof typeof l, v: string) => set("leaves", f.leaves.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
-                const end = l.name && l.start ? l.end || l.start : "";
-                const days = end ? Math.round((Date.parse(end) - Date.parse(l.start)) / 86400000) + 1 : "";
-                return (
-                  <tr key={i}>
-                    <td><input className="y" list="smc-names" value={l.name} onChange={(e) => u("name", e.target.value)} /></td>
-                    <td><input className="y" type="date" value={l.start} onChange={(e) => u("start", e.target.value)} /></td>
-                    <td><input className="y" type="date" value={l.end} onChange={(e) => u("end", e.target.value)} /></td>
-                    <td>
-                      <select className="y" value={l.type} onChange={(e) => u("type", e.target.value)}>
-                        <option value=""></option>
-                        {TYPES.map((x) => <option key={x}>{x}</option>)}
-                        {l.type && !TYPES.includes(l.type) && <option>{l.type}</option>}
-                      </select>
-                    </td>
-                    <td><input className="y" list="smc-names" value={l.sub} onChange={(e) => u("sub", e.target.value)} /></td>
-                    <td><input className="y" value={l.note} onChange={(e) => u("note", e.target.value)} /></td>
-                    <td className="ro">{days}</td>
-                    <td><button onClick={() => set("leaves", f.leaves.filter((_, j) => j !== i))}>ลบ</button></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <p><button disabled={f.leaves.length >= 196} onClick={() => set("leaves", [...f.leaves, { name: "", start: "", end: "", type: "", sub: "", note: "" }])}>+ เพิ่มรายการ</button></p>
-        </section>
-        {bar}
-      </div>
-    );
-
   const field = (k: keyof SmcForm, label: string, ref: string, wide = false) => (
     <label className={wide ? "sf-field wide" : "sf-field"}>
       <span className="sf-label">

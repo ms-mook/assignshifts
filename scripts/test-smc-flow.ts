@@ -27,7 +27,7 @@ S.hours.forEach((h: number, i: number) => put(4 + i, 6, h));
 S.holidays.forEach((h: any, i: number) => { put(17 + i, 5, iso(h.date)); put(17 + i, 6, h.name); });
 S.monthNames.forEach((n: string, i: number) => put(17 + i, 8, n));
 ([["listJ", 10], ["listL", 12], ["listN", 14], ["listP", 16], ["listT", 20]] as const).forEach(([k, c]) => (S as any)[k].forEach((n: string, i: number) => put(17 + i, c, n)));
-const wb = new Map<string, string[][]>([["ตั้งค่า", setG], ["ตารางลา", [[], [], [], []]]]);
+const wb = new Map<string, string[][]>([["ตั้งค่า", setG], ["ลา-แลกเวร", [[], [], [], []]]]);
 let calls = 0;
 const colNum = (L: string) => [...L].reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0);
 function pr(r: string) {
@@ -89,20 +89,33 @@ const ok = (c: boolean, msg: string) => { if (c) pass++; else { fail++; console.
   ok(m.rows[0].cells.O === "จุฑาพร" && m.rows[0].cells.G === "", "บันทึก O + คืนค่า G");
   const p = m.people.find((x: any) => x.name === "จุฑาพร");
   ok(p.days === 1 && p.h0830 === 4 && p.hTotal === 4, "สรุปวัน/ชั่วโมง");
-  console.log("4) ตารางลา");
+  console.log("4) ลา-แลกเวร (1 แถวต่อ 1 วัน)");
+  const lt = require("../src/lib/leave-tab");
   const f = repo.smcToForm(s);
-  f.leaves = [{ name: "อัมพร", start: "2026-12-15", end: "2026-12-16", type: "ลาพักร้อน", sub: "สมพาน", note: "" }];
-  await repo.saveSmcForm(f, "leaves");
+  const two = (sub: string) => ["2026-12-15", "2026-12-16"].map((date) => ({ date, name: "อัมพร", replacement: sub, type: "ลาพักร้อน", note: "" }));
+  await lt.saveLeaveTabMonth("SMCSHEET", "2569-12", two("สมพาน"));
   s = await repo.loadSmc();
   m = eng.computeSmcMonth(s, {}, 2569, 12);
   ok(m.rows[14].cells.C === "สมพาน" && m.rows[15].cells.Q === "สมพาน" && m.rows[16].cells.C === "อัมพร", "คนแทนช่วงวันที่ลา");
-  f.leaves[0].sub = "";
-  await repo.saveSmcForm(f, "leaves");
+  await lt.saveLeaveTabMonth("SMCSHEET", "2569-12", two(""));
   s = await repo.loadSmc();
   m = eng.computeSmcMonth(s, {}, 2569, 12);
   const html = renderSmcHtml(m, s, { editable: true });
   ok(html.includes("line-through") && (html.match(/<tr class="dr"/g) ?? []).length === 31, "ชื่อที่ลาค้าง = ส้มขีดฆ่า");
-  ok(JSON.stringify(repo.smcToForm(s).leaves) === JSON.stringify(f.leaves), "อ่านตารางลากลับตรง");
+  ok(s.leaves.length === 2 && s.leaves.every((l: any) => l.start === l.end && l.name === "อัมพร"), "อ่านการลากลับจากแท็บ ลา-แลกเวร");
+  ok(!wb.has("ตารางลา") || (wb.get("ตารางลา") ?? []).every((r) => r.every((v) => v === "")), "ไม่เขียนแท็บ ตารางลา เดิม");
+  console.log("4b) ดึงการลาจากระบบลา (SMC)");
+  wb.set("Leave", [
+    ["Timestamp", "ชื่อ - นามสกุล", "ตำแหน่ง", "ประเภทการลา", "เริ่มต้น", "สิ้นสุด", "จำนวน", "สถานะ", "LeaveID"],
+    ["", "อัมพร นามสี", "", "ลาป่วย", "21/12/2026", "22/12/2026", "2", "Approve", "S1"],
+    ["", "อัมพร นามสี", "", "งดเวรนอกเวลา", "23/12/2026", "23/12/2026", "1", "Approve", "S2"],
+  ]);
+  const ls = require("../src/lib/leave-sync");
+  const r = await ls.syncLeaves("smc", "2569-12", true);
+  ok(r.added === 2 && !r.error, "ดึง 2 วัน (ไม่ดึงงดเวรนอกเวลา): " + JSON.stringify(r));
+  s = await repo.loadSmc();
+  m = eng.computeSmcMonth(s, {}, 2569, 12);
+  ok(eng.onLeave(s, "อัมพร", m.rows[20].date) && !eng.onLeave(s, "อัมพร", m.rows[22].date), "วันที่ 21 ธ.ค. อัมพร ลา · 23 ธ.ค. ไม่ลา");
   console.log("5) ตั้งค่า");
   f.key0700 = "นิภาพร"; f.listT = ["สมพาน", "เดือน"];
   await repo.saveSmcForm(f, "settings");

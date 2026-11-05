@@ -1,5 +1,4 @@
-import { cookies } from "next/headers";
-import { parseYm, ymString } from "@/lib/config";
+import { currentYm } from "@/lib/current-ym";
 import { loadShift3, monthWindow, syncLeaveSystem } from "@/lib/shift3/repo";
 import { dropdownNames } from "@/lib/shift3/parse";
 import { isoFromSerial } from "@/lib/sheets-date";
@@ -9,10 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function LeavesPage({ searchParams }: { searchParams: { ym?: string } }) {
   // เดือนที่กำลังจัดทำ: ?ym= → เดือนที่เปิดล่าสุดในตารางเวร (cookie) → เดือนปัจจุบัน
-  const nowTH = new Date(Date.now() + 7 * 3600 * 1000);
-  const pick = [searchParams.ym, cookies().get("shift-ym")?.value].find((v) => v && parseYm(v));
-  const pm = (pick && parseYm(pick)) || { yearBE: nowTH.getUTCFullYear() + 543, month: nowTH.getUTCMonth() + 1 };
-  const ym = ymString(pm.yearBE, pm.month);
+  const ym = currentYm(searchParams.ym);
   // ดึงการลาที่ Approve แล้วจากระบบลา เฉพาะเดือนนี้ ก่อนแสดงหน้า
   const sync = await syncLeaveSystem({ force: true, ym });
   const data = await loadShift3();

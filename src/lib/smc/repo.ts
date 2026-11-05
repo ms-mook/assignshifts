@@ -105,11 +105,8 @@ export function smcToForm(s: SmcSettings): SmcForm {
 const pad = <T,>(a: T[], n: number, f: T) => [...a, ...Array(Math.max(0, n - a.length)).fill(f)].slice(0, n);
 
 export async function saveSmcForm(f: SmcForm, part: "settings" | "leaves") {
-  if (part === "leaves") {
-    if (f.leaves.length > 196) throw new Error("ตารางลาได้สูงสุด 196 แถว (ตารางลา A5:F200)");
-    await batchUpdate(ID(), [{ range: "'ตารางลา'!A5:F200", values: pad(f.leaves, 196, { name: "", start: "", end: "", type: "", sub: "", note: "" }).map((l) => [l.name, l.start, l.end, l.type, l.sub, l.note]) }]);
-    return;
-  }
+  // การลาย้ายไปแท็บ ลา-แลกเวร แล้ว (บันทึกผ่าน /api/leaves/smc)
+  if (part === "leaves") throw new Error("การลาบันทึกที่หน้า ลา-แลกเวร (แท็บ ลา-แลกเวร) แล้ว");
   for (const [k, n] of [["listJ", 30], ["listL", 30], ["listN", 30], ["listP", 30], ["listT", 4]] as const)
     if (f[k].length > n) throw new Error(`รายชื่อเกิน ${n} ชื่อ`);
   if (f.holidays.length > 50) throw new Error("วันหยุดได้สูงสุด 50 รายการ (ตั้งค่า E17:F66)");

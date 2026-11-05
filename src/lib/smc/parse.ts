@@ -4,7 +4,8 @@ import type { SmcSettings } from "./engine";
 
 export type Grid = unknown[][];
 export const SMC_SETTINGS_RANGE = "'ตั้งค่า'!A1:V66";
-export const SMC_LEAVES_RANGE = "'ตารางลา'!A5:F200";
+/** แท็บ ลา-แลกเวร (รูปแบบเดียวกันทุกชีต · 1 แถวต่อ 1 คน 1 วัน) — แทนแท็บ ตารางลา เดิม (ซ่อนไว้เป็นสำรอง) */
+export const SMC_LEAVES_RANGE = "'ลา-แลกเวร'!A5:H5004";
 export const str = (v: unknown) => (v === null || v === undefined ? "" : String(v));
 const cell = (g: Grid, r: number, c: number) => (g[r - 1] ?? [])[c - 1];
 const num = (v: unknown, d: number) => {
@@ -39,8 +40,9 @@ export function parseSmc(sg: Grid, lg: Grid): SmcSettings {
     listN: col(14, 17, 46),
     listP: col(16, 17, 46),
     listT: col(20, 17, 20),
+    // 1 แถว = 1 วัน: วันเริ่ม = วันสิ้นสุด = วันที่ (สูตรชีตเดือน: ลา-แลกเวร!A<=วัน และ A>=วัน)
     leaves: lg
-      .map((r) => ({ name: str(r[0]), start: toSerial(r[1]), end: toSerial(r[2]), type: str(r[3]), sub: str(r[4]), note: str(r[5]) }))
-      .filter((l) => l.name || l.start !== null || l.end !== null || l.type || l.sub || l.note),
+      .map((r) => ({ name: str(r?.[1]).trim(), start: toSerial(r?.[0]), end: toSerial(r?.[0]), type: str(r?.[3]).trim(), sub: str(r?.[2]).trim(), note: str(r?.[6]) }))
+      .filter((l) => l.name || l.start !== null || l.sub),
   };
 }

@@ -149,11 +149,13 @@ const ok = (c: boolean, msg: string) => { if (c) pass++; else { fail++; console.
   ok(JSON.stringify(repo.otToForm(d)) === JSON.stringify(f), "อ่านกลับตรงกับที่บันทึก");
 
   console.log("7) ลา-แลกเวร");
-  await repo.saveOtLeaves([{ date: "2026-12-15", who: "อุษณีย์", sub: "", type: "ลาป่วย" }]);
+  const lt = require("../src/lib/leave-tab");
+  await lt.saveLeaveTabMonth("OTSHEET", "2569-12", [{ date: "2026-12-15", name: "อุษณีย์", replacement: "", type: "ลาป่วย", note: "" }]);
   d = await repo.loadOt();
+  ok(d.leaves.length === 2 && d.leaves[0].who === "บุปผาชล", "บันทึกเดือน ธ.ค. แล้วแถว พ.ย. ยังอยู่");
   m = eng.computeOtMonth(d.settings, d.leaves, {}, 2569, 12);
   ok(Object.values(m.rows[14].cells).includes("⚠ อุษณีย์ ลา"), "ยังไม่มีคนแทน → ⚠");
-  const info = eng.leaveInfo(d.settings, d.leaves[0]);
+  const info = eng.leaveInfo(d.settings, d.leaves.find((l: any) => l.who === "อุษณีย์"));
   ok(info.spot !== "" && info.smcPerson !== "", "จุดของคนลา/คนแนะนำ: " + JSON.stringify(info));
 
   console.log("8) สรุปหลายเดือน");

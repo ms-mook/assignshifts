@@ -285,7 +285,7 @@ async function main() {
     eqv((await repo.loadShift3()).leaves.length, 3, "หลังดึง พ.ย. ในชีตมีแค่ 3 แถว (ไม่มี ธ.ค.)");
     const r1 = await repo.syncLeaveSystem({ force: true, ym: "2569-12" });
     eqv([r1.added, r1.removed, r1.error], [2, 0, undefined], "ดึงเฉพาะ ธ.ค.69: 2 แถว (ข้ามเสาร์-อาทิตย์และวันหยุด 7 ธ.ค.)");
-    ok(r1.skippedNames.includes("อัมพร นามสี"), "คนที่ไม่ใช่พนักงานตารางนี้ไม่ถูกดึง");
+    ok(r1a.skippedNames.includes("อัมพร นามสี") && !r1.skippedNames.includes("อัมพร นามสี"), "คนที่ไม่ใช่พนักงานตารางนี้ไม่ถูกดึง (แจ้งเฉพาะเดือนนั้น)");
     let d = await repo.loadShift3();
     eqv(d.leaves.map((l: any) => `${isoD(l.date)}|${l.name}|${l.type}|${l.replacement}|${l.ref}`), [
       `2026-11-11|${name0}|ลาพักร้อน||L1|2026-11-11`, `2026-11-12|${name0}|ลาพักร้อน||L1|2026-11-12`, `2026-11-13|${name0}|ลาพักร้อน||L1|2026-11-13`,

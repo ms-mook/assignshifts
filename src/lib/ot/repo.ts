@@ -240,13 +240,7 @@ export async function stepOtPattern(dir: 1 | -1): Promise<number> {
   return next;
 }
 
-// ---------- ลา-แลกเวร ----------
-export interface OtLeaveForm { date: string; who: string; sub: string; type: string }
-
-export async function saveOtLeaves(rows: OtLeaveForm[]) {
-  if (rows.length > 296) throw new Error("บันทึกได้สูงสุด 296 แถว (ลา-แลกเวร A5:D300)");
-  await batchUpdate(ID(), [{ range: "'ลา-แลกเวร'!A5:D300", values: pad(rows, 296, { date: "", who: "", sub: "", type: "" }).map((r) => [r.date, r.who, r.sub, r.type]) }]);
-}
+// ---------- ลา-แลกเวร: บันทึกผ่าน /api/leaves/ot (../leave-tab) ----------
 
 export async function saveOtSummaryRange(from: string, to: string) {
   await batchUpdate(ID(), [{ range: "'สรุป'!B2:B3", values: [[from], [to]] }]);

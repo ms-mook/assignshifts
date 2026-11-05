@@ -4,8 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "./Toast";
 import Icon from "./Icon";
-import { keyLeaveSpot, type KeySettings } from "@/lib/key/engine";
-import { toSerial } from "@/lib/sheets-date";
+import type { KeySettings } from "@/lib/key/engine";
 import type { KeyForm } from "@/lib/key/repo";
 
 export default function KeyFormClient({ initial, part, settings }: { initial: KeyForm; part: "settings" | "leaves"; settings: KeySettings }) {
@@ -18,7 +17,6 @@ export default function KeyFormClient({ initial, part, settings }: { initial: Ke
   const dirty = JSON.stringify(f) !== JSON.stringify(initial);
   const set = <K extends keyof KeyForm>(k: K, v: KeyForm[K]) => setF((x) => ({ ...x, [k]: v }));
   const lines = (t: string) => t.split("\n").map((x) => x.trim()).filter((x) => x !== "");
-  const leaveNames = Array.from(new Set([...f.dropdown, ...f.heads]));
 
   const save = async () => {
     setBusy(true);
@@ -43,39 +41,6 @@ export default function KeyFormClient({ initial, part, settings }: { initial: Ke
       <button className="btn btn-ghost" disabled={busy || !dirty} onClick={() => { setF(initial); setDropText(initial.dropdown.join("\n")); setHeadText(initial.heads.join("\n")); }}><Icon name="Undo2" size={16} />ยกเลิกการแก้ไข</button>
     </div>
   );
-
-  if (part === "leaves")
-    return (
-      <div>
-        <div className="page-head">
-          <h1>ตารางลา / แลกเวร — ตาราง Key</h1>
-          <span className="muted">กรอกวันที่ ผู้ลา ผู้แทน → ช่องในตารางเวรเติมให้เอง (ถ้าไม่ใส่ผู้แทน จะขึ้น &quot;ลา&quot;) · ตั้งค่า M13:P112 สูงสุด 100 แถว</span>
-        </div>
-        <datalist id="key-names">{leaveNames.map((n) => <option key={n} value={n} />)}</datalist>
-        <section className="card scroll-x">
-          <table className="form">
-            <thead><tr><th style={{ width: 160 }}>วันที่ลา</th><th>ผู้ลา</th><th>ผู้แทน</th><th>หมายเหตุ</th><th>จุดที่ลา (อัตโนมัติ)</th><th></th></tr></thead>
-            <tbody>
-              {f.leaves.map((l, i) => {
-                const u = (k: keyof typeof l, v: string) => set("leaves", f.leaves.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
-                return (
-                  <tr key={i}>
-                    <td><input className="y" type="date" value={l.date} onChange={(e) => u("date", e.target.value)} /></td>
-                    <td><input className="y" list="key-names" value={l.who} onChange={(e) => u("who", e.target.value)} /></td>
-                    <td><input className="y" list="key-names" value={l.sub} onChange={(e) => u("sub", e.target.value)} /></td>
-                    <td><input className="y" value={l.note} onChange={(e) => u("note", e.target.value)} /></td>
-                    <td className="ro">{keyLeaveSpot(settings, { date: toSerial(l.date), who: l.who, sub: l.sub, note: l.note })}</td>
-                    <td><button onClick={() => set("leaves", f.leaves.filter((_, j) => j !== i))}>ลบ</button></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <p><button disabled={f.leaves.length >= 100} onClick={() => set("leaves", [...f.leaves, { date: "", who: "", sub: "", note: "" }])}>+ เพิ่มรายการ</button></p>
-        </section>
-        {bar}
-      </div>
-    );
 
   return (
     <div>
