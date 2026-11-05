@@ -36,7 +36,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <LogoutButton />
         </nav>
         <main>{children}</main>
-        <footer className="site-foot no-print">พัฒนาโดย ทนพญ.มุกดารัตน์ สุพัฒน์ หน่วยเจาะเลือด โรงพยาบาลศรีนครินทร์</footer>
+        <footer className="site-foot no-print">พัฒนาโดย ทนพญ.มุกดารัตน์ สุพัฒน์ หน่วยเจาะเลือด โรงพยาบาลศรีนครินทร์ · พ.ศ. 2569</footer>
         </ToastProvider>
       </body>
     </html>
