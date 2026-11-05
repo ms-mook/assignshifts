@@ -308,6 +308,25 @@ async function main() {
     eqv(d.leaves.length, 2, "เหลือ 2 แถว");
     const m = computeMonth(d.settings, d.leaves, {}, 2569, 12);
     ok(m.sections[0].rows[3].cells.some((c: string) => c.includes(names[2]) && c.includes("ลา")), "ตารางวันที่ 4 ธ.ค. ขึ้น ⚠ ลา");
+    // บันทึกเฉพาะเดือน: แก้ ธ.ค. แล้วแถวเดือนอื่น (ประวัติ) ต้องอยู่ครบ
+    await repo.saveLeaves([
+      { date: "2026-10-15", name: names[6], replacement: names[7], type: "ลากิจ", note: "ประวัติ ต.ค.", ref: "" },
+      ...d.leaves.map((l: any) => ({ date: isoD(l.date), name: l.name, replacement: l.replacement, type: l.type, note: l.note, ref: l.ref ?? "" })),
+      { date: "2026-11-20", name: names[8], replacement: "", type: "ลาป่วย", note: "ประวัติ พ.ย.", ref: "" },
+    ]);
+    const decRows = (await repo.loadShift3()).leaves.filter((l: any) => isoD(l.date).startsWith("2026-12"))
+      .map((l: any) => ({ date: isoD(l.date), name: l.name, replacement: l.ref.endsWith("12-04") ? names[9] : l.replacement, type: l.type, note: l.note, ref: l.ref ?? "" }));
+    await repo.saveLeavesMonth("2569-12", [...decRows, { date: "2026-12-15", name: names[6], replacement: "", type: "แลกเวร", note: "", ref: "" }]);
+    d = await repo.loadShift3();
+    eqv(d.leaves.map((l: any) => `${isoD(l.date)}|${l.name}|${l.replacement}|${l.note}`), [
+      `2026-10-15|${names[6]}|${names[7]}|ประวัติ ต.ค.`, `2026-11-20|${names[8]}||ประวัติ พ.ย.`,
+      `2026-12-04|${names[2]}|${names[9]}|`, `2026-12-08|${names[2]}||`, `2026-12-15|${names[6]}||`,
+    ], "บันทึกเดือน ธ.ค. → แถว ต.ค./พ.ย. ยังอยู่ครบ (ไม่ถูกทับ)");
+    await repo.saveLeavesMonth("2569-12", []);
+    d = await repo.loadShift3();
+    eqv(d.leaves.map((l: any) => isoD(l.date)), ["2026-10-15", "2026-11-20"], "ล้างเดือน ธ.ค. ทั้งเดือน → เดือนอื่นไม่หาย");
+    const r4 = await repo.syncLeaveSystem({ force: true, ym: "2569-12" });
+    eqv([r4.added, (await repo.loadShift3()).leaves.length], [2, 4], "ดึง ธ.ค. ใหม่ → กลับมา 2 แถว และ ต.ค./พ.ย. ยังอยู่");
   }
   console.log(`\nผ่าน ${pass} · ไม่ผ่าน ${fail} · เรียก API จำลอง ${apiCalls} ครั้ง`);
   process.exit(fail ? 1 : 0);

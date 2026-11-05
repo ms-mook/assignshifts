@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { parseYm, ymString } from "@/lib/config";
-import { loadShift3, syncLeaveSystem } from "@/lib/shift3/repo";
+import { loadShift3, monthWindow, syncLeaveSystem } from "@/lib/shift3/repo";
 import { dropdownNames } from "@/lib/shift3/parse";
 import { isoFromSerial } from "@/lib/sheets-date";
 import LeavesClient from "@/components/LeavesClient";
@@ -16,7 +16,9 @@ export default async function LeavesPage({ searchParams }: { searchParams: { ym?
   // ดึงการลาที่ Approve แล้วจากระบบลา เฉพาะเดือนนี้ ก่อนแสดงหน้า
   const sync = await syncLeaveSystem({ force: true, ym });
   const data = await loadShift3();
-  const rows = data.leaves.map((l) => ({
+  // แสดงเฉพาะแถวของเดือนนี้ (เดือนอื่นยังอยู่ในชีตครบ ไม่ถูกแตะ)
+  const w = monthWindow(ym)!;
+  const rows = data.leaves.filter((l) => l.date !== null && l.date >= w.start && l.date <= w.end).map((l) => ({
     date: l.date === null ? "" : isoFromSerial(l.date),
     name: l.name,
     replacement: l.replacement,

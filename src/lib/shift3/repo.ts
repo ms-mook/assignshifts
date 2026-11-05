@@ -408,6 +408,30 @@ export async function saveLeaves(rows: LeaveForm[]): Promise<void> {
   ]);
 }
 
+/** ช่วงวันที่ของเดือน (ym = ปี พ.ศ.-เดือน) เป็น serial */
+export function monthWindow(ym: string): { start: number; end: number } | null {
+  const p = parseYm(ym);
+  if (!p) return null;
+  return { start: serialFromYMD(p.yearBE - 543, p.month, 1), end: serialFromYMD(p.yearBE - 543, p.month + 1, 0) };
+}
+
+/**
+ * บันทึกการลาเฉพาะเดือนเดียว: แทนที่เฉพาะแถวที่วันที่อยู่ในเดือนนั้น
+ * แถวของเดือนอื่น (ประวัติ) คงไว้ตามเดิมทุกแถว · เรียงทั้งตารางตามวันที่
+ */
+export async function saveLeavesMonth(ym: string, rows: LeaveForm[]): Promise<void> {
+  const w = monthWindow(ym);
+  if (!w) throw new Error(`เดือนไม่ถูกต้อง: ${ym}`);
+  const data = await loadShift3();
+  const others: LeaveForm[] = data.leaves
+    .filter((l) => l.date === null || l.date < w.start || l.date > w.end)
+    .map((l) => ({ date: l.date === null ? "" : isoFromSerial(l.date), name: l.name, replacement: l.replacement, type: l.type, note: l.note, ref: l.ref ?? "" }))
+    .filter((r) => r.date !== "" || r.name !== "");
+  const mine = rows.filter((r) => r.date !== "" || r.name !== "" || r.replacement !== "");
+  const all = [...others, ...mine].sort((a, b) => (toSerial(a.date) ?? 9e9) - (toSerial(b.date) ?? 9e9) || a.name.localeCompare(b.name));
+  await saveLeaves(all);
+}
+
 export { colLetter };
 
 // ---------- แท็บ สรุป (ความเท่าเทียมของการเวียนจุด) ----------
