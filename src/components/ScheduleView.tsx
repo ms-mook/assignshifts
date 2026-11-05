@@ -13,6 +13,7 @@ import { useToast } from "./Toast";
 import { downloadTablePdf } from "@/lib/pdf-export";
 import Icon from "./Icon";
 import type { SummaryGroup } from "@/lib/shift-summary";
+import type { BookingGuide } from "@/lib/guide-types";
 
 interface Props {
   table: string;
@@ -46,6 +47,8 @@ interface Props {
   cellStyles?: Record<string, CellStyle>;
   /** ตาราง 3 ช่วงเวลา: ข้อมูลตารางอื่นสำหรับ ใส่ชื่อเดียวกันหลายตาราง */
   cross?: CrossInfo;
+  /** ไกด์ชื่อด้านขวาของป๊อปอัปเลือกชื่อ (เช่น ระบบจองเวร) — เลือกจากไกด์หรือจากรายชื่อปกติก็ได้ */
+  guide?: BookingGuide;
 }
 type CellStyle = { bg?: string; fg?: string };
 type StylePatch = { bg?: string | null; fg?: string | null; clear?: boolean };
@@ -586,6 +589,8 @@ export default function ScheduleView(p: Props) {
       .map((x) => ({ sec: x.sec, table: x.table, label: x.label, current: (rowNow(x.sec, day) ?? [])[colIndex(col)] ?? "" }));
   };
   const [crossOn, setCrossOn] = useState<Record<number, boolean>>({});
+  const showGuide = !!(edit && p.guide && p.guide.cols.includes(edit.col));
+  const guideList = showGuide && edit && p.guide ? (p.guide.byDay[Number(edit.day)] ?? []) : [];
   const [hi, setHi] = useState(-1); // แถวที่ไฮไลต์ในรายชื่อ (ลูกศรขึ้น/ลง)
   const searchRef = useRef<HTMLInputElement>(null);
   // ป๊อปอัปของ daisyUI ค่อย ๆ ปรากฏ (ตอนแรกยังซ่อน) จึงต้องโฟกัสช่องค้นหาหลังเฟรมแรก ไม่ใช่ autoFocus
@@ -939,7 +944,7 @@ export default function ScheduleView(p: Props) {
 
       {edit && (
         <div className="modal modal-open no-print" onClick={() => !busy && setEdit(null)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="เลือกชื่อ">
+          <div className={showGuide ? "modal-box has-guide" : "modal-box"} onClick={(e) => e.stopPropagation()} role="dialog" aria-label="เลือกชื่อ">
             <div className="mhead">
               <Icon name="SquarePen" size={20} />
               <h3>
@@ -952,65 +957,109 @@ export default function ScheduleView(p: Props) {
             <p className="muted">
               ค่าปัจจุบัน: <span className="badge badge-soft badge-primary">{edit.current || "(ว่าง)"}</span>
             </p>
-            <label className="input w-full">
-              <Icon name="Search" size={16} className="opacity-60" />
-              <input
-                className="grow"
-                value={value}
-                onChange={(e) => {
-                  setValue(e.target.value);
-                  setHi(e.target.value.trim() ? 0 : -1);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") return void (e.preventDefault(), setEdit(null));
-                  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            <div className={showGuide ? "pick-grid" : "pick-one"}>
+              <div className="pick-main">
+              <label className="input w-full">
+                <Icon name="Search" size={16} className="opacity-60" />
+                <input
+                  className="grow"
+                  value={value}
+                  onChange={(e) => {
+                    setValue(e.target.value);
+                    setHi(e.target.value.trim() ? 0 : -1);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") return void (e.preventDefault(), setEdit(null));
+                    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                      e.preventDefault();
+                      const n = shown.length;
+                      if (n === 0) return;
+                      const next = e.key === "ArrowDown" ? (hi + 1) % n : (hi <= 0 ? n - 1 : hi - 1);
+                      setHi(next);
+                      document.getElementById(`nl-${next}`)?.scrollIntoView({ block: "nearest" });
+                      return;
+                    }
+                    if (e.key !== "Enter" || busy) return;
                     e.preventDefault();
-                    const n = shown.length;
-                    if (n === 0) return;
-                    const next = e.key === "ArrowDown" ? (hi + 1) % n : (hi <= 0 ? n - 1 : hi - 1);
-                    setHi(next);
-                    document.getElementById(`nl-${next}`)?.scrollIntoView({ block: "nearest" });
-                    return;
-                  }
-                  if (e.key !== "Enter" || busy) return;
-                  e.preventDefault();
-                  const pick = hi >= 0 && hi < shown.length ? shown[hi] : shown.length === 1 ? shown[0] : null;
-                  const name = pick ?? (!isOfficer && value.trim() !== "" ? value.trim() : null);
-                  if (name === null) return;
-                  const at = name === edit.current ? null : busyAt(Number(edit.sec), Number(edit.day), edit.col, name);
-                  if (at) setErr(`“${name}” อยู่ที่ ${at} ในช่วงเวลานี้แล้ว — เลือกคนอื่น หรือเอาออกจากจุดนั้นก่อน`);
-                  else saveName(name);
-                }}
-                placeholder={isOfficer ? "ค้นหาชื่อ…" : "ค้นหา หรือพิมพ์ชื่อใหม่แล้วกด Enter"}
-                ref={searchRef}
-              />
-            </label>
-            <div className="namelist" role="listbox" aria-label="รายชื่อ">
-              {shown.map((n, i) => {
-                const at = n === edit.current ? null : busyAt(Number(edit.sec), Number(edit.day), edit.col, n);
-                return (
-                  <button
-                    key={n}
-                    id={`nl-${i}`}
-                    role="option"
-                    aria-selected={n === edit.current}
-                    className={["nl-item", n === edit.current ? "cur" : "", i === hi ? "hi" : "", at ? "busy" : ""].filter(Boolean).join(" ")}
-                    disabled={busy || at !== null}
-                    title={at ? `อยู่ที่ ${at} ในช่วงเวลานี้แล้ว` : undefined}
-                    onMouseEnter={() => setHi(i)}
-                    onClick={() => saveName(n)}
-                  >
-                    <span className="av" style={{ background: avColor(n) }}>{Array.from(n.replace(/^(นาย|นางสาว|นาง|น\.ส\.)\s*/, ""))[0] ?? "?"}</span>
-                    {n}
-                    {at && (
-                      <span className="nl-busy">
-                        <Icon name="CircleAlert" size={13} /> อยู่ที่ {at} แล้ว
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-              {shown.length === 0 && <div className="muted small p-2">ไม่พบชื่อ{!isOfficer && value.trim() !== "" ? " — กด Enter เพื่อใช้ชื่อที่พิมพ์" : ""}</div>}
+                    const pick = hi >= 0 && hi < shown.length ? shown[hi] : shown.length === 1 ? shown[0] : null;
+                    const name = pick ?? (!isOfficer && value.trim() !== "" ? value.trim() : null);
+                    if (name === null) return;
+                    const at = name === edit.current ? null : busyAt(Number(edit.sec), Number(edit.day), edit.col, name);
+                    if (at) setErr(`“${name}” อยู่ที่ ${at} ในช่วงเวลานี้แล้ว — เลือกคนอื่น หรือเอาออกจากจุดนั้นก่อน`);
+                    else saveName(name);
+                  }}
+                  placeholder={isOfficer ? "ค้นหาชื่อ…" : "ค้นหา หรือพิมพ์ชื่อใหม่แล้วกด Enter"}
+                  ref={searchRef}
+                />
+              </label>
+              <div className="namelist" role="listbox" aria-label="รายชื่อ">
+                {shown.map((n, i) => {
+                  const at = n === edit.current ? null : busyAt(Number(edit.sec), Number(edit.day), edit.col, n);
+                  return (
+                    <button
+                      key={n}
+                      id={`nl-${i}`}
+                      role="option"
+                      aria-selected={n === edit.current}
+                      className={["nl-item", n === edit.current ? "cur" : "", i === hi ? "hi" : "", at ? "busy" : ""].filter(Boolean).join(" ")}
+                      disabled={busy || at !== null}
+                      title={at ? `อยู่ที่ ${at} ในช่วงเวลานี้แล้ว` : undefined}
+                      onMouseEnter={() => setHi(i)}
+                      onClick={() => saveName(n)}
+                    >
+                      <span className="av" style={{ background: avColor(n) }}>{Array.from(n.replace(/^(นาย|นางสาว|นาง|น\.ส\.)\s*/, ""))[0] ?? "?"}</span>
+                      {n}
+                      {at && (
+                        <span className="nl-busy">
+                          <Icon name="CircleAlert" size={13} /> อยู่ที่ {at} แล้ว
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+                {shown.length === 0 && <div className="muted small p-2">ไม่พบชื่อ{!isOfficer && value.trim() !== "" ? " — กด Enter เพื่อใช้ชื่อที่พิมพ์" : ""}</div>}
+              </div>
+              </div>
+              {showGuide && p.guide && (
+                <aside className="pick-guide" aria-label="ไกด์จากระบบจองเวร">
+                  <div className="pg-title">
+                    <Icon name="CalendarCheck" size={15} /> {p.guide.title}
+                  </div>
+                  <div className="pg-sub muted small">วันที่ {edit.day} · คลิกเพื่อใส่ชื่อ หรือเลือกจากรายชื่อด้านซ้ายแทนก็ได้</div>
+                  {p.guide.error ? (
+                    <div className="error small">{p.guide.error}</div>
+                  ) : guideList.length === 0 ? (
+                    <div className="muted small pg-empty">ไม่มีคนจองจุดนี้ในวันที่ {edit.day}</div>
+                  ) : (
+                    <div className="pg-list">
+                      {guideList.map((g) => {
+                        const at = g.name === edit.current ? null : busyAt(Number(edit.sec), Number(edit.day), edit.col, g.name);
+                        const here = g.name === edit.current;
+                        return (
+                          <button
+                            key={g.name}
+                            className={["nl-item", "pg-item", here ? "cur" : "", at ? "busy" : ""].filter(Boolean).join(" ")}
+                            disabled={busy || at !== null || here}
+                            title={at ? `อยู่ที่ ${at} ในช่วงเวลานี้แล้ว` : g.booked}
+                            onClick={() => saveName(g.name)}
+                          >
+                            <span className="av" style={{ background: avColor(g.name) }}>{Array.from(g.name)[0] ?? "?"}</span>
+                            <span className="pg-text">
+                              <span className="pg-name">{g.name}</span>
+                              <span className="pg-meta">{g.booked}{g.slot ? ` · ${g.slot}` : ""}{g.note ? ` · ${g.note}` : ""}</span>
+                            </span>
+                            {at && (
+                              <span className="nl-busy">
+                                <Icon name="CircleAlert" size={13} /> อยู่ที่ {at} แล้ว
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </aside>
+              )}
             </div>
             {xTargets.length > 0 && (
               <div className="cross-box">

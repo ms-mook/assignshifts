@@ -10,6 +10,8 @@ export const SHEETS = {
   ot: process.env.SHEET_ID_OT ?? "1HtxDgpEwdZbQXFp3j6ZLjwOZyF4wMnyLiVQBNTysReI",
   /** ระบบลา (อ่านอย่างเดียว · แท็บ Leave) — ดึงเฉพาะการลาที่ Approve แล้ว */
   leaveSystem: process.env.SHEET_ID_LEAVE_SYSTEM ?? "1NEmJOPvNXZCLEzWXZefdsy6vj6T9_GMQ0Y46EZ80lUE",
+  /** ระบบจองเวร (อ่านอย่างเดียว · แท็บ Booking Data) — ใช้เป็นไกด์ชื่อในตาราง Key */
+  booking: process.env.SHEET_ID_BOOKING ?? "1t-eLosmJreW2C50YHOiBSi2Zqm_az04wOeVI7Y4LO5g",
 };
 
 export const MONTH_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];

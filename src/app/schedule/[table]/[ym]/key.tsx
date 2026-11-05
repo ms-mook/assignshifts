@@ -6,6 +6,7 @@ import { KEY_COL_W, KEY_CSS, keyDupCols, renderKeyHtml } from "@/lib/key/render"
 import { SHEET_CSS } from "@/lib/shift3/render";
 import type { TableDef } from "@/lib/tables";
 import { syncAllLeaves } from "@/lib/leave-sync";
+import { loadKeyBookingGuide } from "@/lib/key/booking";
 import ScheduleView from "@/components/ScheduleView";
 
 const todaySerial = () => {
@@ -21,6 +22,8 @@ export default async function KeySchedule({ tdef, ym, yearBE, month }: { tdef: T
   const html = `<style>${KEY_CSS}</style>` + renderKeyHtml(res, s, { editable: true, styles: st.styles, personColors: st.personColors, today: todaySerial() });
   const dupDays = res.rows.filter((r) => r.date !== null && keyDupCols(r.cells).size > 0).map((r) => r.day);
   const names = Array.from(new Set([...s.dropdown, ...s.heads, "MT full-time", "ลา"].filter((n) => n.trim() !== "")));
+  // ไกด์ชื่อจากระบบจองเวร (จุดลงทะเบียนรายการตรวจ · ช่วงเช้า) — แสดงข้างรายชื่อในป๊อปอัป ช่องตำแหน่ง Key
+  const guide = await loadKeyBookingGuide(yearBE, month, [...s.dropdown, ...s.rot, ...s.heads, s.key4Name, s.head]);
   const c = res.checks;
   const checkText =
     c.status === "✓ ปกติ"
@@ -46,6 +49,7 @@ export default async function KeySchedule({ tdef, ym, yearBE, month }: { tdef: T
       warning={checkText}
       api="/api/key"
       officerCols={[]}
+      guide={guide}
       hint="ช่องที่แก้เอง/พิมพ์ทับเก็บในแท็บ WEB-ช่องเลือกเอง (ไม่แตะสูตรในแท็บเดือน) · คนลา/ผู้แทน ให้บันทึกที่หน้า ลา-แลกเวร (Key)"
       pdf={{ colA: KEY_COL_W[0], colW: 125, keepCols: [15], sheetCss: SHEET_CSS + KEY_CSS }}
     />
