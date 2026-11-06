@@ -1,9 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { COOKIE, verifySession } from "./lib/auth";
+import { COOKIE, checkSession, createSession } from "./lib/auth";
 
 export async function middleware(req: NextRequest) {
-  const ok = await verifySession(req.cookies.get(COOKIE)?.value).catch(() => false);
-  if (ok) return NextResponse.next();
+  const { ok, renew } = await checkSession(req.cookies.get(COOKIE)?.value).catch(() => ({ ok: false, renew: false }));
+  if (ok) {
+    const res = NextResponse.next();
+    if (renew) {
+      // ยังใช้งานอยู่ → ต่ออายุอีก 3 ชั่วโมงนับจากตอนนี้
+      const s = await createSession();
+      res.cookies.set(COOKIE, s.value, { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: s.maxAge });
+    }
+    return res;
+  }
   if (req.nextUrl.pathname.startsWith("/api/")) {
     return NextResponse.json({ error: "กรุณาเข้าสู่ระบบ" }, { status: 401 });
   }
