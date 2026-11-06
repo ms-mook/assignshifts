@@ -258,7 +258,12 @@ export const PLAN_HEADERS_D_Q = [
 // ---------- ฟอร์มรายเดือน ----------
 
 type CellSource =
-  | { kind: "plan"; col: string }
+  /**
+   * train: ช่วงพนักงานใหม่ฝึกเวียนจุด (แผนรายสัปดาห์!BA = 1)
+   *  "off" = ช่องนี้ว่างในช่วงฝึก (OPD ทั่วไป13 — ผู้จัดใส่ชื่อเอง)
+   *  "on"  = แสดงเฉพาะช่วงฝึก (กว. ทั่วไป 5 — จุดพักของคนที่ถูกพนักงานใหม่เบียด)
+   */
+  | { kind: "plan"; col: string; train?: "off" | "on" }
   | { kind: "manual" } // =IF($AM8=1,"จนท.","") ผู้จัดเลือกชื่อทับได้
   | { kind: "free" } // เวชกรรมสังคม / SHE เว้นว่างให้ใส่เอง
   | { kind: "empty" }
@@ -267,6 +272,9 @@ type CellSource =
   | { kind: "b30key1" };
 
 const P = (col: string): CellSource => ({ kind: "plan", col });
+/** OPD ทั่วไป13: ว่างในช่วงฝึก · กว. ทั่วไป 5: คนที่ถูกเบียด (ผู้ใช้กำหนด 6 พ.ย. 69) */
+const P_OFF = (col: string): CellSource => ({ kind: "plan", col, train: "off" });
+const P_ON = (col: string): CellSource => ({ kind: "plan", col, train: "on" });
 const M: CellSource = { kind: "manual" };
 const F: CellSource = { kind: "free" };
 const E: CellSource = { kind: "empty" };
@@ -275,21 +283,21 @@ const E: CellSource = { kind: "empty" };
 export const SECTION_MAP: Record<SectionNo, CellSource[]> = {
   1: [
     /*A*/ E, /*B*/ M, /*C*/ P("D"), /*D*/ M, /*E*/ M, /*F*/ M, /*G*/ P("E"), /*H*/ P("F"), /*I*/ E, /*J*/ E,
-    /*K*/ E, /*L*/ P("S"), /*M*/ P("G"), /*N*/ P("Q"), /*O*/ P("H"), /*P*/ P("I"), /*Q*/ P("J"), /*R*/ P("K"),
-    /*S*/ M, /*T*/ M, /*U*/ M, /*V*/ E, /*W*/ E, /*X*/ P("L"), /*Y*/ P("R"), /*Z*/ E, /*AA*/ P("M"),
+    /*K*/ E, /*L*/ P("S"), /*M*/ P("G"), /*N*/ P_OFF("Q"), /*O*/ P("H"), /*P*/ P("I"), /*Q*/ P("J"), /*R*/ P("K"),
+    /*S*/ M, /*T*/ M, /*U*/ M, /*V*/ P_ON("Q"), /*W*/ E, /*X*/ P("L"), /*Y*/ P("R"), /*Z*/ E, /*AA*/ P("M"),
     /*AB*/ P("N"), /*AC*/ M, /*AD*/ P("O"), /*AE*/ P("P"), /*AF*/ E, /*AG*/ E, /*AH*/ F, /*AI*/ F, /*AJ*/ F, /*AK*/ F,
   ],
   2: [
     /*A*/ E, /*B*/ P("S"), /*C*/ P("D"), /*D*/ M, /*E*/ M, /*F*/ M, /*G*/ P("E"), /*H*/ P("F"), /*I*/ E, /*J*/ E,
-    /*K*/ { kind: "chem" }, /*L*/ { kind: "molec" }, /*M*/ P("G"), /*N*/ P("Q"), /*O*/ P("H"), /*P*/ P("I"),
-    /*Q*/ P("J"), /*R*/ P("K"), /*S*/ M, /*T*/ M, /*U*/ M, /*V*/ E, /*W*/ E, /*X*/ P("L"), /*Y*/ P("R"), /*Z*/ E,
+    /*K*/ { kind: "chem" }, /*L*/ { kind: "molec" }, /*M*/ P("G"), /*N*/ P_OFF("Q"), /*O*/ P("H"), /*P*/ P("I"),
+    /*Q*/ P("J"), /*R*/ P("K"), /*S*/ M, /*T*/ M, /*U*/ M, /*V*/ P_ON("Q"), /*W*/ E, /*X*/ P("L"), /*Y*/ P("R"), /*Z*/ E,
     /*AA*/ P("M"), /*AB*/ P("N"), /*AC*/ M, /*AD*/ P("O"), /*AE*/ P("P"), /*AF*/ E, /*AG*/ E, /*AH*/ F, /*AI*/ F,
     /*AJ*/ F, /*AK*/ F,
   ],
   3: [
     /*A*/ E, /*B*/ { kind: "b30key1" }, /*C*/ P("T"), /*D*/ M, /*E*/ M, /*F*/ M, /*G*/ P("U"), /*H*/ P("V"),
-    /*I*/ E, /*J*/ E, /*K*/ P("AI"), /*L*/ P("AJ"), /*M*/ P("W"), /*N*/ P("AG"), /*O*/ P("X"), /*P*/ P("Y"),
-    /*Q*/ P("Z"), /*R*/ P("AA"), /*S*/ M, /*T*/ M, /*U*/ M, /*V*/ E, /*W*/ E, /*X*/ P("AB"), /*Y*/ E,
+    /*I*/ E, /*J*/ E, /*K*/ P("AI"), /*L*/ P("AJ"), /*M*/ P("W"), /*N*/ P_OFF("AG"), /*O*/ P("X"), /*P*/ P("Y"),
+    /*Q*/ P("Z"), /*R*/ P("AA"), /*S*/ M, /*T*/ M, /*U*/ M, /*V*/ P_ON("AG"), /*W*/ E, /*X*/ P("AB"), /*Y*/ E,
     /*Z*/ P("AH"), /*AA*/ P("AC"), /*AB*/ P("AD"), /*AC*/ M, /*AD*/ P("AE"), /*AE*/ P("AF"), /*AF*/ E, /*AG*/ E,
     /*AH*/ F, /*AI*/ F, /*AJ*/ F, /*AK*/ F,
   ],
@@ -381,9 +389,13 @@ export function computeMonth(
 
       map.forEach((src, ci) => {
         switch (src.kind) {
-          case "plan":
-            cells[ci] = week === null ? "" : leaveCell(plan.value(week, src.col), sec !== 3);
+          case "plan": {
+            // แท็บเดือน: =IF(IFERROR(INDEX('แผนรายสัปดาห์'!$BA$5:$BA$62,$AN8)=1,FALSE), …)
+            const training = week !== null && plan.week(week).BA === 1;
+            if (week === null || (src.train === "off" && training) || (src.train === "on" && !training)) cells[ci] = "";
+            else cells[ci] = leaveCell(plan.value(week, src.col), sec !== 3);
             break;
+          }
           case "b30key1":
             cells[ci] = week === null ? "" : leaveCell(settings.b30AtKey1 === "ใช่" ? settings.pairOddOpd11 : "", false);
             break;
