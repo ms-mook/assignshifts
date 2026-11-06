@@ -1,6 +1,8 @@
 // สร้างไฟล์ PDF 1 หน้า (ภาพตารางเต็มหน้า) ในเบราว์เซอร์ แล้วดาวน์โหลดทันที — ไม่ต้องใช้หน้าต่างพิมพ์/พรีวิว
 // วิธี: วาดตารางเป็น SVG(foreignObject) → canvas → JPEG → ห่อเป็น PDF หน้าเดียว (เขียนเองไม่พึ่งไลบรารี)
 
+import { fitSheetText } from "./shift3/fit";
+
 const PT = 72 / 96; // px(96dpi) → pt
 
 export type PdfPaper = { wPt: number; hPt: number };
@@ -118,6 +120,9 @@ export async function downloadTablePdf(o: ExportOpts): Promise<void> {
     probe.textContent = css.replace(/url\([^)]*\)/g, "url()");
     host.prepend(probe);
 
+    // 0) ตารางเวร 3 ช่วงเวลา: ปรับขนาดตัวอักษรให้ใหญ่และพอดีช่อง (เหมือนบนจอ) ก่อนวัดความกว้างชื่อ
+    fitSheetText(host, { dataRowH: o.rowH, padDataX: 2 });
+
     // 1) บีบความกว้างคอลัมน์ให้พอดีชื่อที่ยาวที่สุด (ชื่อเต็มไม่ตกบรรทัด) → ตัวหนังสือในหน้ากระดาษใหญ่ขึ้น
     const special = (t: string) => /[⚠→]|\(แทน/.test(t);
     const dcells = Array.from(table.querySelectorAll<HTMLElement>("tr.dr td.d"));
@@ -156,6 +161,8 @@ export async function downloadTablePdf(o: ExportOpts): Promise<void> {
     const fixedH = table.getBoundingClientRect().height - nRows * o.rowH;
     const rowH = Math.max(22, Math.floor((W * aspect - fixedH) / nRows)); // จำนวนเต็ม: เส้นแนวนอนคมทุกเส้น
     setRow(rowH);
+    // ความกว้างคอลัมน์/ความสูงแถวเปลี่ยนแล้ว → ปรับขนาดตัวอักษรอีกครั้งให้พอดีช่องสุดท้าย
+    fitSheetText(host, { dataRowH: rowH, padDataX: 2 });
     const H = Math.ceil(table.getBoundingClientRect().height);
     probe.remove();
 

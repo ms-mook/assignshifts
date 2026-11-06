@@ -11,6 +11,7 @@ import { SHEET_CSS } from "@/lib/shift3/render";
 import { rememberYm } from "./NavLinks";
 import { useToast } from "./Toast";
 import { downloadTablePdf } from "@/lib/pdf-export";
+import { fitSheetCell, fitSheetText, fontsReady } from "@/lib/shift3/fit";
 import Icon from "./Icon";
 import SystemCheck from "./SystemCheck";
 import type { SummaryGroup } from "@/lib/shift-summary";
@@ -159,7 +160,21 @@ function storeRef<K extends keyof PageStore, T = PageStore[K]>(st: PageStore, ke
 
 // ตัวตารางเป็น HTML ล้วน: ห่อด้วย memo เพื่อไม่ให้ถูกวาดใหม่ทุกครั้งที่เลือกช่อง (ไม่เสียดัชนีช่อง/ไม่กระตุก)
 const SheetHtml = memo(function SheetHtml({ html, zoom }: { html: string; zoom: number }) {
-  return <div className="screen-zoom" style={{ zoom }} dangerouslySetInnerHTML={{ __html: html }} />;
+  const ref = useRef<HTMLDivElement>(null);
+  // ตารางเวร 3 ช่วงเวลา: ปรับขนาดตัวอักษรให้ใหญ่ขึ้นและพอดีช่อง (ตาราง Key/SMC/OT ไม่มี data-section จึงไม่ถูกแตะ)
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !el.querySelector("table.sheet[data-section]")) return;
+    let dead = false;
+    fitSheetText(el);
+    void fontsReady().then(() => {
+      if (!dead) fitSheetText(el);
+    });
+    return () => {
+      dead = true;
+    };
+  }, [html]);
+  return <div ref={ref} className="screen-zoom" style={{ zoom }} dangerouslySetInnerHTML={{ __html: html }} />;
 });
 
 export default function ScheduleView(p: Props) {
@@ -419,7 +434,10 @@ export default function ScheduleView(p: Props) {
       if (el) {
         shown.set(el, el.textContent ?? "");
         const txt = e.value ?? opt.display?.[i] ?? null; // คืนค่าตามสูตร: ใช้ค่าที่เคยเห็น (ถ้ามี) หรือรอค่าจริงจากชีต
-        if (txt !== null) el.textContent = txt;
+        if (txt !== null) {
+          el.textContent = txt;
+          fitSheetCell(el);
+        }
         el.classList.add("saving");
       }
       if (e.value === null) {
@@ -446,7 +464,10 @@ export default function ScheduleView(p: Props) {
       const r = await post(`${API}/manual`, body);
       for (const el of shown.keys()) el.classList.remove("saving");
       if (r.ok) return;
-      for (const [el, txt] of shown) el.textContent = txt; // คืนค่าเดิมบนจอ
+      for (const [el, txt] of shown) {
+        el.textContent = txt; // คืนค่าเดิมบนจอ
+        fitSheetCell(el);
+      }
       entries.forEach((e, i) => {
         const b = before[i];
         if (b === null) manualRef.current.delete(e.key);
