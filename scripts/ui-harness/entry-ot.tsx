@@ -20,7 +20,7 @@ createRoot(document.getElementById("root")!).render(
     <main>
       <ScheduleView table="ot" tableTitle="ตารางจุดรับ-นำส่งสิ่งส่งตรวจ" ym="2569-11" prevYm="2569-10" nextYm="2569-12" label={res.subtitle}
         tabName="พ.ย.69" manualSource="web-tab" sectionHtml={html} names={otSettings.dropdown} personColors={{}} dupDays={dupDays} summary={summary} warning=""
-        api="/api/ot" officerCols={[]} hint="ทดสอบ OT" pdf={{ colA: OT_COL_W[0], colW: 185, keepCols: [14], sheetCss: SHEET_CSS + OT_CSS }} />
+        api="/api/ot" autoAssign={{ keyPrefix: "o", cols: ["B", "D", "J"], heads: ["บัตรคิว", "ตรวจเอกสาร", "กว."], spotHead: "B/D/J", tip: "t", intro: "ทดสอบ OT" }} officerCols={[]} hint="ทดสอบ OT" pdf={{ colA: OT_COL_W[0], colW: 185, keepCols: [14], sheetCss: SHEET_CSS + OT_CSS }} />
     </main>
   </ToastProvider>,
 );

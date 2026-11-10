@@ -31,6 +31,10 @@ export interface AutoInput {
   freeNames: string[];
   /** ช่องที่จะเติม (ไม่ระบุ = G,H,I ของ SMC) */
   cols?: string[];
+  /** true = เติมช่องว่างตามลำดับความสำคัญของ cols (ซ้ายก่อน) และไม่กันการอยู่จุดเดิมซ้ำ (ใช้กับ OT ที่ผู้จองน้อย) */
+  ordered?: boolean;
+  /** แปลงข้อความในช่อง → ชื่อคน (null = ไม่ใช่ชื่อคน) เช่น ตัด " (แทน …)" — ไม่ระบุ = ใช้ข้อความทั้งช่อง */
+  personOf?: (cell: string) => string | null;
 }
 export interface AutoAssign { day: number; col: AutoCol; name: string }
 export interface AutoSkip { day: number; name: string; reason: string }
@@ -65,6 +69,7 @@ function placements(n: number, cols: AutoCol[]): AutoCol[][] {
 
 export function planAuto(inp: AutoInput): AutoPlan {
   const COLS: string[] = inp.cols ?? AUTO_COLS;
+  const personOf = inp.personOf ?? ((v: string) => (v.trim() === "" ? null : v.trim()));
   const free = new Set(inp.freeNames.map(lc).filter((x) => x !== ""));
   const spots = new Map<string, Record<string, number>>();
   const display = new Map<string, string>();
@@ -81,7 +86,7 @@ export function planAuto(inp: AutoInput): AutoPlan {
   for (const r of inp.rows) {
     if (r.date === null) continue;
     for (const c of COLS) {
-      const v = (r.cells[c] ?? "").trim();
+      const v = personOf(r.cells[c] ?? "") ?? "";
       if (v === "" || free.has(lc(v))) continue;
       ensure(v)[c]++;
       before.set(lc(v), (before.get(lc(v)) ?? 0) + 1);
@@ -109,7 +114,7 @@ export function planAuto(inp: AutoInput): AutoPlan {
     }
     const inCells = new Map<string, string>(); // ชื่อ → ช่องที่อยู่แล้ววันนี้
     for (const [col, v] of Object.entries(r.cells)) {
-      const t = (v ?? "").trim();
+      const t = personOf(v ?? "") ?? "";
       if (t !== "" && !free.has(lc(t))) inCells.set(lc(t), col);
     }
     const seen = new Set<string>();
@@ -139,9 +144,9 @@ export function planAuto(inp: AutoInput): AutoPlan {
     for (const c of cands.slice(empty.length)) plan.skips.push({ day: r.day, name: c.name, reason: "ช่องเต็ม (คนอื่นได้เวรน้อยกว่า)" });
 
     if (picks.length > 0) {
-      let best: AutoCol[] | null = null;
+      let best: AutoCol[] | null = inp.ordered ? empty.slice(0, picks.length) : null;
       let bestCost = Infinity;
-      for (const pl of placements(picks.length, empty)) {
+      for (const pl of inp.ordered ? [] : placements(picks.length, empty)) {
         let cost = 0;
         pl.forEach((col, i) => {
           const s = ensure(picks[i].name);

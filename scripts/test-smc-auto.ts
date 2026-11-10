@@ -1,7 +1,7 @@
 // ทดสอบตัวจัดเวรอัตโนมัติ SMC (planSmcAuto) ด้วยข้อมูลจำลองแบบสุ่ม (seed คงที่) — รัน: tsx scripts/test-smc-auto.ts
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare const process: any;
-import { planSmcAuto, AUTO_COLS, type AutoInput, type AutoRow } from "../src/lib/smc/auto";
+import { planSmcAuto, planAuto, AUTO_COLS, type AutoInput, type AutoRow } from "../src/lib/smc/auto";
 
 let fails = 0;
 const ok = (c: boolean, msg: string) => {
@@ -172,6 +172,22 @@ for (let seed = 1; seed <= 300; seed++) {
   pre2[1].cells.G = "กมล"; pre2[1].cells.H = "กมล"; // day2 กมล ได้ 2 แล้ว
   const bal = planSmcAuto({ rows: pre2, booked: { 3: ["กมล", "ขวัญ", "จิตรา", "ธนา", "พิมพ์"].map((name) => ({ name })) }, onLeave: () => false, freeNames: [MT, PT] });
   ok(!bal.assigns.some((a) => a.name === "กมล"), "คนยอดมากต้องเสียสิทธิ์ก่อน");
+}
+
+// 4) โหมดเรียงลำดับ (OT: B→D→J, อยู่จุดเดิมซ้ำได้) + ตัด " (แทน …)" ก่อนเทียบชื่อ
+{
+  const r = rng(11);
+  const rows = makeMonth(r, 30, false).map((x) => ({ ...x, cells: { ...x.cells, G: "", H: "", I: "" } }));
+  const base = { rows, onLeave: () => false, freeNames: [] as string[], cols: ["G", "H", "I"], ordered: true };
+  const one = planAuto({ ...base, booked: { 1: [{ name: "ก" }] } });
+  ok(one.assigns.length === 1 && one.assigns[0].col === "G", "ผู้จอง 1 คน → ช่องแรก");
+  const two = planAuto({ ...base, booked: { 1: [{ name: "ก" }, { name: "ข" }] } });
+  ok(two.assigns.map((a) => a.col).join() === "G,H", "ผู้จอง 2 คน → G,H ตามลำดับ ช่องท้ายว่าง");
+  const rep = planAuto({ ...base, booked: { 1: [{ name: "ก" }], 2: [{ name: "ก" }], 3: [{ name: "ก" }] } });
+  ok(rep.assigns.every((a) => a.name === "ก" && a.col === "G") && rep.assigns.length === 3, "คนเดิมอยู่จุดเดิมซ้ำได้");
+  const pre = rows.map((x) => (x.day === 1 ? { ...x, cells: { ...x.cells, C: "ลักษณ์ (แทน ใคร)" } } : x));
+  const sub = planAuto({ ...base, rows: pre, personOf: (v: string) => { const t = v.trim(); if (!t) return null; const i = t.indexOf(" (แทน"); return i >= 0 ? t.slice(0, i) : t; }, booked: { 1: [{ name: "ลักษณ์" }] } });
+  ok(sub.assigns.length === 0 && sub.skips[0]?.reason.includes("ในวันเดียวกัน"), "ตัด (แทน …) แล้วเทียบชื่อซ้ำ");
 }
 
 console.log(fails === 0 ? "✓ test-smc-auto ผ่านทั้งหมด" : `✗ ล้มเหลว ${fails} จุด`);
