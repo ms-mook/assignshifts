@@ -16,6 +16,7 @@ import Icon from "./Icon";
 import SystemCheck from "./SystemCheck";
 import type { SummaryGroup } from "@/lib/shift-summary";
 import type { BookingGuide } from "@/lib/guide-types";
+import type { AutoPlan } from "@/lib/smc/auto";
 
 interface Props {
   table: string;
@@ -57,6 +58,8 @@ interface Props {
   freeNames?: string[];
   /** ชื่อจุดของแต่ละคอลัมน์ (ใช้ในข้อความ "อยู่ที่ … แล้ว") */
   colLabels?: Record<string, string>;
+  /** ตาราง SMC: เปิดปุ่ม จัดเวรอัตโนมัติ (ช่อง3/4/5 ช่วง 07.00-08.30 จากผู้จองเวร) */
+  autoAssign?: boolean;
 }
 type CellStyle = { bg?: string; fg?: string };
 type StylePatch = { bg?: string | null; fg?: string | null; clear?: boolean };
@@ -198,6 +201,10 @@ export default function ScheduleView(p: Props) {
   const [err, setErr] = useState("");
   const [colorsOpen, setColorsOpen] = useState(false);
   const [sumOpen, setSumOpen] = useState(false);
+  const [autoOpen, setAutoOpen] = useState(false);
+  const [autoBusy, setAutoBusy] = useState(false);
+  const [autoPlan, setAutoPlan] = useState<AutoPlan | null>(null);
+  const [autoErr, setAutoErr] = useState("");
   const [colors, setColors] = useState<Record<string, string>>(p.personColors);
 
   useEffect(() => {
@@ -478,6 +485,46 @@ export default function ScheduleView(p: Props) {
       store.failed += 1;
       toast.error(r.conflict ? `ไม่ได้บันทึก — ชื่อซ้ำ: ${r.error}` : `${opt.what ?? "บันทึก"}ไม่สำเร็จ: ${r.error}`);
     });
+  };
+
+  /** จัดเวรอัตโนมัติ (SMC): ขอแผนจากเซิร์ฟเวอร์ (ยังไม่บันทึก) แล้วแสดงตัวอย่างให้ยืนยัน */
+  const openAuto = async () => {
+    setAutoOpen(true);
+    setAutoPlan(null);
+    setAutoErr("");
+    setAutoBusy(true);
+    try {
+      const r = await fetch(`${API}/auto`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ym: p.ym }) });
+      const j = (await r.json().catch(() => ({}))) as { plan?: AutoPlan; error?: string };
+      if (!r.ok || !j.plan) setAutoErr(j.error ?? `ดึงข้อมูลไม่สำเร็จ (รหัส ${r.status})`);
+      else setAutoPlan(j.plan);
+    } catch {
+      setAutoErr("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่");
+    }
+    setAutoBusy(false);
+  };
+  /** ยืนยัน: ใส่เฉพาะช่องที่ยังว่าง ณ ตอนนี้ (ถ้าระหว่างดูตัวอย่างมีคนใส่ชื่อแล้ว จะไม่ทับ) — ย้อนกลับได้ครั้งเดียว (Ctrl+Z) */
+  const confirmAuto = () => {
+    if (!autoPlan) return;
+    const entries: { key: string; value: string | null }[] = [];
+    let skipped = 0;
+    for (const a of autoPlan.assigns) {
+      const key = `m:${a.col}:${a.day}`;
+      const el = cellEl(key);
+      const cur = (el?.textContent ?? "").trim();
+      if (!el || cur !== "" || (manualRef.current.get(key) ?? "") !== "") {
+        skipped++;
+        continue;
+      }
+      entries.push({ key, value: a.name });
+    }
+    setAutoOpen(false);
+    if (entries.length === 0) {
+      toast.info(skipped > 0 ? "ช่องถูกใส่ชื่อแล้ว ไม่มีช่องว่างให้เติม" : "ไม่มีรายการให้เติม");
+      return;
+    }
+    applyNames(entries, { check: false, what: "จัดเวรอัตโนมัติ" });
+    toast.success(`จัดเวรอัตโนมัติแล้ว ${entries.length} ช่อง${skipped > 0 ? ` (ข้าม ${skipped} ช่องที่มีชื่อแล้ว)` : ""} — กด Ctrl+Z เพื่อย้อนกลับทั้งหมด`);
   };
 
   /** ตั้งสีหลายช่อง: patch แบบเดิม (bg/fg = null ล้าง, clear = ล้างทั้งหมด) หรือ states = สีที่ต้องการของแต่ละช่อง (ใช้ย้อนกลับ) */
@@ -774,7 +821,7 @@ export default function ScheduleView(p: Props) {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       const inField = !!t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA" || t.isContentEditable);
-      if (edit || colorsOpen || sumOpen || inField) return;
+      if (edit || colorsOpen || sumOpen || autoOpen || inField) return;
       const mod = e.ctrlKey || e.metaKey;
       const k = e.key.toLowerCase();
       if (mod && k === "z" && !e.shiftKey) return void (e.preventDefault(), undo());
@@ -922,6 +969,12 @@ export default function ScheduleView(p: Props) {
           <button className="btn btn-sm btn-soft btn-info" onClick={() => setSumOpen(true)}>
             <Icon name="ChartColumn" size={16} />
             สรุปเวร
+          </button>
+        )}
+        {p.autoAssign && (
+          <button className="btn btn-sm btn-soft btn-success" onClick={() => void openAuto()} title="เติมช่อง3/4/5 (07.00-08.30) จากผู้จองเวร — ดูตัวอย่างก่อนยืนยัน">
+            <Icon name="Sparkles" size={16} />
+            จัดเวรอัตโนมัติ
           </button>
         )}
         <SystemCheck ym={p.ym} table={p.table} monthLabel={p.label} onGo={(cell) => void jumpTo(cell)} />
@@ -1213,6 +1266,100 @@ export default function ScheduleView(p: Props) {
         </div>
       )}
 
+      {autoOpen && (
+        <div className="modal modal-open no-print" onClick={() => !autoBusy && setAutoOpen(false)}>
+          <div className="modal-box sum-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="จัดเวรอัตโนมัติ">
+            <div className="mhead cool">
+              <Icon name="Sparkles" size={20} />
+              <h3>
+                จัดเวรอัตโนมัติ · {p.tableTitle} · {p.label}
+              </h3>
+              <button className="btn btn-sm btn-ghost btn-circle mclose" aria-label="ปิด" onClick={() => setAutoOpen(false)}>
+                <Icon name="X" size={18} />
+              </button>
+            </div>
+            <p className="muted small">
+              เติมช่อง3 / ช่อง4 / ช่อง5 (07.00-08.30) จากผู้จองเวร เฉพาะช่องที่ยังว่าง · ชื่อไม่ซ้ำกับช่องอื่นวันเดียวกัน · ไม่นับคนที่ลา · กระจายยอดให้ใกล้เคียงกัน · ไม่มีคนจอง/จองไม่ครบ = เว้นว่าง · ยืนยันแล้วยังแก้ไขชื่อได้ตามปกติ
+            </p>
+            {autoBusy && <p className="muted">กำลังดึงข้อมูลผู้จองเวร…</p>}
+            {autoErr && <div className="error small" role="alert">{autoErr}</div>}
+            {autoPlan && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div className="sum-groups">
+                  <table className="sum-table" aria-label="ตัวอย่างรายวัน">
+                    <thead>
+                      <tr><th>วันที่</th><th>ช่อง3</th><th>ช่อง4</th><th>ช่อง5</th></tr>
+                    </thead>
+                    <tbody>
+                      {Array.from(new Set([...autoPlan.assigns.map((a) => a.day), ...autoPlan.unfilled.map((u) => u.day)]))
+                        .sort((a, b) => a - b)
+                        .map((d) => {
+                          const cell = (col: string) => {
+                            const a = autoPlan.assigns.find((x) => x.day === d && x.col === col);
+                            if (a) return a.name;
+                            const u = autoPlan.unfilled.find((x) => x.day === d && x.col === col);
+                            return u ? <span className="muted">— ว่าง ({u.why})</span> : "";
+                          };
+                          return (
+                            <tr key={d}>
+                              <td className="num">{d}</td>
+                              <td>{cell("G")}</td>
+                              <td>{cell("H")}</td>
+                              <td>{cell("I")}</td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                  <table className="sum-table" aria-label="ยอดรวมต่อคน">
+                    <thead>
+                      <tr><th>ชื่อ</th><th>เดิม</th><th>หลังจัด</th><th>ช่อง3/4/5</th></tr>
+                    </thead>
+                    <tbody>
+                      {autoPlan.people.map((x) => (
+                        <tr key={x.name}>
+                          <td>{x.name}</td>
+                          <td className="num">{x.before}</td>
+                          <td className="num">{x.after}</td>
+                          <td className="num">{x.spots.G}/{x.spots.H}/{x.spots.I}</td>
+                        </tr>
+                      ))}
+                      {autoPlan.people.length === 0 && (
+                        <tr><td colSpan={4} className="muted">ไม่มีรายชื่อ</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                {autoPlan.skips.length > 0 && (
+                  <details>
+                    <summary className="small">ผู้จองที่ไม่ได้ใส่ ({autoPlan.skips.length} รายการ)</summary>
+                    <ul className="small" style={{ margin: "6px 0 0 18px" }}>
+                      {autoPlan.skips.map((k, i) => (
+                        <li key={i}>
+                          วันที่ {k.day} · {k.name} — {k.reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+                <p className="small">
+                  จะเติม <b>{autoPlan.assigns.length}</b> ช่อง · เว้นว่าง <b>{autoPlan.unfilled.length}</b> ช่อง
+                </p>
+              </div>
+            )}
+            <div className="modal-action">
+              <span className="spacer" />
+              <button className="btn btn-sm btn-ghost" onClick={() => setAutoOpen(false)}>
+                ยกเลิก
+              </button>
+              <button className="btn btn-sm btn-primary" disabled={autoBusy || !autoPlan || autoPlan.assigns.length === 0} onClick={confirmAuto}>
+                <Icon name="Check" size={14} />
+                ยืนยันเติมชื่อ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {sumOpen && p.summary && (
         <div className="modal modal-open no-print" onClick={() => setSumOpen(false)}>
           <div className="modal-box sum-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="สรุปเวร">

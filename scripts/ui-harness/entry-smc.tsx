@@ -18,7 +18,7 @@ createRoot(document.getElementById("root")!).render(
       <ScheduleView table="smc" tableTitle="ตาราง SMC" ym="2569-12" prevYm="2569-11" nextYm="2570-01" label={res.subtitle}
         tabName="ธ.ค.69" manualSource="web-tab" sectionHtml={html} names={s.listL} personColors={{}} dupDays={[4]} warning=""
         summary={[{ title: "สรุปเวรเดือนนี้", rows: res.people.map((p) => ({ name: p.name, count: p.days })) }]}
-        api="/api/smc" rowGroups={SMC_BLOCKS} freeNames={["MT full-time", "Part-time"]} officerCols={[]} hint="ทดสอบ SMC" pdf={{ colA: SMC_COL_W[0], colW: 175, sheetCss: SHEET_CSS + SMC_CSS }} />
+        api="/api/smc" autoAssign rowGroups={SMC_BLOCKS} freeNames={["MT full-time", "Part-time"]} officerCols={[]} hint="ทดสอบ SMC" pdf={{ colA: SMC_COL_W[0], colW: 175, sheetCss: SHEET_CSS + SMC_CSS }} />
     </main>
   </ToastProvider>,
 );

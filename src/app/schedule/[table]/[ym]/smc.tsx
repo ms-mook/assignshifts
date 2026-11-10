@@ -59,6 +59,7 @@ export default async function SmcSchedule({ tdef, ym, yearBE, month }: { tdef: T
       rowGroups={SMC_BLOCKS}
       freeNames={[s.mt, s.pt].filter((x) => x.trim() !== "")}
       guide={guide}
+      autoAssign
       dupNote="พนักงาน 1 คนอยู่ได้ทีละจุดในช่วงเวลาเดียวกัน"
       hint="ช่องที่แก้เอง/พิมพ์ทับเก็บในแท็บ WEB-ช่องเลือกเอง (ไม่แตะสูตรในแท็บเดือน) · ชื่อที่ลาวันนั้นจะขึ้นสีส้มขีดฆ่า · บันทึกการลาที่หน้า ลา-แลกเวร (SMC)"
       pdf={{ colA: SMC_COL_W[0], colW: 175, sheetCss: SHEET_CSS + SMC_CSS }}
