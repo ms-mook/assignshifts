@@ -58,8 +58,8 @@ interface Props {
   freeNames?: string[];
   /** ชื่อจุดของแต่ละคอลัมน์ (ใช้ในข้อความ "อยู่ที่ … แล้ว") */
   colLabels?: Record<string, string>;
-  /** ตาราง SMC: เปิดปุ่ม จัดเวรอัตโนมัติ (ช่อง3/4/5 ช่วง 07.00-08.30 จากผู้จองเวร) */
-  autoAssign?: boolean;
+  /** เปิดปุ่ม จัดเวรอัตโนมัติ (เติมชื่อผู้จองเวรลงช่องที่กำหนด) — keyPrefix = นำหน้าคีย์ช่อง ("m" SMC · "k" Key) */
+  autoAssign?: { keyPrefix: string; cols: string[]; heads: string[]; spotHead: string; intro: string; tip: string };
 }
 type CellStyle = { bg?: string; fg?: string };
 type StylePatch = { bg?: string | null; fg?: string | null; clear?: boolean };
@@ -509,7 +509,7 @@ export default function ScheduleView(p: Props) {
     const entries: { key: string; value: string | null }[] = [];
     let skipped = 0;
     for (const a of autoPlan.assigns) {
-      const key = `m:${a.col}:${a.day}`;
+      const key = `${p.autoAssign?.keyPrefix ?? "m"}:${a.col}:${a.day}`;
       const el = cellEl(key);
       const cur = (el?.textContent ?? "").trim();
       if (!el || cur !== "" || (manualRef.current.get(key) ?? "") !== "") {
@@ -972,7 +972,7 @@ export default function ScheduleView(p: Props) {
           </button>
         )}
         {p.autoAssign && (
-          <button className="btn btn-sm btn-soft btn-success" onClick={() => void openAuto()} title="เติมช่อง3/4/5 (07.00-08.30) จากผู้จองเวร — ดูตัวอย่างก่อนยืนยัน">
+          <button className="btn btn-sm btn-soft btn-success" onClick={() => void openAuto()} title={p.autoAssign.tip}>
             <Icon name="Sparkles" size={16} />
             จัดเวรอัตโนมัติ
           </button>
@@ -1278,9 +1278,7 @@ export default function ScheduleView(p: Props) {
                 <Icon name="X" size={18} />
               </button>
             </div>
-            <p className="muted small">
-              เติมช่อง3 / ช่อง4 / ช่อง5 (07.00-08.30) จากผู้จองเวร เฉพาะช่องที่ยังว่าง · ชื่อไม่ซ้ำกับช่องอื่นวันเดียวกัน · ไม่นับคนที่ลา · กระจายยอดให้ใกล้เคียงกัน · ไม่มีคนจอง/จองไม่ครบ = เว้นว่าง · ยืนยันแล้วยังแก้ไขชื่อได้ตามปกติ
-            </p>
+            <p className="muted small">{p.autoAssign?.intro}</p>
             {autoBusy && <p className="muted">กำลังดึงข้อมูลผู้จองเวร…</p>}
             {autoErr && <div className="error small" role="alert">{autoErr}</div>}
             {autoPlan && (
@@ -1288,7 +1286,7 @@ export default function ScheduleView(p: Props) {
                 <div className="sum-groups">
                   <table className="sum-table" aria-label="ตัวอย่างรายวัน">
                     <thead>
-                      <tr><th>วันที่</th><th>ช่อง3</th><th>ช่อง4</th><th>ช่อง5</th></tr>
+                      <tr><th>วันที่</th>{(p.autoAssign?.heads ?? []).map((h) => <th key={h}>{h}</th>)}</tr>
                     </thead>
                     <tbody>
                       {Array.from(new Set([...autoPlan.assigns.map((a) => a.day), ...autoPlan.unfilled.map((u) => u.day)]))
@@ -1303,9 +1301,7 @@ export default function ScheduleView(p: Props) {
                           return (
                             <tr key={d}>
                               <td className="num">{d}</td>
-                              <td>{cell("G")}</td>
-                              <td>{cell("H")}</td>
-                              <td>{cell("I")}</td>
+                              {(autoPlan.cols ?? p.autoAssign?.cols ?? []).map((c) => <td key={c}>{cell(c)}</td>)}
                             </tr>
                           );
                         })}
@@ -1313,7 +1309,7 @@ export default function ScheduleView(p: Props) {
                   </table>
                   <table className="sum-table" aria-label="ยอดรวมต่อคน">
                     <thead>
-                      <tr><th>ชื่อ</th><th>เดิม</th><th>หลังจัด</th><th>ช่อง3/4/5</th></tr>
+                      <tr><th>ชื่อ</th><th>เดิม</th><th>หลังจัด</th><th>{p.autoAssign?.spotHead}</th></tr>
                     </thead>
                     <tbody>
                       {autoPlan.people.map((x) => (
@@ -1321,7 +1317,7 @@ export default function ScheduleView(p: Props) {
                           <td>{x.name}</td>
                           <td className="num">{x.before}</td>
                           <td className="num">{x.after}</td>
-                          <td className="num">{x.spots.G}/{x.spots.H}/{x.spots.I}</td>
+                          <td className="num">{(autoPlan.cols ?? p.autoAssign?.cols ?? []).map((c) => x.spots[c] ?? 0).join("/")}</td>
                         </tr>
                       ))}
                       {autoPlan.people.length === 0 && (

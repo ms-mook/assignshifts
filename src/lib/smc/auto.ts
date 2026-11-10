@@ -1,4 +1,4 @@
-// จัดเวรอัตโนมัติ ตาราง SMC (ช่อง3 G · ช่อง4 H · ช่อง5 I ช่วง 07.00-08.30) จากรายชื่อผู้จองเวร
+// จัดเวรอัตโนมัติ (SMC: ช่อง3 G · ช่อง4 H · ช่อง5 I ช่วง 07.00-08.30 · Key: B, K) จากรายชื่อผู้จองเวร
 // ฟังก์ชันล้วน (ไม่เขียนชีต) — คืนแผนให้แสดงตัวอย่างก่อน แล้วผู้ใช้กดยืนยันจึงบันทึก
 // กติกา
 //  - เติมเฉพาะช่องที่ว่าง · เฉพาะวันทำการ · เฉพาะคนที่จองไว้ (ชื่อตรงกับรายชื่อตาราง)
@@ -7,8 +7,9 @@
 //  - หลีกเลี่ยงการอยู่จุดเดิมติดกัน/บ่อย (นับจำนวนครั้งต่อจุด)
 //  - ไม่มีคนจอง/จองไม่ครบ → เว้นว่างไว้
 
-export const AUTO_COLS = ["G", "H", "I"] as const;
-export type AutoCol = (typeof AUTO_COLS)[number];
+/** ช่องเริ่มต้น (SMC: ช่อง3 G · ช่อง4 H · ช่อง5 I) — ตารางอื่น (เช่น Key: B, K) ส่งผ่าน AutoInput.cols */
+export const AUTO_COLS = ["G", "H", "I"];
+export type AutoCol = string;
 
 export interface AutoRow {
   day: number;
@@ -28,12 +29,16 @@ export interface AutoInput {
   onLeave: (name: string, date: number) => boolean;
   /** ข้อความช่องประจำ (เช่น MT / Part-time) — ไม่ใช่ชื่อคน */
   freeNames: string[];
+  /** ช่องที่จะเติม (ไม่ระบุ = G,H,I ของ SMC) */
+  cols?: string[];
 }
 export interface AutoAssign { day: number; col: AutoCol; name: string }
 export interface AutoSkip { day: number; name: string; reason: string }
 export interface AutoUnfilled { day: number; col: AutoCol; why: string }
-export interface AutoPerson { name: string; before: number; after: number; spots: Record<AutoCol, number> }
+export interface AutoPerson { name: string; before: number; after: number; spots: Record<string, number> }
 export interface AutoPlan {
+  /** ช่องที่จัดให้ (ตามลำดับ) */
+  cols: string[];
   assigns: AutoAssign[];
   skips: AutoSkip[];
   unfilled: AutoUnfilled[];
@@ -58,14 +63,15 @@ function placements(n: number, cols: AutoCol[]): AutoCol[][] {
   return out;
 }
 
-export function planSmcAuto(inp: AutoInput): AutoPlan {
+export function planAuto(inp: AutoInput): AutoPlan {
+  const COLS: string[] = inp.cols ?? AUTO_COLS;
   const free = new Set(inp.freeNames.map(lc).filter((x) => x !== ""));
-  const spots = new Map<string, Record<AutoCol, number>>();
+  const spots = new Map<string, Record<string, number>>();
   const display = new Map<string, string>();
   const ensure = (name: string) => {
     const k = lc(name);
     if (!spots.has(k)) {
-      spots.set(k, { G: 0, H: 0, I: 0 });
+      spots.set(k, Object.fromEntries(COLS.map((c) => [c, 0])));
       display.set(k, name.trim());
     }
     return spots.get(k)!;
@@ -74,7 +80,7 @@ export function planSmcAuto(inp: AutoInput): AutoPlan {
   // ยอดตั้งต้น = ชื่อที่มีอยู่แล้วในช่อง G/H/I ของเดือนนี้ (ทุกวัน)
   for (const r of inp.rows) {
     if (r.date === null) continue;
-    for (const c of AUTO_COLS) {
+    for (const c of COLS) {
       const v = (r.cells[c] ?? "").trim();
       if (v === "" || free.has(lc(v))) continue;
       ensure(v)[c]++;
@@ -83,7 +89,7 @@ export function planSmcAuto(inp: AutoInput): AutoPlan {
   }
   const total = (k: string) => {
     const s = spots.get(k);
-    return s ? s.G + s.H + s.I : 0;
+    return s ? COLS.reduce((n, c) => n + s[c], 0) : 0;
   };
 
   // จำนวนวันที่แต่ละคนยังจองอยู่ในวันถัดไป (ให้คนที่มีโอกาสน้อยได้ก่อนเมื่อยอดเท่ากัน)
@@ -92,11 +98,11 @@ export function planSmcAuto(inp: AutoInput): AutoPlan {
     workRows.filter((r) => r.day > fromDay && (inp.booked[r.day] ?? []).some((b) => lc(b.name) === k)).length;
 
   const last = new Map<string, AutoCol>();
-  const plan: AutoPlan = { assigns: [], skips: [], unfilled: [], people: [], fullDays: 0 };
+  const plan: AutoPlan = { cols: COLS, assigns: [], skips: [], unfilled: [], people: [], fullDays: 0 };
 
   for (const r of workRows) {
     const date = r.date as number;
-    const empty = AUTO_COLS.filter((c) => (r.cells[c] ?? "").trim() === "");
+    const empty = COLS.filter((c) => (r.cells[c] ?? "").trim() === "");
     if (empty.length === 0) {
       plan.fullDays++;
       continue;
@@ -160,9 +166,12 @@ export function planSmcAuto(inp: AutoInput): AutoPlan {
 
   for (const [k, s] of spots) {
     const b = before.get(k) ?? 0;
-    const after = s.G + s.H + s.I;
+    const after = COLS.reduce((n, c) => n + s[c], 0);
     if (after > 0 || b > 0) plan.people.push({ name: display.get(k) ?? k, before: b, after, spots: { ...s } });
   }
   plan.people.sort((a, b) => b.after - a.after || a.name.localeCompare(b.name, "th"));
   return plan;
 }
+
+/** SMC (ช่อง3/4/5) */
+export const planSmcAuto = planAuto;
