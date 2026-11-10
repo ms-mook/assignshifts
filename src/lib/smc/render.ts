@@ -21,8 +21,8 @@ export function renderSmcHtml(
 ): string {
   const out: string[] = [];
   out.push(`<table class="sheet smc" style="width:${SMC_NATURAL_W}px"><colgroup>${SMC_COL_W.map((w) => `<col style="width:${w}px">`).join("")}</colgroup>`);
-  out.push(`<tr style="height:40px"><td colspan="20" class="t" style="font-size:18pt">${esc(m.title)}</td></tr>`);
-  out.push(`<tr style="height:28px"><td colspan="20" class="t" style="background:#A8C9CE;font-size:16pt">${esc(m.subtitle)}</td></tr>`);
+  out.push(`<tr style="height:52px"><td colspan="20" class="t" style="font-size:26pt">${esc(m.title)}</td></tr>`);
+  out.push(`<tr style="height:44px"><td colspan="20" class="t" style="background:#A8C9CE;font-size:24pt">${esc(m.subtitle)}</td></tr>`);
   out.push(`<tr style="height:28px">${h("เวลา", "#FFFFFF")}${h("07.00 - 08.30 น.", "#FFFFFF", 'colspan="8"')}${h("08.30 - 12.30 น.", "#FFFFFF", 'colspan="7"')}${h("12.30 - 16.00 น.", "#FFFFFF", 'colspan="4"')}</tr>`);
   out.push(
     `<tr style="height:44px">${h("วันที่", "#FFFFFF", 'rowspan="2"')}${h("Manager/Q", Y)}${h("ลงทะเบียน", G, 'colspan="2"')}${h("ทั่วไป/ตรวจสุขภาพ**", B, 'colspan="2"')}${h("ตรวจสุขภาพ/ทั่วไป**", O, 'colspan="2"')}${h("สูงอายุ/รถเข็น/**", O)}` +

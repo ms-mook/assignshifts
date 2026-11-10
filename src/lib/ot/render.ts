@@ -29,7 +29,7 @@ export function renderOtHtml(m: OtMonth, o: OtRenderOpts = {}): string {
   out.push(`<table class="sheet ot" style="width:${OT_NATURAL_W}px"><colgroup>`);
   for (const w of OT_COL_W) out.push(`<col style="width:${w}px">`);
   out.push("</colgroup>");
-  out.push(`<tr style="height:38px"><td colspan="15" class="t" style="font-size:14pt">${esc(m.title)}</td></tr>`);
+  out.push(`<tr style="height:50px"><td colspan="15" class="t" style="font-size:24pt">${esc(m.title)}</td></tr>`);
   out.push(`<tr style="height:32px"><td colspan="15" class="t" style="background:#A9C4C4;font-size:14pt">${esc(m.subtitle)}</td></tr>`);
   out.push(
     `<tr style="height:32px">${h("วันที่", "#FFFFFF", 'rowspan="3"')}${h("ห้องเจาะเลือด ฯ OPD", PINK, 'colspan="7"')}${h("ห้องเจาะเลือด ฯ กว.", BLUE, 'colspan="4"')}${h("ห้องเจาะเลือด ฯ SMC", GREEN, 'colspan="2"')}${h("", "#FFFFFF", 'rowspan="3"')}</tr>`,

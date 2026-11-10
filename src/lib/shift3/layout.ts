@@ -67,7 +67,7 @@ export function groupColor(col: number): string {
 }
 
 export const COL_WIDTH = { A: 60, other: 145 };
-export const ROW_HEIGHT = { title: 36, subtitle: 28, time: 28, header: [34, 46, 34, 34], data: 112, sigGap: 72, sig: 30 };
+export const ROW_HEIGHT = { title: 52, subtitle: 46, time: 46, header: [34, 46, 34, 34], data: 112, sigGap: 72, sig: 30 };
 
 export const COLORS = {
   title: "#FFFFFF",

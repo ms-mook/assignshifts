@@ -78,13 +78,13 @@ export function renderSection(sec: MonthSection, res: MonthResult, opt: RenderOp
 
   // แถว 1-3
   out.push(
-    `<tr style="height:${ROW_HEIGHT.title}px"><td colspan="37" class="t" style="background:${COLORS.title};font-size:18pt">${esc(sec.title)}</td></tr>`,
+    `<tr style="height:${ROW_HEIGHT.title}px"><td colspan="37" class="t" style="background:${COLORS.title};font-size:28pt">${esc(sec.title)}</td></tr>`,
   );
   out.push(
-    `<tr style="height:${ROW_HEIGHT.subtitle}px"><td colspan="37" class="t" style="background:${COLORS.subtitle};font-size:16pt">${esc(sec.subtitle)}</td></tr>`,
+    `<tr style="height:${ROW_HEIGHT.subtitle}px"><td colspan="37" class="t" style="background:${COLORS.subtitle};font-size:26pt">${esc(sec.subtitle)}</td></tr>`,
   );
   out.push(
-    `<tr style="height:${ROW_HEIGHT.time}px"><td colspan="37" class="t" style="background:${COLORS.time};font-size:16pt">${esc(sec.timeLabel)}</td></tr>`,
+    `<tr style="height:${ROW_HEIGHT.time}px"><td colspan="37" class="t" style="background:${COLORS.time};font-size:26pt">${esc(sec.timeLabel)}</td></tr>`,
   );
 
   // แถว 4: A (merge 3 แถว) + กลุ่มอาคาร
