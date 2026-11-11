@@ -271,6 +271,17 @@ const eq = (a: unknown, b: unknown, msg: string) => ok(JSON.stringify(a) === JSO
   await call(manual, { ym: "2569-12", entries: ["G:13", "K:12", "Q:13", "R:12", "S:13", "W:12", "I:12", "F:2", "F:19"].map((k) => ({ key: "w:" + k, value: null })) });
   ok(master.every((row, i) => i < 3 || ["H", "I", "M", "S", "T", "U", "Y"].every((c) => (row[L(c)] ?? "") === "")), "ล้างกลับหมด");
   ok(!writes.some((t) => t === "ธ.ค. 69" || t === "ตั้งค่า"), "ไม่เขียนแท็บเดือน/ตั้งค่า");
+  // ช่อง 9 วันอาทิตย์เป็นสูตรหมุนเวรในแท็บหลัก → เว็บไม่เขียนทับ (เก็บในแท็บเว็บ) · วันเสาร์ยังเขียนลงแท็บหลัก
+  master[6][L("M")] = "=IF(OR($Z7=1,MOD($A7,2)=1),\"\",LET(...))"; // แถว 7 = 13 ธ.ค. (อาทิตย์)
+  r = await call(manual, { ym: "2569-12", key: "w:K:13", value: "สมพาน" });
+  eq(r.status, 200, "บันทึกช่อง 9 วันอาทิตย์");
+  ok(master[6][L("M")].startsWith("=IF("), "สูตรช่อง 9 วันอาทิตย์ไม่ถูกเขียนทับ");
+  st = await repo.loadOffMonth(2569, 12);
+  eq(st.manual["K:13"], "สมพาน", "ช่อง 9 วันอาทิตย์ → แท็บเว็บ");
+  r = await call(manual, { ym: "2569-12", key: "w:K:12", value: "คนทดสอบเก้า" });
+  eq(mcell("M", 6), "คนทดสอบเก้า", "ช่อง 9 วันเสาร์ → แท็บหลัก M6");
+  await call(manual, { ym: "2569-12", entries: [{ key: "w:K:13", value: null }, { key: "w:K:12", value: null }] });
+  eq(mcell("M", 6), "", "ล้างช่อง 9 วันเสาร์");
   for (const bad of ["w:X:5", "w:A:5", "w:B:5", "w:AA:5", "w:C:0", "w:C:32", "m:C:5", "w:c:5"]) {
     r = await call(manual, { ym: "2569-12", key: bad, value: "x" });
     eq(r.status, 400, `ปฏิเสธคีย์ ${bad}`);

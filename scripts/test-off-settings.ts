@@ -107,7 +107,7 @@ const eq = (a: unknown, b: unknown, msg: string) => ok(JSON.stringify(a) === JSO
   eq(f0.spots.filter((s: any) => s.editable).map((s: any) => s.row), [5, 6, 7, 8, 9, 10, 11, 12, 13], "แก้ค่าหมุนได้เฉพาะ H5:I13");
   eq(f0.spots.find((s: any) => s.row === 12).sun, "0", "ค่า 0 อ่านเป็น 0");
   eq(f0.spots.filter((s: any) => s.satEd).map((s: any) => s.row), [5, 8, 9, 10, 11, 12, 13], "แก้ได้เฉพาะช่อง H ที่สูตรใช้");
-  eq(f0.spots.filter((s: any) => s.sunEd).map((s: any) => s.row), [5, 7, 8, 9, 10, 11, 12, 13], "แก้ได้เฉพาะช่อง I ที่สูตรใช้");
+  eq(f0.spots.filter((s: any) => s.sunEd).map((s: any) => s.row), [5, 6, 7, 8, 9, 10, 11, 12, 13], "แก้ได้เฉพาะช่อง I ที่สูตรใช้ (รวม I6 ช่อง 9 อาทิตย์)");
   eq(f0.holidays.length, 3, "วันหยุด 3 รายการ");
   eq(f0.holidays[0], { date: "2026-12-05", name: "", type: "ปิดทั้งหมด", wd: "เสาร์", status: "งดบริการ ไม่จัดเวรวันนี้" }, "วันหยุดแถวแรก");
   eq(f0.lists.T.map((x: any) => x.f), [...Array(5).fill(true), ...Array(4).fill(false), ...Array(14).fill(true), ...Array(5).fill(false)], "ธงสูตรของ T5:T32");
@@ -156,7 +156,7 @@ const eq = (a: unknown, b: unknown, msg: string) => ok(JSON.stringify(a) === JSO
   const f3 = clone(f2);
   f3.spots[0].sat = "8"; // 1 → 8 (ไม่ซ้ำ)
   f3.spots.find((s: any) => s.row === 14).sat = "10"; // แถวที่แก้ไม่ได้ → ไม่เขียน
-  f3.spots.find((s: any) => s.row === 6).sun = "11"; // I6 สูตรไม่ใช้ → ไม่เขียน
+  f3.spots.find((s: any) => s.row === 6).sat = "11"; // H6 (ช่อง 9 เสาร์ เลือกเอง) สูตรไม่ใช้ → ไม่เขียน
   f3.holidays.splice(1, 1);
   f3.holidays.push({ date: "2027-04-13", name: "สงกรานต์", type: "ปิดทั้งหมด", wd: "", status: "" });
   f3.lists.XC[3].v = "ยอดชาย";
@@ -166,7 +166,7 @@ const eq = (a: unknown, b: unknown, msg: string) => ok(JSON.stringify(a) === JSO
   r = await call({ form: f3 });
   eq(r.status, 200, "บันทึกสำเร็จ");
   const rs = writes.map((w) => w.range);
-  ok(rs.includes("'ตั้งค่า'!H5") && !rs.some((x) => /H14|I14|I6\b/.test(x)), "เขียน H5 ไม่เขียน H14 / I6");
+  ok(rs.includes("'ตั้งค่า'!H5") && !rs.some((x) => /H14|I14|H6\b/.test(x)), "เขียน H5 ไม่เขียน H14 / H6");
   ok(rs.includes("'ตั้งค่า'!M5:N44") && rs.includes("'ตั้งค่า'!S5:S44"), "วันหยุดเขียน M:N และ S ทั้งบล็อก");
   ok(!rs.some((x) => /'!(O|P|Q|R|V)\d/.test(x)), "ไม่เขียนคอลัมน์สูตร O P Q R V");
   eq([vals.get("M6"), vals.get("N6"), vals.get("S6"), vals.get("M7"), vals.get("N7"), vals.get("S7"), vals.get("M8")], ["2026-12-07", "ชดเชยวันพ่อแห่งชาติ (5 ธ.ค.)", "", "2027-04-13", "สงกรานต์", "ปิดทั้งหมด", ""], "วันหยุดเลื่อนขึ้นและเพิ่มท้าย");

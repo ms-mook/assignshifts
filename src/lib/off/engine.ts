@@ -209,8 +209,8 @@ export function offNamesByCol(l: OffLists): Record<string, string[]> {
   const nz = (a: string[]) => Array.from(new Set(a.map((x) => x.trim()).filter((x) => x !== "")));
   const out: Record<string, string[]> = {};
   for (const c of [...range("C", "G"), "I", ...range("L", "P"), "T", "U", "V"]) out[c] = nz(l.staff);
-  // ช่อง 9 (K): ค่าบันทึกลงแท็บ ตารางเวร ส-อา คอลัมน์ M ซึ่งตรวจข้อมูลด้วย ตั้งค่า!Y9:Y69 (แท็บเดือนใช้ T5:T32)
-  out.K = nz(l.ch9 ?? []).length > 0 ? nz(l.ch9) : nz(l.staff);
+  // ช่อง 9 (K): เสาร์ = ผู้จัดเวรเลือกจาก ตั้งค่า!Y9:Y69 · อาทิตย์ = หมุนเวรจากรายชื่อ T5:T32 → รวมทั้งสองชุด
+  out.K = nz([...(l.ch9 ?? []), ...l.staff]);
   for (const c of ["H", "J"]) out[c] = nz(l.hj);
   for (const c of ["Q", "R", "S", "W"]) out[c] = nz(l.coll);
   out.Y = nz(l.keyY);

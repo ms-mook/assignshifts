@@ -144,14 +144,14 @@ export default function OffSettingsClient({ initial }: { initial: OffSettingsFor
                       {s.satEd ? (
                         <input className="y" inputMode="numeric" style={{ width: 80 }} value={s.sat} onChange={(e) => setSpot(s.row, "sat", e.target.value)} />
                       ) : (
-                        <span className="ro small" title="สูตรไม่ได้ใช้ค่านี้">{s.sat || "—"} · {s.row === 7 ? "ใช้รายชื่อสลับ Y5:Y6" : "ผู้จัดเวรเลือกเอง"}</span>
+                        <span className="ro small" title="สูตรไม่ได้ใช้ค่านี้">{s.sat || "—"} · {s.row === 7 ? "ใช้รายชื่อสลับ Y5:Y6" : "ผู้จัดเวรเลือกเอง (Y9:Y69)"}</span>
                       )}
                     </td>
                     <td>
                       {s.sunEd ? (
                         <input className="y" inputMode="numeric" style={{ width: 80 }} value={s.sun} onChange={(e) => setSpot(s.row, "sun", e.target.value)} />
                       ) : (
-                        <span className="ro small" title="สูตรไม่ได้ใช้ค่านี้">{s.sun || "—"} · ผู้จัดเวรเลือกเอง</span>
+                        <span className="ro small" title="สูตรไม่ได้ใช้ค่านี้">{s.sun || "—"} · ไม่ใช้ค่าหมุน</span>
                       )}
                     </td>
                   </>

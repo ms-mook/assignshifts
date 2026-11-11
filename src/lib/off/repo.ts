@@ -81,20 +81,24 @@ export async function saveOffManual(yearBE: number, month: number, entries: { ke
   const ym = ymString(yearBE, month);
   const toMaster = entries.filter(({ key }) => key.split(":")[1] in OFF_MASTER_VALUE_COLS);
   const rowOf = new Map<number, number>();
+  let fx: unknown[][] = [];
   if (toMaster.length > 0) {
-    const [g] = await batchGet(ID(), [`'${OFF_MASTER}'!C4:C107`]);
+    // วันที่ (C) + สูตรของแท็บหลัก (ช่องไหนเป็นสูตร เช่น ช่อง 9 วันอาทิตย์ → ไม่เขียนทับ เก็บในแท็บเว็บแทน)
+    const [[g], [f]] = await Promise.all([batchGet(ID(), [`'${OFF_MASTER}'!C4:C107`]), batchGet(ID(), [`'${OFF_MASTER}'!A4:Y107`], "FORMULA")]);
+    fx = f;
     g.forEach((r, i) => {
       const d = toSerial(r?.[0]);
       if (d !== null && !rowOf.has(d)) rowOf.set(d, 4 + i);
     });
   }
+  const isFormula = (mcol: string, row: number) => String((fx[row - 4] ?? [])[mcol.charCodeAt(0) - 65] ?? "").startsWith("=");
   const sheetWrites: { range: string; values: unknown[][] }[] = [];
   const web: { key: string; value: string | null }[] = [];
   for (const { key, value } of entries) {
     const [, col, d] = key.split(":");
     const mcol = OFF_MASTER_VALUE_COLS[col];
     const row = mcol ? rowOf.get(serialOf(yearBE - 543, month, Number(d))) : undefined;
-    if (mcol && row !== undefined) {
+    if (mcol && row !== undefined && !isFormula(mcol, row)) {
       sheetWrites.push({ range: `'${OFF_MASTER}'!${mcol}${row}`, values: [[value ?? ""]] });
       web.push({ key: `${col}:${d}`, value: null }); // ค่าเก่าในแท็บเว็บ (ถ้ามี) จะไม่บังค่าในชีต
     } else web.push({ key: `${col}:${d}`, value });
