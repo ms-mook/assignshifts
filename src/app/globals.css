@@ -73,3 +73,6 @@ table.plan tr.rowbad td:first-child { background: #ffd7d9; }
 .sum-table tr.tot td { font-weight: 700; background: #eef2f8; border-top: 1px solid rgb(31 58 104 / 0.2); }
 /* ปุ่มเมนู ตารางเวรนอกเวลา (สีเดียวกับโทนอื่น: เขียวมะกอกหม่น) */
 .tone-off { --a: #56623a; --b: #7d8a5c; }
+/* ตั้งค่า ตารางเวรนอกเวลา: รายชื่อแบบตาราง */
+.list-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.list-grid .list-ro { padding: 6px 8px; border-radius: 8px; background: rgb(31 58 104 / 0.05); font-size: 14px; }

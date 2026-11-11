@@ -93,7 +93,7 @@ export type Values = unknown[][];
 export async function batchGet(
   spreadsheetId: string,
   ranges: string[],
-  render: "UNFORMATTED_VALUE" | "FORMATTED_VALUE" = "UNFORMATTED_VALUE",
+  render: "UNFORMATTED_VALUE" | "FORMATTED_VALUE" | "FORMULA" = "UNFORMATTED_VALUE",
 ): Promise<Values[]> {
   const q = new URLSearchParams({ valueRenderOption: render, dateTimeRenderOption: "SERIAL_NUMBER" });
   for (const r of ranges) q.append("ranges", r);

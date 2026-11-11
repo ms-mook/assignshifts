@@ -21,12 +21,14 @@ export interface OffLists {
   keyY: string[];
   /** ตั้งค่า!X44:X49 — dropdown Z (เวร ช่อง 6) */
   z: string[];
+  /** ตั้งค่า!Y9:Y69 — dropdown ช่อง 9 (K) ตามการตรวจข้อมูลของแท็บ ตารางเวร ส-อา (ช่องนี้บันทึกลงแท็บนั้น) */
+  ch9: string[];
 }
 
-/** ตั้งค่า!T5:X59 → รายชื่อ dropdown แต่ละชุด (แถว 5 = index 0 · คอลัมน์ T=0 U=1 V=2 W=3 X=4) */
+/** ตั้งค่า!T5:Y69 → รายชื่อ dropdown แต่ละชุด (แถว 5 = index 0 · คอลัมน์ T=0 U=1 V=2 W=3 X=4 Y=5) */
 export function parseOffLists(g: unknown[][]): OffLists {
   const col = (c: number, r1: number, r2: number) => Array.from({ length: r2 - r1 + 1 }, (_, i) => str((g[r1 - 5 + i] ?? [])[c]).trim());
-  return { staff: col(0, 5, 32), hj: col(4, 9, 12), coll: col(4, 16, 41), keyY: col(3, 52, 59), z: col(4, 44, 49) };
+  return { staff: col(0, 5, 32), hj: col(4, 9, 12), coll: col(4, 16, 41), keyY: col(3, 52, 59), z: col(4, 44, 49), ch9: col(5, 9, 69) };
 }
 
 export interface OffRow {
@@ -206,7 +208,9 @@ export function offSummary(mo: OffMonth, lists: OffLists): OffSummary[] {
 export function offNamesByCol(l: OffLists): Record<string, string[]> {
   const nz = (a: string[]) => Array.from(new Set(a.map((x) => x.trim()).filter((x) => x !== "")));
   const out: Record<string, string[]> = {};
-  for (const c of [...range("C", "G"), "I", ...range("K", "P"), "T", "U", "V"]) out[c] = nz(l.staff);
+  for (const c of [...range("C", "G"), "I", ...range("L", "P"), "T", "U", "V"]) out[c] = nz(l.staff);
+  // ช่อง 9 (K): ค่าบันทึกลงแท็บ ตารางเวร ส-อา คอลัมน์ M ซึ่งตรวจข้อมูลด้วย ตั้งค่า!Y9:Y69 (แท็บเดือนใช้ T5:T32)
+  out.K = nz(l.ch9 ?? []).length > 0 ? nz(l.ch9) : nz(l.staff);
   for (const c of ["H", "J"]) out[c] = nz(l.hj);
   for (const c of ["Q", "R", "S", "W"]) out[c] = nz(l.coll);
   out.Y = nz(l.keyY);

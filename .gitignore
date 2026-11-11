@@ -6,3 +6,4 @@ out
 *.tsbuildinfo
 .vercel
 scripts/ui-harness/off-real.json
+scripts/ui-harness/off-settings-real.json

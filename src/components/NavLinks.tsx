@@ -39,11 +39,11 @@ export default function NavLinks() {
   const isOt = path.startsWith("/schedule/ot/") || path.startsWith("/ot/");
   const isKey = path.startsWith("/schedule/key/") || path.startsWith("/key/");
   const isSmc = path.startsWith("/schedule/smc/") || path.startsWith("/smc/");
-  const isOff = path.startsWith("/schedule/off/");
+  const isOff = path.startsWith("/schedule/off/") || path.startsWith("/off/");
   const ctx = isOff ? "off" : isSmc ? "smc" : isKey ? "key" : isOt ? "ot" : "s";
   const sub: { href: string; label: string; icon: IconName }[] =
     ctx === "off"
-      ? [] // ตารางเวรนอกเวลา: ยังไม่มีหน้าย่อย (แก้ค่าตั้งต้น/รายชื่อในชีต แท็บ ตั้งค่า)
+      ? [{ href: "/off/settings", label: "ตั้งค่า", icon: "Settings" }]
       : ctx === "smc"
       ? [
           { href: "/smc/plan", label: "สรุปรายปี", icon: "ChartColumn" },

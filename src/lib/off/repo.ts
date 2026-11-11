@@ -10,11 +10,12 @@ import { MONTH_SHORT, SHEETS, ymString } from "../config";
 import { readOffLeaves } from "../leave-system";
 import { readWebState, writeManual, writePersonColors, writeStyles } from "../webtabs";
 import { serialOf } from "../ot/engine";
+import { OFF_SET_RANGE, offSettingsWrites, parseOffSettings, validateOffSettings, type OffSettingsForm } from "./settings";
 import { buildOffMonth, offBusyCol, parseOffLists, type OffLeave, type OffLists, type OffMonth } from "./engine";
 export { parseOffLists };
 
 const ID = () => SHEETS.off;
-export const OFF_SETTINGS_RANGE = "'ตั้งค่า'!T5:X59";
+export const OFF_SETTINGS_RANGE = "'ตั้งค่า'!T5:Y69";
 
 /** ชื่อแท็บเดือนในชีตนี้ เช่น "ธ.ค. 69" (มีเว้นวรรค) — หาแบบไม่สนช่องว่าง */
 export function offTabName(titles: string[], yearBE: number, month: number): string | null {
@@ -116,4 +117,21 @@ export async function validateOffManual(yearBE: number, month: number, key: stri
   if (!at) return null;
   const label = st.month.head[`${at}6`] ?? at;
   return `"${value.trim()}" อยู่ที่ ${label} ของวันที่ ${row.day} แล้ว (พนักงาน 1 คนอยู่ได้ 1 จุดต่อวัน)`;
+}
+
+// ---------- ตั้งค่า (แท็บ ตั้งค่า) ----------
+async function readOffSettingsNow(): Promise<OffSettingsForm> {
+  const [[v], [f]] = await Promise.all([batchGet(ID(), [OFF_SET_RANGE]), batchGet(ID(), [OFF_SET_RANGE], "FORMULA")]);
+  return parseOffSettings(v, f);
+}
+export const loadOffSettings = readOffSettingsNow;
+
+/** บันทึกตั้งค่า: ตรวจฟอร์ม → อ่านชีตล่าสุด (รู้ว่าช่องไหนเป็นสูตร) → เขียนเฉพาะช่องค่าที่เปลี่ยน */
+export async function saveOffSettings(next: OffSettingsForm): Promise<{ addedToT: string[]; skipped: string[]; changed: number }> {
+  const err = validateOffSettings(next);
+  if (err.length) throw new Error(err.join(" · "));
+  const cur = await readOffSettingsNow();
+  const { writes, addedToT, skipped } = offSettingsWrites(cur, next);
+  if (writes.length > 0) await batchUpdate(ID(), writes);
+  return { addedToT, skipped, changed: writes.length };
 }
