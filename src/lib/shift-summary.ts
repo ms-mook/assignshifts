@@ -1,7 +1,9 @@
 // สรุปจำนวนเวรที่แต่ละคนได้รับในเดือน (นับ 1 ช่อง = 1 เวร ไม่คิดเป็นชั่วโมง)
 export interface SummaryGroup {
   title: string;
-  rows: { name: string; count: number }[];
+  rows: { name: string; count: number; counts?: number[] }[];
+  /** ตารางหลายคอลัมน์ (เช่น ตารางเวรนอกเวลา: OPD / SMC / รวม / Key 1 …) — ค่าอยู่ใน rows[].counts */
+  cols?: string[];
 }
 
 /**

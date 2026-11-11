@@ -60,6 +60,8 @@ interface Props {
   colLabels?: Record<string, string>;
   /** เปิดปุ่ม จัดเวรอัตโนมัติ (เติมชื่อผู้จองเวรลงช่องที่กำหนด) — keyPrefix = นำหน้าคีย์ช่อง ("m" SMC · "k" Key) */
   autoAssign?: { keyPrefix: string; cols: string[]; heads: string[]; spotHead: string; intro: string; tip: string };
+  /** รายชื่อให้เลือกแยกตามคอลัมน์ (ตาม dropdown ของชีต) — คอลัมน์ที่ไม่ระบุใช้ names · พิมพ์ค้นหาแล้วไม่พบจะค้นจาก names ทั้งหมด */
+  namesByCol?: Record<string, string[]>;
 }
 type CellStyle = { bg?: string; fg?: string };
 type StylePatch = { bg?: string | null; fg?: string | null; clear?: boolean };
@@ -894,10 +896,17 @@ export default function ScheduleView(p: Props) {
   /** ชื่อซ้ำกับจุดอื่นในช่วงเวลาเดียวกัน (เฉพาะตาราง 3 ช่วงเวลา) → ไม่ให้บันทึก */
   const blocked = (n: string) => (edit ? n !== edit.current && busyFor(edit, n) !== null : false);
   const single = selKeys.length === 1 ? selKeys[0] : null;
+  const editCol = edit?.col ?? "";
+  const colNames = useMemo(() => {
+    const l = p.namesByCol?.[editCol];
+    return l && l.length > 0 ? Array.from(new Set(l)) : uniqNames;
+  }, [p.namesByCol, editCol, uniqNames]);
   const shown = useMemo(() => {
     const q = value.trim().toLowerCase();
-    return q === "" ? uniqNames : uniqNames.filter((n) => n.toLowerCase().includes(q));
-  }, [uniqNames, value]);
+    if (q === "") return colNames;
+    const hit = colNames.filter((n) => n.toLowerCase().includes(q));
+    return hit.length > 0 || colNames === uniqNames ? hit : uniqNames.filter((n) => n.toLowerCase().includes(q));
+  }, [colNames, uniqNames, value]);
 
   return (
     <div className="schedule">
@@ -1372,23 +1381,44 @@ export default function ScheduleView(p: Props) {
             <div className="sum-groups">
               {p.summary.map((g) => {
                 const max = Math.max(1, ...g.rows.map((r) => r.count));
+                // ไล่สีขาว → ส้ม ตามจำนวนเวร (มากสุด = เข้มสุด)
+                const heat = (n: number, mx: number) => {
+                  const a = n / Math.max(1, mx);
+                  return n === 0 ? "#fff" : `rgb(${Math.round(255 - 18 * a)},${Math.round(236 - 80 * a)},${Math.round(214 - 150 * a)})`;
+                };
+                if (g.cols && g.cols.length > 0) {
+                  const cols = g.cols;
+                  const maxes = cols.map((_, i) => Math.max(1, ...g.rows.map((r) => r.counts?.[i] ?? 0)));
+                  const tot = cols.map((_, i) => g.rows.reduce((n, r) => n + (r.counts?.[i] ?? 0), 0));
+                  return (
+                    <table key={g.title} className="sum-table multi">
+                      <thead>
+                        <tr><th>{g.title}</th>{cols.map((c) => <th key={c}>{c}</th>)}</tr>
+                      </thead>
+                      <tbody>
+                        {g.rows.map((r) => (
+                          <tr key={r.name}>
+                            <td>{r.name}</td>
+                            {cols.map((c, i) => <td key={c} className="num" style={{ background: heat(r.counts?.[i] ?? 0, maxes[i]) }}>{r.counts?.[i] ?? 0}</td>)}
+                          </tr>
+                        ))}
+                        <tr className="tot"><td>รวม</td>{tot.map((n, i) => <td key={i} className="num">{n}</td>)}</tr>
+                      </tbody>
+                    </table>
+                  );
+                }
                 return (
                   <table key={g.title} className="sum-table">
                     <thead>
                       <tr><th>{g.title}</th><th>จำนวนเวรที่ได้</th></tr>
                     </thead>
                     <tbody>
-                      {g.rows.map((r) => {
-                        const a = r.count / max;
-                        // ไล่สีขาว → ส้ม ตามจำนวนเวร (มากสุด = เข้มสุด)
-                        const bg = r.count === 0 ? "#fff" : `rgb(${Math.round(255 - 18 * a)},${Math.round(236 - 80 * a)},${Math.round(214 - 150 * a)})`;
-                        return (
-                          <tr key={r.name}>
-                            <td>{r.name}</td>
-                            <td className="num" style={{ background: bg }}>{r.count}</td>
-                          </tr>
-                        );
-                      })}
+                      {g.rows.map((r) => (
+                        <tr key={r.name}>
+                          <td>{r.name}</td>
+                          <td className="num" style={{ background: heat(r.count, max) }}>{r.count}</td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 );

@@ -65,3 +65,11 @@ table.plan tr.rowbad td:first-child { background: #ffd7d9; }
   color: #6b7280;
   letter-spacing: 0.01em;
 }
+
+/* สรุปเวรแบบหลายคอลัมน์ (ตารางเวรนอกเวลา) */
+.sum-table.multi thead th { text-align: center; white-space: nowrap; }
+.sum-table.multi thead th:first-child { text-align: left; }
+.sum-table.multi td.num { min-width: 64px; }
+.sum-table tr.tot td { font-weight: 700; background: #eef2f8; border-top: 1px solid rgb(31 58 104 / 0.2); }
+/* ปุ่มเมนู ตารางเวรนอกเวลา (สีเดียวกับโทนอื่น: เขียวมะกอกหม่น) */
+.tone-off { --a: #56623a; --b: #7d8a5c; }

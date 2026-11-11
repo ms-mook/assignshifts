@@ -13,7 +13,7 @@ export interface SystemLeave {
   end: number;
 }
 
-/** ประเภทที่ดึงมา (งดเวรนอกเวลา ไม่ดึง) */
+/** ประเภทที่ดึงมาให้ 4 ตารางเดิม (งดเวรนอกเวลา ไม่ดึง — ใช้กับตารางเวรนอกเวลาเท่านั้น) */
 const TYPES = ["ลาป่วย", "ลากิจ", "ลาพักร้อน", "ลาอื่น"];
 const str = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim());
 
@@ -25,13 +25,25 @@ export function invalidateApprovedLeaves() {
   memo = null;
 }
 
-/** อ่านครั้งเดียวใช้ได้ทั้ง 4 ชีต (จำผลไว้ 15 วินาที) */
-export function readApprovedLeaves(): Promise<SystemLeave[]> {
+/** การลาที่ Approve ทุกประเภท (อ่านครั้งเดียวใช้ได้ทุกตาราง · จำผลไว้ 15 วินาที) */
+function readAllApproved(): Promise<SystemLeave[]> {
   if (memo && Date.now() - memo.at < 15_000) return memo.p;
   const p = readApprovedLeavesNow();
   memo = { at: Date.now(), p };
   p.catch(() => (memo = null));
   return p;
+}
+const isType = (type: string, t: string) => type.replace(/\s/g, "").startsWith(t.replace(/\s/g, ""));
+
+/** 4 ตารางเดิม: ลาป่วย / ลากิจ / ลาพักร้อน / ลาอื่น (งดเวรนอกเวลา ไม่ดึง) */
+export async function readApprovedLeaves(): Promise<SystemLeave[]> {
+  return (await readAllApproved()).filter((l) => TYPES.some((t) => isType(l.type, t)));
+}
+
+/** ตารางเวรนอกเวลา: เฉพาะประเภท "งดเวรนอกเวลา" (คอลัมน์ D) */
+export const OFF_LEAVE_TYPE = "งดเวรนอกเวลา";
+export async function readOffLeaves(): Promise<SystemLeave[]> {
+  return (await readAllApproved()).filter((l) => isType(l.type, OFF_LEAVE_TYPE));
 }
 
 async function readApprovedLeavesNow(): Promise<SystemLeave[]> {
@@ -41,7 +53,7 @@ async function readApprovedLeavesNow(): Promise<SystemLeave[]> {
     const status = str(r[7]).toLowerCase();
     if (status !== "approve" && status !== "approved") continue;
     const type = str(r[3]);
-    if (!TYPES.some((t) => type.replace(/\s/g, "").startsWith(t))) continue;
+    if (type === "") continue;
     const fullName = str(r[1]).replace(/\s+/g, " ");
     const firstName = fullName.split(" ")[0] ?? "";
     let start = toSerial(r[4]);

@@ -8,6 +8,8 @@ export const SHEETS = {
   smc: process.env.SHEET_ID_SMC ?? "1dKewo2QDyQUrHL1xaCN6QxNH9q5Jejl7ZE37LUpn_gQ",
   /** ตารางเวรจุดรับ-นำส่งสิ่งส่งตรวจ (OT) — สำเนาสำหรับเว็บ */
   ot: process.env.SHEET_ID_OT ?? "1HtxDgpEwdZbQXFp3j6ZLjwOZyF4wMnyLiVQBNTysReI",
+  /** ตารางเวรนอกเวลาราชการ (เสาร์-อาทิตย์) ธ.ค.69–พ.ย.70 — สำเนาสำหรับเว็บ */
+  off: process.env.SHEET_ID_OFF ?? "1g6AUvxHe9HkkuHS2qCWj4Xbmm0QKXt8TsLaYvDgS0HE",
   /** ระบบลา (อ่านอย่างเดียว · แท็บ Leave) — ดึงเฉพาะการลาที่ Approve แล้ว */
   leaveSystem: process.env.SHEET_ID_LEAVE_SYSTEM ?? "1NEmJOPvNXZCLEzWXZefdsy6vj6T9_GMQ0Y46EZ80lUE",
   /** ระบบจองเวร (อ่านอย่างเดียว · แท็บ Booking Data) — ใช้เป็นไกด์ชื่อในตาราง Key */

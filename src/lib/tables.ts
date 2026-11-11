@@ -3,7 +3,7 @@ export interface TableDef {
   id: string;
   label: string;
   title: string;
-  kind: "shift3" | "ot" | "key" | "smc";
+  kind: "shift3" | "ot" | "key" | "smc" | "off";
   section: 1 | 2 | 3;
 }
 
@@ -14,6 +14,7 @@ export const TABLES: TableDef[] = [
   { id: "key", label: "Key", title: "ตาราง Key", kind: "key", section: 1 },
   { id: "smc", label: "SMC", title: "ตาราง SMC", kind: "smc", section: 1 },
   { id: "ot", label: "OT", title: "ตาราง OT", kind: "ot", section: 1 },
+  { id: "off", label: "นอกเวลา", title: "ตารางเวรนอกเวลา", kind: "off", section: 1 },
 ];
 
 export const tableById = (id: string) => TABLES.find((t) => t.id === id);

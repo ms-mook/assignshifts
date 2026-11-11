@@ -5,3 +5,4 @@ out
 .env
 *.tsbuildinfo
 .vercel
+scripts/ui-harness/off-real.json

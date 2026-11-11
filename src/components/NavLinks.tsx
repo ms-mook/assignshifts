@@ -23,7 +23,7 @@ export function rememberYm(ym: string) {
   } catch {}
 }
 
-const TABLE_ICON: Record<string, IconName> = { s1: "Sunrise", s2: "Sun", s3: "Sunset", key: "KeyRound", smc: "Stethoscope", ot: "Timer" };
+const TABLE_ICON: Record<string, IconName> = { s1: "Sunrise", s2: "Sun", s3: "Sunset", key: "KeyRound", smc: "Stethoscope", ot: "Timer", off: "CalendarDays" };
 
 export default function NavLinks() {
   const path = usePathname() ?? "";
@@ -39,9 +39,12 @@ export default function NavLinks() {
   const isOt = path.startsWith("/schedule/ot/") || path.startsWith("/ot/");
   const isKey = path.startsWith("/schedule/key/") || path.startsWith("/key/");
   const isSmc = path.startsWith("/schedule/smc/") || path.startsWith("/smc/");
-  const ctx = isSmc ? "smc" : isKey ? "key" : isOt ? "ot" : "s";
+  const isOff = path.startsWith("/schedule/off/");
+  const ctx = isOff ? "off" : isSmc ? "smc" : isKey ? "key" : isOt ? "ot" : "s";
   const sub: { href: string; label: string; icon: IconName }[] =
-    ctx === "smc"
+    ctx === "off"
+      ? [] // ตารางเวรนอกเวลา: ยังไม่มีหน้าย่อย (แก้ค่าตั้งต้น/รายชื่อในชีต แท็บ ตั้งค่า)
+      : ctx === "smc"
       ? [
           { href: "/smc/plan", label: "สรุปรายปี", icon: "ChartColumn" },
           { href: "/smc/leaves", label: "ลา-แลกเวร", icon: "Repeat" },
@@ -65,7 +68,7 @@ export default function NavLinks() {
               { href: "/leaves", label: "ลา-แลกเวร", icon: "Repeat" },
               { href: "/settings", label: "ตั้งค่า", icon: "Settings" },
             ];
-  const ctxLabel = ctx === "smc" ? "SMC" : ctx === "key" ? "Key" : ctx === "ot" ? "OT" : "6.00-16.30";
+  const ctxLabel = ctx === "off" ? "นอกเวลา" : ctx === "smc" ? "SMC" : ctx === "key" ? "Key" : ctx === "ot" ? "OT" : "6.00-16.30";
   const ctxTone = ctx === "s" ? "s3" : ctx;
   return (
     <>

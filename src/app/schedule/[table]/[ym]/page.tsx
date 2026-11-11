@@ -14,6 +14,7 @@ import ScheduleView from "@/components/ScheduleView";
 import OtSchedule from "./ot";
 import KeySchedule from "./key";
 import SmcSchedule from "./smc";
+import OffSchedule from "./off";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,7 @@ export default async function SchedulePage({ params }: { params: { table: string
   if (!tdef || !p) notFound();
   if (tdef.kind === "smc") return <SmcSchedule tdef={tdef} ym={params.ym} yearBE={p.yearBE} month={p.month} />;
   if (tdef.kind === "key") return <KeySchedule tdef={tdef} ym={params.ym} yearBE={p.yearBE} month={p.month} />;
+  if (tdef.kind === "off") return <OffSchedule tdef={tdef} ym={params.ym} yearBE={p.yearBE} month={p.month} />;
   if (tdef.kind === "ot") return <OtSchedule tdef={tdef} ym={params.ym} yearBE={p.yearBE} month={p.month} />;
   await syncAllLeaves(params.ym); // การลาที่ Approve ในระบบลา เฉพาะเดือนนี้ → ทั้ง 4 ชีต (ดึงซ้ำไม่เกินนาทีละครั้ง)
   const data = await loadShift3();
