@@ -69,10 +69,10 @@ function monthTab(yCE: number, m: number, seed: number, closed: number[]): strin
   g[39][L("Q")] = "หัวหน้าหน่วยเจาะเลือด เก็บสิ่งส่งตรวจและ POCT";
   return g;
 }
-const settings: string[][] = Array.from({ length: 55 }, () => Array(5).fill(""));
+const settings: string[][] = Array.from({ length: 105 }, () => Array(10).fill(""));
 STAFF.forEach((n, i) => (settings[i][0] = n)); // T5..
 HJ.forEach((n, i) => (settings[4 + i][4] = n)); // X9..X12
-COLL.forEach((n, i) => (settings[11 + i][4] = n)); // X16..
+COLL.forEach((n, i) => (settings[i][9] = n)); // AC5.. (ย้ายจาก X16:X41)
 ZL.forEach((n, i) => (settings[39 + i][4] = n)); // X44..
 KEYY.forEach((n, i) => (settings[47 + i][3] = n)); // W52..
 
@@ -82,7 +82,7 @@ const books: Record<string, Map<string, string[][]>> = {
     ["ตารางเวร ส-อา", (() => { const g: string[][] = [[], [], []]; for (let n = 1; n <= 104; n++) g.push(["", "", String(46361 + Math.floor((n - 1) / 2) * 7 + ((n - 1) % 2))]); return g; })()],
     ["ธ.ค. 69", monthTab(2026, 12, 7, [5])],
     ["ก.พ. 70", monthTab(2027, 2, 11, [])],
-    ["ตั้งค่า", (() => { const g: string[][] = Array.from({ length: 60 }, () => []); settings.forEach((row, i) => { g[4 + i] = Array(19).fill("").concat(row); }); return g; })()],
+    ["ตั้งค่า", (() => { const g: string[][] = Array.from({ length: 110 }, () => []); settings.forEach((row, i) => { g[4 + i] = Array(19).fill("").concat(row); }); return g; })()],
   ]),
   LEAVESHEET: new Map([["Leave", [["ts", "ชื่อ-สกุล", "", "ประเภท", "เริ่ม", "สิ้นสุด", "", "สถานะ", "id"]]]]),
 };

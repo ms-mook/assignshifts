@@ -45,7 +45,7 @@ for (let r = 8; r <= 44; r++) { setF(`O${r}`, "=…", ""); setF(`Q${r}`, "=…",
 for (let i = 0; i < 14; i++) setF(`T${14 + i}`, `=B${5 + i}`, STAFF[i]);
 setV("T28", "ปณิชา"); setV("T29", "กฤษณา");
 setF("X5", "=T11", "มุกดารัตน์"); setF("X6", "=T10", "กฤษฎา");
-["สุพัตตรา", "ขวัญจิรา", "จำเลียง"].forEach((n, i) => setV(`X${16 + i}`, n));
+["สุพัตตรา", "ขวัญจิรา", "จำเลียง"].forEach((n, i) => setV(`AC${5 + i}`, n)); // ย้ายจาก X16:X41 → AC5:AC104
 ["กฤษฎา", "มุกดารัตน์", "ภัทรสุดา", "ชัชวิชญ์"].forEach((n, i) => (setV(`X${44 + i}`, n), setV(`U${44 + i}`, n)));
 ["เดือน", "อัมพร", "ศศิประภา"].forEach((n, i) => setV(`X${52 + i}`, n));
 ["กฤษฎา", "มุกดารัตน์"].forEach((n, i) => setV(`Y${9 + i}`, n));
@@ -110,9 +110,10 @@ const eq = (a: unknown, b: unknown, msg: string) => ok(JSON.stringify(a) === JSO
   eq(f0.spots.filter((s: any) => s.sunEd).map((s: any) => s.row), [5, 6, 7, 8, 9, 10, 11, 12, 13], "แก้ได้เฉพาะช่อง I ที่สูตรใช้ (รวม I6 ช่อง 9 อาทิตย์)");
   eq(f0.holidays.length, 3, "วันหยุด 3 รายการ");
   eq(f0.holidays[0], { date: "2026-12-05", name: "", type: "ปิดทั้งหมด", wd: "เสาร์", status: "งดบริการ ไม่จัดเวรวันนี้" }, "วันหยุดแถวแรก");
-  eq(f0.lists.T.map((x: any) => x.f), [...Array(5).fill(true), ...Array(4).fill(false), ...Array(14).fill(true), ...Array(5).fill(false)], "ธงสูตรของ T5:T32");
-  eq(f0.lists.Y.length, 61, "Y9:Y69");
-  eq(f0.lists.XC.length, 26, "X16:X41");
+  eq(f0.lists.T.map((x: any) => x.f), [...Array(5).fill(true), ...Array(4).fill(false), ...Array(14).fill(true), ...Array(17).fill(false)], "ธงสูตรของ T5:T44");
+  eq(f0.lists.Y.length, 100, "Y9:Y108");
+  eq(f0.lists.XC.length, 100, "AC5:AC104");
+  eq(f0.lists.XC.filter((x: any) => x.v).map((x: any) => x.v), ["สุพัตตรา", "ขวัญจิรา", "จำเลียง"], "อ่านรายชื่อ เก็บ/บัตรคิว จาก AC");
   eq(S.validateOffSettings(f0), [], "ค่าปัจจุบันผ่านการตรวจ");
 
   console.log("2) ตรวจฟอร์ม");
@@ -170,7 +171,7 @@ const eq = (a: unknown, b: unknown, msg: string) => ok(JSON.stringify(a) === JSO
   ok(rs.includes("'ตั้งค่า'!M5:N44") && rs.includes("'ตั้งค่า'!S5:S44"), "วันหยุดเขียน M:N และ S ทั้งบล็อก");
   ok(!rs.some((x) => /'!(O|P|Q|R|V)\d/.test(x)), "ไม่เขียนคอลัมน์สูตร O P Q R V");
   eq([vals.get("M6"), vals.get("N6"), vals.get("S6"), vals.get("M7"), vals.get("N7"), vals.get("S7"), vals.get("M8")], ["2026-12-07", "ชดเชยวันพ่อแห่งชาติ (5 ธ.ค.)", "", "2027-04-13", "สงกรานต์", "ปิดทั้งหมด", ""], "วันหยุดเลื่อนขึ้นและเพิ่มท้าย");
-  eq([vals.get("X19"), vals.get("Y11"), vals.get("H5")], ["ยอดชาย", "ภัทรสุดา", "8"], "รายชื่อ/ค่าหมุนที่เขียน");
+  eq([vals.get("AC8"), vals.get("Y11"), vals.get("H5")], ["ยอดชาย", "ภัทรสุดา", "8"], "รายชื่อ/ค่าหมุนที่เขียน");
   ok(r.body.skipped.includes("T5"), "แจ้งข้ามช่องสูตร T5");
   eq(JSON.stringify([...forms.entries()]), SNAP, "ไม่แตะช่องสูตร");
 
@@ -189,11 +190,11 @@ const eq = (a: unknown, b: unknown, msg: string) => ok(JSON.stringify(a) === JSO
   r = await call({ form: f4 });
   eq([r.status, writes.map((w) => w.range)], [200, ["'ตั้งค่า'!B18"]], "เปลี่ยนชื่อ B18");
   // ถ้าในชีตมีคนเปลี่ยนช่องค่าเป็นสูตรระหว่างนั้น → เว็บไม่เขียนทับ
-  forms.set("X20", "=T12"); vals.set("X20", "ภัทรสุดา");
+  forms.set("AC9", "=T12"); vals.set("AC9", "ภัทรสุดา");
   const f5 = clone(f4); f5.lists.XC[4].v = "ทับสูตร";
   writes.length = 0;
   r = await call({ form: f5 });
-  eq([r.status, writes.length, r.body.skipped.includes("X20")], [200, 0, true], "อ่านธงสูตรจากชีตล่าสุดก่อนเขียน");
+  eq([r.status, writes.length, r.body.skipped.includes("AC9")], [200, 0, true], "อ่านธงสูตรจากชีตล่าสุดก่อนเขียน");
 
   console.log(`\nผ่าน ${pass} · ไม่ผ่าน ${fail}`);
   process.exit(fail ? 1 : 0);

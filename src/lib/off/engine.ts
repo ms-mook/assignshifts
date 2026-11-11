@@ -11,24 +11,24 @@ export const OFF_WKDAY_COLS = ["Y", "Z"];
 export const OFF_EDIT_COLS = [...OFF_WKEND_COLS, ...OFF_WKDAY_COLS];
 
 export interface OffLists {
-  /** ตั้งค่า!T5:T32 — dropdown C–G, I, K–P, T, U, V และรายชื่อในสรุป */
+  /** ตั้งค่า!T5:T44 — dropdown C–G, I, K–P, T, U, V และรายชื่อในสรุป */
   staff: string[];
   /** ตั้งค่า!X9:X12 — dropdown H (ช่อง 6(E)) และ J (ช่อง 8) */
   hj: string[];
-  /** ตั้งค่า!X16:X41 — dropdown Q, R, S, W (เก็บ/บัตรคิว) */
+  /** ตั้งค่า!AC5:AC104 — dropdown Q, R, S, W (เก็บ/บัตรคิว · ย้ายจาก X16:X41 แล้ว) */
   coll: string[];
   /** ตั้งค่า!W52:W59 — dropdown Y (Key ช่อง 2) และรายชื่อในสรุป จ.-ศ. */
   keyY: string[];
   /** ตั้งค่า!X44:X49 — dropdown Z (เวร ช่อง 6) */
   z: string[];
-  /** ตั้งค่า!Y9:Y69 — dropdown ช่อง 9 (K) ตามการตรวจข้อมูลของแท็บ ตารางเวร ส-อา (ช่องนี้บันทึกลงแท็บนั้น) */
+  /** ตั้งค่า!Y9:Y108 — dropdown ช่อง 9 วันเสาร์ (K) ตามการตรวจข้อมูลของแท็บ ตารางเวร ส-อา */
   ch9: string[];
 }
 
-/** ตั้งค่า!T5:Y69 → รายชื่อ dropdown แต่ละชุด (แถว 5 = index 0 · คอลัมน์ T=0 U=1 V=2 W=3 X=4 Y=5) */
+/** ตั้งค่า!T5:AC108 → รายชื่อ dropdown แต่ละชุด (แถว 5 = index 0 · คอลัมน์ T=0 U=1 V=2 W=3 X=4 Y=5 … AC=9) */
 export function parseOffLists(g: unknown[][]): OffLists {
   const col = (c: number, r1: number, r2: number) => Array.from({ length: r2 - r1 + 1 }, (_, i) => str((g[r1 - 5 + i] ?? [])[c]).trim());
-  return { staff: col(0, 5, 32), hj: col(4, 9, 12), coll: col(4, 16, 41), keyY: col(3, 52, 59), z: col(4, 44, 49), ch9: col(5, 9, 69) };
+  return { staff: col(0, 5, 44), hj: col(4, 9, 12), coll: col(9, 5, 104), keyY: col(3, 52, 59), z: col(4, 44, 49), ch9: col(5, 9, 108) };
 }
 
 export interface OffRow {
@@ -183,7 +183,7 @@ export interface OffSummaryRow { name: string; count: number; counts: number[] }
 export interface OffSummary { title: string; cols: string[]; rows: OffSummaryRow[] }
 
 /**
- * AF = ตั้งค่า!T5:T32 · AG = COUNTIF(C:P) OPD · AH = COUNTIF(T:V) SMC · AI = AG+AH · AJ/AK/AL/AM = COUNTIF C / D / H / J
+ * AF = ตั้งค่า!T5:T44 · AG = COUNTIF(C:P) OPD · AH = COUNTIF(T:V) SMC · AI = AG+AH · AJ/AK/AL/AM = COUNTIF C / D / H / J
  * AO = ตั้งค่า!W52:W59 · AP = COUNTIF(Y) · AQ = COUNTIF(Z) · AR = AP+AQ
  */
 export function offSummary(mo: OffMonth, lists: OffLists): OffSummary[] {
@@ -209,7 +209,7 @@ export function offNamesByCol(l: OffLists): Record<string, string[]> {
   const nz = (a: string[]) => Array.from(new Set(a.map((x) => x.trim()).filter((x) => x !== "")));
   const out: Record<string, string[]> = {};
   for (const c of [...range("C", "G"), "I", ...range("L", "P"), "T", "U", "V"]) out[c] = nz(l.staff);
-  // ช่อง 9 (K): เสาร์ = ผู้จัดเวรเลือกจาก ตั้งค่า!Y9:Y69 · อาทิตย์ = หมุนเวรจากรายชื่อ T5:T32 → รวมทั้งสองชุด
+  // ช่อง 9 (K): เสาร์ = ผู้จัดเวรเลือกจาก ตั้งค่า!Y9:Y108 · อาทิตย์ = หมุนเวรจากรายชื่อ T5:T44 → รวมทั้งสองชุด
   out.K = nz([...(l.ch9 ?? []), ...l.staff]);
   for (const c of ["H", "J"]) out[c] = nz(l.hj);
   for (const c of ["Q", "R", "S", "W"]) out[c] = nz(l.coll);

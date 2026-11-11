@@ -15,7 +15,7 @@ import { buildOffMonth, offBusyCol, parseOffLists, type OffLeave, type OffLists,
 export { parseOffLists };
 
 const ID = () => SHEETS.off;
-export const OFF_SETTINGS_RANGE = "'ตั้งค่า'!T5:Y69";
+export const OFF_SETTINGS_RANGE = "'ตั้งค่า'!T5:AC108";
 
 /** ชื่อแท็บเดือนในชีตนี้ เช่น "ธ.ค. 69" (มีเว้นวรรค) — หาแบบไม่สนช่องว่าง */
 export function offTabName(titles: string[], yearBE: number, month: number): string | null {

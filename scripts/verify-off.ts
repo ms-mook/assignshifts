@@ -23,8 +23,11 @@ for (const [tab, g] of Object.entries<any>(real)) {
   const WD = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
   ok(mo.rows.every((r: any) => r.date === null || (WD[eng.weekday1(r.date) - 1] === r.B && Number(g[5 + r.day][col("AB")]) === r.date)), `${tab} วัน/serial ตรง AB`);
   const sum = eng.offSummary(mo, lists);
-  // AF7:AM34
-  for (let i = 0; i < 28; i++) {
+  // AF7:AM(แถวก่อน "รวมทั้งเดือน") — 28 แถวเดิม (ถึงแถว 34) หรือ 40 แถวหลังขยาย (ถึงแถว 46)
+  const totRow = g.findIndex((r: any, i: number) => i >= 6 && (r?.[col("AF")] ?? "").trim() === "รวมทั้งเดือน");
+  ok(totRow > 6, `${tab} พบแถวรวมทั้งเดือน`);
+  const nRows = totRow - 6;
+  for (let i = 0; i < nRows; i++) {
     const row = g[6 + i] ?? [];
     const name = (row[col("AF")] ?? "").trim();
     if (!name) continue;
@@ -32,8 +35,8 @@ for (const [tab, g] of Object.entries<any>(real)) {
     const sheet = ["AG", "AH", "AI", "AJ", "AK", "AL", "AM"].map((c) => Number(row[col(c)] ?? 0));
     ok(!!w && JSON.stringify(w.counts) === JSON.stringify(sheet), `${tab} ${name} ส-อา เว็บ ${JSON.stringify(w?.counts)} ชีต ${JSON.stringify(sheet)}`);
   }
-  ok(sum[0].rows.length === g.slice(6, 34).filter((r: any) => (r?.[col("AF")] ?? "").trim()).length, `${tab} จำนวนชื่อสรุป ส-อา`);
-  const tot = ["AG", "AH", "AI", "AJ", "AK", "AL", "AM"].map((c) => Number(g[34]?.[col(c)] ?? 0));
+  ok(sum[0].rows.length === g.slice(6, totRow).filter((r: any) => (r?.[col("AF")] ?? "").trim()).length, `${tab} จำนวนชื่อสรุป ส-อา`);
+  const tot = ["AG", "AH", "AI", "AJ", "AK", "AL", "AM"].map((c) => Number(g[totRow]?.[col(c)] ?? 0));
   const wtot = sum[0].cols.map((_: any, i: number) => sum[0].rows.reduce((n: number, r: any) => n + r.counts[i], 0));
   ok(JSON.stringify(tot) === JSON.stringify(wtot), `${tab} รวม ส-อา เว็บ ${wtot} ชีต ${tot}`);
   for (let i = 0; i < 8; i++) {

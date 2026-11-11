@@ -2,7 +2,7 @@
 // หลักการ: เขียนเฉพาะช่องที่เป็น "ค่า" เท่านั้น ช่องที่เป็นสูตรแสดงอย่างเดียว (ตรวจซ้ำตอนบันทึกจากสูตรจริงในชีต)
 import { isoFromSerial, toSerial } from "../sheets-date";
 
-export const OFF_SET_RANGE = "'ตั้งค่า'!A1:AB72";
+export const OFF_SET_RANGE = "'ตั้งค่า'!A1:AC110";
 const str = (v: unknown) => (v === null || v === undefined ? "" : String(v));
 const at = (g: unknown[][], r: number, c: string) => (g[r - 1] ?? [])[colIdx(c)];
 export function colIdx(c: string): number {
@@ -18,9 +18,9 @@ const iso = (v: unknown) => {
 /** รายชื่อ (ช่วงในคอลัมน์เดียว) — f = ช่องนี้เป็นสูตร (แก้บนเว็บไม่ได้) */
 export interface ListCell { v: string; f: boolean }
 export const OFF_LISTS = {
-  T: { col: "T", r1: 5, r2: 32, title: "รายชื่อสำหรับ Dropdown (ทั่วไป)", note: "ใช้กับ Key 1–5, ช่อง 7, 10–14,16, Key SMC, ช่อง 1 SMC, ช่อง 2 C/U และสรุปจำนวนเวร · ช่องสูตรดึงจากรายชื่อหมุนเวร / แผนเวร Key" },
-  Y: { col: "Y", r1: 9, r2: 69, title: "รายชื่อ Dropdown ช่อง 9 (เฉพาะวันเสาร์ ผู้จัดเวรเลือกเอง)", note: "ใช้กับช่อง 9" },
-  XC: { col: "X", r1: 16, r2: 41, title: "รายชื่อ Dropdown จุด เก็บ 1 / เก็บ 2 / บัตรคิว / เก็บ SMC", note: "สูงสุด 26 ชื่อ" },
+  T: { col: "T", r1: 5, r2: 44, title: "รายชื่อสำหรับ Dropdown (ทั่วไป)", note: "ใช้กับ Key 1–5, ช่อง 7, ช่อง 9 วันอาทิตย์, 10–14,16, Key SMC, ช่อง 1 SMC, ช่อง 2 C/U และสรุปจำนวนเวร (สูงสุด 40 ชื่อรวมช่องสูตร) · ช่องสูตรดึงจากรายชื่อหมุนเวร / แผนเวร Key" },
+  Y: { col: "Y", r1: 9, r2: 108, title: "รายชื่อ Dropdown ช่อง 9 (เฉพาะวันเสาร์ ผู้จัดเวรเลือกเอง)", note: "ใช้กับช่อง 9 วันเสาร์ · สูงสุด 100 ชื่อ" },
+  XC: { col: "AC", r1: 5, r2: 104, title: "รายชื่อ Dropdown จุด เก็บ 1 / เก็บ 2 / บัตรคิว / เก็บ SMC", note: "สูงสุด 100 ชื่อ" },
   X6: { col: "X", r1: 44, r2: 49, title: "รายชื่อหมุนเวร ช่อง 6 (จ.-ศ.)", note: "สูงสุด 6 ชื่อ" },
   XK: { col: "X", r1: 52, r2: 59, title: "รายชื่อหมุนเวร Key ช่อง 2 (จ. อ. พฤ. ศ. ยกเว้นวันพุธ)", note: "สูงสุด 8 ชื่อ" },
   UW: { col: "U", r1: 44, r2: 51, title: "รายชื่อ Key ช่อง 2 เฉพาะวันพุธ", note: "สูงสุด 8 ชื่อ" },
