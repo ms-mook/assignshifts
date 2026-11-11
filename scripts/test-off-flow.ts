@@ -78,7 +78,8 @@ KEYY.forEach((n, i) => (settings[47 + i][3] = n)); // W52..
 
 const books: Record<string, Map<string, string[][]>> = {
   OFFSHEET: new Map([
-    ["ตารางเวร ส-อา", []],
+    // แท็บหลัก ส-อา: แถว 4–107 · C = วันที่ (serial) เหมือนสูตร DATE(2026,12,5)+INT((n-1)/2)*7+MOD(n-1,2)
+    ["ตารางเวร ส-อา", (() => { const g: string[][] = [[], [], []]; for (let n = 1; n <= 104; n++) g.push(["", "", String(46361 + Math.floor((n - 1) / 2) * 7 + ((n - 1) % 2))]); return g; })()],
     ["ธ.ค. 69", monthTab(2026, 12, 7, [5])],
     ["ก.พ. 70", monthTab(2027, 2, 11, [])],
     ["ตั้งค่า", (() => { const g: string[][] = Array.from({ length: 60 }, () => []); settings.forEach((row, i) => { g[4 + i] = Array(19).fill("").concat(row); }); return g; })()],
@@ -225,16 +226,51 @@ const eq = (a: unknown, b: unknown, msg: string) => ok(JSON.stringify(a) === JSO
   r = await call(manual, { ym: "2569-12", key: `w:Y:2`, value: "" });
   st = await repo.loadOffMonth(2569, 12);
   eq(st.month.rows[1].cells.Y, "", "ล้างให้ว่าง = เก็บค่าว่างทับ");
-  r = await call(manual, { ym: "2569-12", entries: [{ key: `w:C:${satD}`, value: null }, { key: "w:Y:2", value: null }, { key: "w:W:13", value: "ยอดชาย" }] });
+  r = await call(manual, { ym: "2569-12", entries: [{ key: `w:C:${satD}`, value: null }, { key: "w:Y:2", value: null }, { key: "w:W:14", value: "ยอดชาย" }] });
   eq(r.status, 200, "หลายช่อง (entries)");
   st = await repo.loadOffMonth(2569, 12);
   eq(st.month.rows[satD - 1].cells.C, orig, "คืนค่าสูตร → กลับเป็นค่าจากชีต");
   eq(st.month.rows[1].cells.Y, cellOf(dec, "Y", 2), "คืนค่าสูตร Y");
-  eq(st.month.rows[12].cells.W, "ยอดชาย", "W วันที่ 13");
+  eq(st.month.rows[13].cells.W, "ยอดชาย", "W วันที่ 14 (วันจันทร์ ไม่มีในแท็บหลัก → เก็บในแท็บเว็บ)");
   const other = await repo.loadOffMonth(2570, 2);
   ok(Object.keys(other.manual).length === 0, "ค่าที่แก้ไม่ข้ามเดือน");
   eq(JSON.stringify(dec), decBefore, "แท็บเดือน (สูตร) ไม่ถูกแตะ");
-  ok(!writes.some((t) => t === "ธ.ค. 69" || t === "ตั้งค่า" || t === "ตารางเวร ส-อา"), "ไม่เขียนแท็บสูตรใด ๆ");
+  ok(!writes.some((t) => t === "ธ.ค. 69" || t === "ตั้งค่า" || t === "ตารางเวร ส-อา"), "ช่องสูตรไม่เขียนแท็บสูตรใด ๆ");
+
+  console.log("4c) ช่องไม่มีสูตร (Key 4/5, ช่อง 9, เก็บ 1/2, บัตรคิว, เก็บ SMC) → เขียนแท็บ ตารางเวร ส-อา");
+  const master = books.OFFSHEET.get("ตารางเวร ส-อา")!;
+  const mcell = (c: string, row: number) => master[row - 1]?.[L(c)] ?? "";
+  const masterBefore = JSON.stringify(master.map((r) => r.slice(0, 3)));
+  // 5 ธ.ค. = แถว 4 · 12 ธ.ค. (เสาร์) = แถว 6 · 13 ธ.ค. (อาทิตย์) = แถว 7 · 19 ธ.ค. = แถว 8
+  eq(mcell("C", 6), String(46368), "แถว 6 = 12 ธ.ค.");
+  writes.length = 0;
+  r = await call(manual, { ym: "2569-12", key: "w:F:12", value: "สมพาน" });
+  eq(r.status, 200, "บันทึก Key 4 วันเสาร์");
+  eq(mcell("H", 6), "สมพาน", "Key 4 (แท็บเดือน F) → แท็บหลัก H6");
+  ok(!(books.OFFSHEET.get("WEB-ช่องเลือกเอง") ?? []).some((x) => x[0] === "2569-12|F:12" && x[1] !== ""), "ไม่เก็บซ้ำในแท็บเว็บ");
+  r = await call(manual, { ym: "2569-12", entries: [{ key: "w:G:13", value: "จีรินันท์" }, { key: "w:K:12", value: "อัมพร" }, { key: "w:Q:13", value: "สุพัตตรา" }, { key: "w:R:12", value: "ขวัญจิรา" }, { key: "w:S:13", value: "จำเลียง" }, { key: "w:W:12", value: "ยอดชาย" }, { key: "w:I:12", value: "เดือน" }] });
+  eq(r.status, 200, "หลายช่องพร้อมกัน");
+  eq([mcell("I", 7), mcell("M", 6), mcell("S", 7), mcell("T", 6), mcell("U", 7), mcell("Y", 6)], ["จีรินันท์", "อัมพร", "สุพัตตรา", "ขวัญจิรา", "จำเลียง", "ยอดชาย"], "G→I K→M Q→S R→T S→U W→Y");
+  eq(mcell("K", 6), "", "ช่องสูตร (I = ช่อง 7) ไม่เขียนลงแท็บหลัก");
+  st = await repo.loadOffMonth(2569, 12);
+  eq(st.manual["I:12"], "เดือน", "ช่องสูตรเก็บในแท็บเว็บ");
+  eq(JSON.stringify(master.map((r) => r.slice(0, 3))), masterBefore, "คอลัมน์ A–D ของแท็บหลักไม่ถูกแตะ");
+  r = await call(manual, { ym: "2569-12", key: "w:F:12", value: null });
+  eq(mcell("H", 6), "", "คืนค่า/ล้าง → ล้างช่องในแท็บหลัก");
+  r = await call(manual, { ym: "2569-12", key: "w:F:2", value: "สมพาน" });
+  eq(mcell("H", 4), "", "วันพุธ (ไม่มีในแท็บหลัก) ไม่เขียนแท็บหลัก");
+  st = await repo.loadOffMonth(2569, 12);
+  eq(st.manual["F:2"], "สมพาน", "วันพุธ → เก็บในแท็บเว็บ");
+  // ค่าเก่าในแท็บเว็บของช่องไม่มีสูตร ถูกลบเมื่อบันทึกลงแท็บหลัก
+  await require("../src/lib/webtabs").writeManual("OFFSHEET", "2569-12", [{ key: "F:19", value: "ค่าเก่า" }]);
+  r = await call(manual, { ym: "2569-12", key: "w:F:19", value: "คนทดสอบ" });
+  eq(r.status, 200, "บันทึก F:19");
+  st = await repo.loadOffMonth(2569, 12);
+  ok(!("F:19" in st.manual), "ลบค่าเก่าในแท็บเว็บ");
+  eq(mcell("H", 8), "คนทดสอบ", "19 ธ.ค. → แถว 8");
+  await call(manual, { ym: "2569-12", entries: ["G:13", "K:12", "Q:13", "R:12", "S:13", "W:12", "I:12", "F:2", "F:19"].map((k) => ({ key: "w:" + k, value: null })) });
+  ok(master.every((row, i) => i < 3 || ["H", "I", "M", "S", "T", "U", "Y"].every((c) => (row[L(c)] ?? "") === "")), "ล้างกลับหมด");
+  ok(!writes.some((t) => t === "ธ.ค. 69" || t === "ตั้งค่า"), "ไม่เขียนแท็บเดือน/ตั้งค่า");
   for (const bad of ["w:X:5", "w:A:5", "w:B:5", "w:AA:5", "w:C:0", "w:C:32", "m:C:5", "w:c:5"]) {
     r = await call(manual, { ym: "2569-12", key: bad, value: "x" });
     eq(r.status, 400, `ปฏิเสธคีย์ ${bad}`);

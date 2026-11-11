@@ -1,11 +1,15 @@
 // อ่าน/เขียน "ตารางเวรนอกเวลา" กับสำเนา Google Sheet ของเว็บ
 // - ค่าตั้งต้นทุกช่อง = ค่าที่สูตรในแท็บเดือนคำนวณแล้ว (อ่านอย่างเดียว ไม่แตะสูตร)
-// - ช่องที่แก้บนเว็บ → แท็บ WEB-ช่องเลือกเอง (key ปี-เดือน|คอลัมน์:วัน) · ล้างค่า = คืนค่าจากสูตร
+// - ช่องที่ไม่มีสูตร (Key 4, Key 5, ช่อง 9, เก็บ 1, เก็บ 2, บัตรคิว, เก็บ SMC) ของวันเสาร์-อาทิตย์
+//   → เขียนลงแท็บ "ตารางเวร ส-อา" ตรง ๆ (แท็บเดือนดึงไปแสดงเอง) เหมือนช่อง จนท. ของตาราง 3 ช่วงเวลา
+// - ช่องที่เป็นสูตรหมุนเวร → แท็บ WEB-ช่องเลือกเอง (key ปี-เดือน|คอลัมน์:วัน) · คืนค่าสูตร = ลบออก (ไม่แตะสูตรในชีต)
 import "server-only";
-import { batchGet, sheetTitles } from "../google";
+import { batchGet, batchUpdate, sheetTitles } from "../google";
+import { toSerial } from "../sheets-date";
 import { MONTH_SHORT, SHEETS, ymString } from "../config";
 import { readOffLeaves } from "../leave-system";
 import { readWebState, writeManual, writePersonColors, writeStyles } from "../webtabs";
+import { serialOf } from "../ot/engine";
 import { buildOffMonth, offBusyCol, parseOffLists, type OffLeave, type OffLists, type OffMonth } from "./engine";
 export { parseOffLists };
 
@@ -62,9 +66,40 @@ export const isOffKey = (k: string) => {
   return !!m && Number(m[2]) >= 1 && Number(m[2]) <= 31;
 };
 
-/** value null = ลบออกจากแท็บเว็บ (กลับไปใช้ค่าจากสูตรในชีต) */
+/** แท็บหลักวันเสาร์-อาทิตย์ (แถว 4–107 · C = วันที่) */
+export const OFF_MASTER = "ตารางเวร ส-อา";
+/** คอลัมน์ในแท็บเดือน → คอลัมน์ในแท็บหลัก ที่ไม่มีสูตร (ผู้จัดเวรพิมพ์เอง) */
+export const OFF_MASTER_VALUE_COLS: Record<string, string> = { F: "H", G: "I", K: "M", Q: "S", R: "T", S: "U", W: "Y" };
+
+/**
+ * บันทึกช่องที่แก้บนเว็บ
+ *  - ช่องไม่มีสูตร ของวันที่อยู่ในแท็บหลัก → เขียนลง 'ตารางเวร ส-อา' (null/ว่าง = ล้างช่อง) และลบค่าที่เคยเก็บในแท็บเว็บ
+ *  - ช่องอื่น → แท็บ WEB-ช่องเลือกเอง (null = ลบ กลับไปใช้ค่าจากสูตร)
+ */
 export async function saveOffManual(yearBE: number, month: number, entries: { key: string; value: string | null }[]) {
-  await writeManual(ID(), ymString(yearBE, month), entries.map(({ key, value }) => ({ key: key.slice(2), value })));
+  const ym = ymString(yearBE, month);
+  const toMaster = entries.filter(({ key }) => key.split(":")[1] in OFF_MASTER_VALUE_COLS);
+  const rowOf = new Map<number, number>();
+  if (toMaster.length > 0) {
+    const [g] = await batchGet(ID(), [`'${OFF_MASTER}'!C4:C107`]);
+    g.forEach((r, i) => {
+      const d = toSerial(r?.[0]);
+      if (d !== null && !rowOf.has(d)) rowOf.set(d, 4 + i);
+    });
+  }
+  const sheetWrites: { range: string; values: unknown[][] }[] = [];
+  const web: { key: string; value: string | null }[] = [];
+  for (const { key, value } of entries) {
+    const [, col, d] = key.split(":");
+    const mcol = OFF_MASTER_VALUE_COLS[col];
+    const row = mcol ? rowOf.get(serialOf(yearBE - 543, month, Number(d))) : undefined;
+    if (mcol && row !== undefined) {
+      sheetWrites.push({ range: `'${OFF_MASTER}'!${mcol}${row}`, values: [[value ?? ""]] });
+      web.push({ key: `${col}:${d}`, value: null }); // ค่าเก่าในแท็บเว็บ (ถ้ามี) จะไม่บังค่าในชีต
+    } else web.push({ key: `${col}:${d}`, value });
+  }
+  if (sheetWrites.length > 0) await batchUpdate(ID(), sheetWrites);
+  if (web.length > 0) await writeManual(ID(), ym, web);
 }
 export const saveOffStyles = (y: number, m: number, keys: string[], patch: { bg?: string | null; fg?: string | null; clear?: boolean }) =>
   writeStyles(ID(), ymString(y, m), keys.map((k) => k.slice(2)), patch);
