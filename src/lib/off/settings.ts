@@ -27,6 +27,14 @@ export const OFF_LISTS = {
 } as const;
 export type OffListKey = keyof typeof OFF_LISTS;
 
+/**
+ * ช่องในรายชื่อที่สูตรหมุนเวรอ้างอิงตามตำแหน่ง → แก้ชื่อได้ แต่ไม่เลื่อน/ไม่ลบ (ต้องมีชื่อเสมอ)
+ * T10–T11 = คนหมุน ช่อง 6(E)/ช่อง 8 (ตั้งค่า!X5:X6) · T12–T13 = คนหมุน ช่อง 10 (เสาร์)/Key SMC(E) (ตั้งค่า!Y5:Y6)
+ */
+export const OFF_LIST_FIXED: Partial<Record<OffListKey, Record<number, string>>> = {
+  T: { 10: "หมุนเวร ช่อง 6(E)/ช่อง 8 (X6)", 11: "หมุนเวร ช่อง 6(E)/ช่อง 8 (X5)", 12: "หมุนเวร ช่อง 10 เสาร์/Key SMC (Y6)", 13: "หมุนเวร ช่อง 10 เสาร์/Key SMC (Y5)" },
+};
+
 export interface OffStaffRow { row: number; name: string; last: string; rep: string; repStart: string; nameF: boolean }
 export interface OffSpotRow { row: number; order: string; name: string; group: string; time: string; sat: string; sun: string; editable: boolean; satEd: boolean; sunEd: boolean }
 export interface OffHoliday { date: string; name: string; type: string; wd: string; status: string }
@@ -132,8 +140,15 @@ export function validateOffSettings(f: OffSettingsForm): string[] {
     if (h.date === "" && (h.name || h.type)) err.push(`วันหยุดแถว ${i + 1}: ยังไม่ใส่วันที่`);
     if (!OFF_CLOSE_TYPES.includes(h.type)) err.push(`วันหยุดแถว ${i + 1}: ประเภทการปิดไม่ถูกต้อง`);
   });
-  for (const [k, d] of Object.entries(OFF_LISTS) as [OffListKey, (typeof OFF_LISTS)[OffListKey]][])
-    if ((f.lists[k] ?? []).length !== d.r2 - d.r1 + 1) err.push(`${d.title}: จำนวนช่องไม่ถูกต้อง`);
+  for (const [k, d] of Object.entries(OFF_LISTS) as [OffListKey, (typeof OFF_LISTS)[OffListKey]][]) {
+    const l = f.lists[k] ?? [];
+    if (l.length !== d.r2 - d.r1 + 1) err.push(`${d.title}: จำนวนช่องไม่ถูกต้อง`);
+    for (const r of Object.keys(OFF_LIST_FIXED[k] ?? {}).map(Number))
+      if (!l[r - d.r1]?.f && (l[r - d.r1]?.v ?? "").trim() === "") err.push(`${d.col}${r} (${OFF_LIST_FIXED[k]![r]}) ต้องมีชื่อ`);
+    const ns = l.map((x) => x.v.trim()).filter((x) => x !== "");
+    const dupL = ns.filter((n, i) => ns.indexOf(n) !== i);
+    if (dupL.length) err.push(`${d.title}: ชื่อซ้ำ ${Array.from(new Set(dupL)).join(", ")}`);
+  }
   return err;
 }
 
@@ -178,7 +193,7 @@ export function offSettingsWrites(cur: OffSettingsForm, next: OffSettingsForm): 
   for (const s of next.staff) {
     const n = s.rep.trim();
     if (n === "" || inT(n)) continue;
-    const slot = t.findIndex((x, i) => !cur.lists.T[i]?.f && x.v === "");
+    const slot = t.findIndex((x, i) => !cur.lists.T[i]?.f && !(OFF_LISTS.T.r1 + i in (OFF_LIST_FIXED.T ?? {})) && x.v === "");
     if (slot >= 0) {
       t[slot].v = n;
       addedToT.push(n);

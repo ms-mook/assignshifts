@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "./Toast";
 import Icon from "./Icon";
-import { OFF_CLOSE_TYPES, OFF_HOLIDAY_ROWS, OFF_LISTS, validateOffSettings, type OffListKey, type OffSettingsForm } from "@/lib/off/settings";
+import { OFF_CLOSE_TYPES, OFF_HOLIDAY_ROWS, OFF_LIST_FIXED, OFF_LISTS, validateOffSettings, type OffListKey, type OffSettingsForm } from "@/lib/off/settings";
 
 const fmt = (iso: string) => {
   if (!iso) return "-";
@@ -23,7 +23,28 @@ export default function OffSettingsClient({ initial }: { initial: OffSettingsFor
   const setStaff = (i: number, k: "name" | "last" | "rep" | "repStart", v: string) => set("staff", f.staff.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
   const setSpot = (row: number, k: "sat" | "sun", v: string) => set("spots", f.spots.map((x) => (x.row === row ? { ...x, [k]: v } : x)));
   const setHol = (i: number, k: "date" | "name" | "type", v: string) => set("holidays", f.holidays.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
-  const setList = (k: OffListKey, i: number, v: string) => set("lists", { ...f.lists, [k]: f.lists[k].map((x, j) => (j === i ? { ...x, v } : x)) });
+  // รายชื่อ dropdown: ช่องที่เป็นสูตรล็อกไว้ ช่องค่าเรียงต่อกัน (ลบแล้วชื่อถัดไปเลื่อนขึ้น · เพิ่ม = ช่องว่างถัดไป)
+  const isFixed = (k: OffListKey, i: number) => OFF_LISTS[k].r1 + i in (OFF_LIST_FIXED[k] ?? {});
+  const editSlots = (k: OffListKey) => f.lists[k].map((x, i) => (x.f || isFixed(k, i) ? -1 : i)).filter((i) => i >= 0);
+  const setFixed = (k: OffListKey, i: number, v: string) => set("lists", { ...f.lists, [k]: f.lists[k].map((x, j) => (j === i ? { ...x, v } : x)) });
+  const editNames = (k: OffListKey) => editSlots(k).map((i) => f.lists[k][i].v).filter((v) => v.trim() !== "");
+  const putNames = (k: OffListKey, names: string[]) => {
+    const slots = editSlots(k);
+    const next = f.lists[k].map((x) => ({ ...x }));
+    slots.forEach((i, j) => (next[i].v = names[j] ?? ""));
+    set("lists", { ...f.lists, [k]: next });
+  };
+  const [adding, setAdding] = useState<Record<string, string>>({});
+  const addName = (k: OffListKey) => {
+    const n = (adding[k] ?? "").trim();
+    if (n === "") return;
+    const cur = editNames(k);
+    if (cur.length >= editSlots(k).length) return void toast.error("รายชื่อนี้เต็มแล้ว (ตามจำนวนช่องในชีต) — ลบชื่อที่ไม่ใช้ก่อน");
+    if (f.lists[k].some((x) => x.v.trim() === n)) return void toast.error(`มี "${n}" ในรายชื่อนี้แล้ว`);
+    // (ช่องที่สูตรอ้างอิงตามตำแหน่งไม่ถูกเลื่อน — editSlots ไม่รวมช่องเหล่านั้น)
+    putNames(k, [...cur, n]);
+    setAdding((a) => ({ ...a, [k]: "" }));
+  };
   const countNow = f.staff.filter((s) => s.name.trim() !== "").length;
 
   const save = async () => {
@@ -181,15 +202,70 @@ export default function OffSettingsClient({ initial }: { initial: OffSettingsFor
               {d.title} <small>ตั้งค่า!{d.col}{d.r1}:{d.col}{d.r2}</small>
             </h2>
             <p className="muted">{d.note}</p>
-            <div className="list-grid">
-              {f.lists[k].map((x, i) =>
-                x.f ? (
-                  <span key={i} className="ro list-ro" title={`${d.col}${d.r1 + i} เป็นสูตร`}>{x.v || "—"}</span>
-                ) : (
-                  <input key={i} className="y" value={x.v} placeholder={`${d.col}${d.r1 + i}`} onChange={(e) => setList(k, i, e.target.value)} />
-                ),
-              )}
-            </div>
+            {(() => {
+              const names = editNames(k);
+              const cap = editSlots(k).length;
+              const locked = f.lists[k].map((x, i) => ({ ...x, i })).filter((x) => x.f && x.v.trim() !== "");
+              return (
+                <>
+                  {locked.length > 0 && (
+                    <div className="list-grid" style={{ marginBottom: 8 }}>
+                      {locked.map((x) => (
+                        <span key={x.i} className="ro list-ro" title={`${d.col}${d.r1 + x.i} เป็นสูตร (แก้ที่รายชื่อหมุนเวร / แผนเวร Key)`}>
+                          <Icon name="Lock" size={12} /> {x.v}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {Object.keys(OFF_LIST_FIXED[k] ?? {}).length > 0 && (
+                    <div className="grid2" style={{ marginBottom: 10 }}>
+                      {Object.entries(OFF_LIST_FIXED[k] ?? {}).map(([r, label]) => {
+                        const i = Number(r) - d.r1;
+                        return (
+                          <span key={r} style={{ display: "contents" }}>
+                            <label>
+                              {label} <span className="cellref">{d.col}{r}</span>
+                            </label>
+                            <input className="y" value={f.lists[k][i]?.v ?? ""} onChange={(e) => setFixed(k, i, e.target.value)} />
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <div className="list-grid">
+                    {names.map((n, j) => (
+                      <span key={j} className="list-item">
+                        <input className="y" value={n} onChange={(e) => putNames(k, names.map((x, q) => (q === j ? e.target.value : x)))} aria-label={`ชื่อที่ ${j + 1}`} />
+                        <button className="btn btn-xs btn-ghost btn-square" title="ลบชื่อนี้" aria-label={`ลบ ${n}`} onClick={() => putNames(k, names.filter((_, q) => q !== j))}>
+                          <Icon name="X" size={14} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="list-add">
+                    <input
+                      className="y"
+                      placeholder={names.length >= cap ? "รายชื่อเต็มแล้ว" : "พิมพ์ชื่อแล้วกด เพิ่ม หรือ Enter"}
+                      disabled={names.length >= cap}
+                      value={adding[k] ?? ""}
+                      onChange={(e) => setAdding((a) => ({ ...a, [k]: e.target.value }))}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addName(k);
+                        }
+                      }}
+                    />
+                    <button className="btn btn-sm" disabled={names.length >= cap || !(adding[k] ?? "").trim()} onClick={() => addName(k)}>
+                      <Icon name="Plus" size={14} /> เพิ่ม
+                    </button>
+                    <span className="muted small">
+                      {names.length}/{cap} ชื่อ
+                    </span>
+                  </div>
+                </>
+              );
+            })()}
           </section>
         );
       })}

@@ -76,3 +76,7 @@ table.plan tr.rowbad td:first-child { background: #ffd7d9; }
 /* ตั้งค่า ตารางเวรนอกเวลา: รายชื่อแบบตาราง */
 .list-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
 .list-grid .list-ro { padding: 6px 8px; border-radius: 8px; background: rgb(31 58 104 / 0.05); font-size: 14px; }
+.list-grid .list-item { display: flex; gap: 4px; align-items: center; }
+.list-grid .list-item input { flex: 1; min-width: 0; }
+.list-add { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+.list-add input { width: 240px; max-width: 100%; }

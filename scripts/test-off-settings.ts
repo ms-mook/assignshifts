@@ -129,6 +129,8 @@ const eq = (a: unknown, b: unknown, msg: string) => ok(JSON.stringify(a) === JSO
   bad((f) => (f.holidays[0].type = "อื่น ๆ"), /ประเภทการปิด/, "ประเภทการปิดผิด");
   bad((f) => f.holidays.push({ date: "", name: "x", type: "", wd: "", status: "" }), /ยังไม่ใส่วันที่/, "วันหยุดไม่มีวันที่");
   bad((f) => (f.staff[0].last = "31/01/2027"), /รูปแบบวันที่/, "รูปแบบวันที่");
+  bad((f) => (f.lists.T[5].v = ""), /T10 .*ต้องมีชื่อ/, "T10 (คนหมุน ช่อง 6/8) ห้ามว่าง");
+  bad((f) => (f.lists.XC[1].v = "สุพัตตรา"), /ชื่อซ้ำ สุพัตตรา/, "ชื่อซ้ำในรายชื่อ");
   let r = await call({ form: (() => { const f = clone(f0); f.spots[0].sat = "3"; return f; })() });
   eq(r.status, 400, "API ปฏิเสธฟอร์มผิด");
   ok(writes.length === 0, "ฟอร์มผิดไม่เขียนชีต");
@@ -171,6 +173,14 @@ const eq = (a: unknown, b: unknown, msg: string) => ok(JSON.stringify(a) === JSO
   eq([vals.get("X19"), vals.get("Y11"), vals.get("H5")], ["ยอดชาย", "ภัทรสุดา", "8"], "รายชื่อ/ค่าหมุนที่เขียน");
   ok(r.body.skipped.includes("T5"), "แจ้งข้ามช่องสูตร T5");
   eq(JSON.stringify([...forms.entries()]), SNAP, "ไม่แตะช่องสูตร");
+
+  console.log("4b) ลบชื่อกลางรายชื่อ (เลื่อนขึ้น) แล้วบันทึก — รายชื่อหมุน Key ช่อง 2 (COUNTA ต้องไม่มีช่องว่าง)");
+  const g = await repo.loadOffSettings();
+  g.lists.XK = [{ v: "เดือน", f: false }, { v: "ศศิประภา", f: false }, ...g.lists.XK.slice(2).map(() => ({ v: "", f: false }))]; // ลบ อัมพร (กลาง)
+  writes.length = 0;
+  r = await call({ form: g });
+  eq(r.status, 200, "บันทึกสำเร็จ");
+  eq([vals.get("X52"), vals.get("X53"), vals.get("X54")], ["เดือน", "ศศิประภา", ""], "เลื่อนขึ้น ไม่มีช่องว่างกลางรายการ");
 
   console.log("5) ชื่อในรอบหมุนเวร (เปลี่ยนชื่อ) / ช่องสูตรในชีตเปลี่ยนภายหลัง");
   const f4 = await repo.loadOffSettings();
