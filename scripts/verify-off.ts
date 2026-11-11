@@ -44,6 +44,8 @@ for (const [tab, g] of Object.entries<any>(real)) {
     const sheet = ["AP", "AQ", "AR"].map((c) => Number(row[col(c)] ?? 0));
     ok(!!w && JSON.stringify(w.counts) === JSON.stringify(sheet), `${tab} ${name} จ-ศ เว็บ ${JSON.stringify(w?.counts)} ชีต ${JSON.stringify(sheet)}`);
   }
+  const dd = eng.offDupDays(mo);
+  if (dd.length) console.log(`  ⓘ ${tab} คนเดียวอยู่ 2 จุดในวันเดียวกัน (ข้อมูลในชีตตอนนี้): ` + dd.map((d: number) => `${d}[${[...eng.offRowDupCols(mo.rows[d - 1].cells)].map((c: string) => c + "=" + mo.rows[d - 1].cells[c]).join(",")}]`).join(" "));
   // ทุกชื่อในตารางอยู่ใน dropdown ของคอลัมน์ (แจ้งเท่านั้น)
   const byCol = eng.offNamesByCol(lists);
   const odd: string[] = [];

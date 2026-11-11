@@ -1,7 +1,7 @@
 import { createRoot } from "react-dom/client";
 import ScheduleView from "../../src/components/ScheduleView";
 import { ToastProvider } from "../../src/components/Toast";
-import { buildOffMonth, offNamesByCol, offSummary, parseOffLists } from "../../src/lib/off/engine";
+import { OFF_ROW_GROUPS, buildOffMonth, offDupDays, offNamesByCol, offSummary, parseOffLists } from "../../src/lib/off/engine";
 import { OFF_COL_W, OFF_CSS, renderOffHtml } from "../../src/lib/off/render";
 import { SHEET_CSS } from "../../src/lib/shift3/render";
 import real from "./off-real.json";
@@ -20,8 +20,8 @@ createRoot(document.getElementById("root")!).render(
     <main>
       <ScheduleView table="off" tableTitle="ตารางเวรนอกเวลา" ym="2569-12" prevYm="2569-11" nextYm="2570-01" label={mo.head.A2 ?? ""}
         tabName="ธ.ค. 69" manualSource="web-tab" sectionHtml={html} names={Array.from(new Set(Object.values(byCol).flat()))} namesByCol={byCol}
-        personColors={{}} dupDays={[]} warning="งดเวรนอกเวลา (ระบบลา) แต่มีชื่อในตาราง 1 ช่อง — วันที่ 12 (ช่องสีส้มขีดฆ่า)"
-        manual={{ "w:W:12": "นัฐ" }} summary={offSummary(mo, lists)} api="/api/off" officerCols={[]} hint="ทดสอบ นอกเวลา"
+        personColors={{}} dupDays={offDupDays(mo)} rowGroups={OFF_ROW_GROUPS} dupNote="พนักงาน 1 คนอยู่ได้ 1 จุดต่อวัน" warning="งดเวรนอกเวลา (ระบบลา) แต่มีชื่อในตาราง 1 ช่อง — วันที่ 12 (ช่องสีส้มขีดฆ่า)"
+        manual={{ "w:W:12": "นัฐ" }} summary={offSummary(mo, lists)} api="/api/off" officerCols={[]} colLabels={Object.fromEntries("CDEFGHIJKLMNOPQRSTUVWYZ".split("").map((c) => [c, mo.head[`${c}6`] ?? c]))} hint="ทดสอบ นอกเวลา"
         pdf={{ colA: OFF_COL_W[0], colW: 110, keepCols: [1, 23], sheetCss: SHEET_CSS + OFF_CSS }} />
     </main>
   </ToastProvider>,

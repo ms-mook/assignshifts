@@ -18,7 +18,7 @@ process.env.SHEET_ID_OFF = "OFFSHEET";
 process.env.SHEET_ID_LEAVE_SYSTEM = "LEAVESHEET";
 
 // ---------- ข้อมูลจำลอง ----------
-const STAFF = ["สมพาน", "จีรินันท์", "เดือน", "อัมพร", "ศศิประภา", "กฤษฎา", "มุกดารัตน์", "ภัทรสุดา", "ชัชวิชญ์", "เพชรชรินทร์", "ณัฐณิชา"];
+const STAFF = ["สมพาน", "จีรินันท์", "เดือน", "อัมพร", "ศศิประภา", "กฤษฎา", "มุกดารัตน์", "ภัทรสุดา", "ชัชวิชญ์", "เพชรชรินทร์", "ณัฐณิชา", "บัวปรีญา", "กนกดาว", "อาภาศิริ", "อรพรรณ", "นันธิชา", "วรินยุพา", "สาวิลักษณ์", "ภูมิโชค", "วิภาวดี"];
 const HJ = ["มุกดารัตน์", "กฤษฎา", "ภัทรสุดา", "ชัชวิชญ์"];
 const COLL = ["สุพัตตรา", "ขวัญจิรา", "จำเลียง", "ยอดชาย", "นัฐ"];
 const KEYY = ["เดือน", "อัมพร", "ศศิประภา", "กฤษฎา"];
@@ -53,10 +53,13 @@ function monthTab(yCE: number, m: number, seed: number, closed: number[]): strin
     r[L("AD")] = isClosed ? "1" : "0";
     if (isClosed) continue;
     if (wd === 0 || wd === 6) {
-      for (const c of "CDEFGIKLMNOPTUV") if (rnd(5) > 0) r[L(c)] = STAFF[rnd(STAFF.length)];
-      for (const c of "HJ") r[L(c)] = HJ[rnd(HJ.length)];
-      if (d === 12 || d === 13) r[L("I")] = "เดือน"; // ชื่อซ้ำในคอลัมน์ I (กฎชมพู)
-      for (const c of "QRSW") if (rnd(3) > 0) r[L(c)] = COLL[rnd(COLL.length)];
+      // 1 คน 1 จุดต่อวัน (ข้อมูลตั้งต้นไม่มีชื่อซ้ำในวันเดียวกัน)
+      const used = new Set<string>();
+      const pick = (list: string[]) => { const free = list.filter((x) => !used.has(x)); if (!free.length) return ""; const n = free[rnd(free.length)]; used.add(n); return n; };
+      if (d === 12 || d === 13) { r[L("I")] = "เดือน"; used.add("เดือน"); } // ชื่อซ้ำในคอลัมน์ I ข้ามวัน (กฎชมพู)
+      for (const c of "HJ") r[L(c)] = pick(HJ);
+      for (const c of "CDEFGIKLMNOPTUV") if (r[L(c)] === "" && rnd(5) > 0) r[L(c)] = pick(STAFF);
+      for (const c of "QRSW") if (rnd(3) > 0) r[L(c)] = pick(COLL);
     } else {
       if (rnd(4) > 0) r[L("Y")] = KEYY[rnd(KEYY.length)];
       if (rnd(4) > 0) r[L("Z")] = ZL[rnd(ZL.length)];
@@ -186,7 +189,6 @@ const eq = (a: unknown, b: unknown, msg: string) => ok(JSON.stringify(a) === JSO
   if (iDup) eq(eng.cfOf(iDup, "I", dc), { bg: "#F4CCCC", dup: true }, "I ซ้ำ → ชมพู");
   const cDup = mo.rows.find((r: any) => r.cells.C && dc("C", r.cells.C) > 1 && ["เสาร์", "อาทิตย์"].includes(r.B) && r.AD === 0);
   if (cDup) eq(eng.cfOf(cDup, "C", dc), null, "C ซ้ำ → ไม่ชมพู (ไม่อยู่ในช่วงกฎ)");
-  ok(eng.offDupDays(mo).length > 0, "offDupDays พบวันซ้ำ");
   const fdays = feb.month;
   const fc = Object.fromEntries(eng.OFF_EDIT_COLS.map((c: string) => [c, eng.colCounts(fdays.rows, c)]));
   const fdc = (c: string, v: string) => fc[c]?.get(v.trim().toLowerCase()) ?? 0;
@@ -243,6 +245,48 @@ const eq = (a: unknown, b: unknown, msg: string) => ok(JSON.stringify(a) === JSO
   eq(r.status, 400, "หลายช่องค่าเดียวกันที่ไม่ว่าง → ปฏิเสธ");
   r = await call(manual, { ym: "2569-12", keys: ["w:C:6", "w:D:6"], value: null });
   eq(r.status, 200, "หลายช่อง คืนค่าสูตร");
+
+  console.log("4b) กฎ 1 คน 1 จุดต่อวัน");
+  st = await repo.loadOffMonth(2569, 12);
+  const sat19 = st.month.rows[18]; // 19 ธ.ค. = เสาร์
+  const nameH = sat19.cells.H;
+  ok(nameH !== "", "เสาร์ 19 มีชื่อใน H");
+  r = await call(manual, { ym: "2569-12", key: "w:U:19", value: nameH });
+  eq(r.status, 409, "ใส่ชื่อที่อยู่ H แล้วลง U (SMC) วันเดียวกัน → ปฏิเสธ");
+  ok(/อยู่ที่ ช่อง 6\(E\)/.test(r.body.error ?? ""), "ข้อความบอกจุดที่อยู่: " + r.body.error);
+  r = await call(manual, { ym: "2569-12", key: "w:H:19", value: nameH });
+  eq(r.status, 200, "ใส่ชื่อเดิมในช่องเดิม → ได้");
+  r = await call(manual, { ym: "2569-12", key: "w:U:19", value: " " + nameH.toUpperCase() + " " });
+  eq(r.status, 409, "ไม่สนช่องว่าง/ตัวพิมพ์");
+  const satOther = st.month.rows[25]; // 26 = เสาร์
+  if (satOther.cells.H !== nameH && !Object.values(satOther.cells).includes(nameH)) {
+    r = await call(manual, { ym: "2569-12", key: "w:U:26", value: nameH });
+    eq(r.status, 200, "คนละวัน → ได้");
+    await call(manual, { ym: "2569-12", key: "w:U:26", value: null });
+  }
+  const wk2 = st.month.rows[1]; // 2 ธ.ค. = พุธ
+  if (wk2.cells.Z) {
+    r = await call(manual, { ym: "2569-12", key: "w:Y:2", value: wk2.cells.Z });
+    eq(r.status, 409, "จ.-ศ.: Y ซ้ำกับ Z วันเดียวกัน → ปฏิเสธ");
+  }
+  r = await call(manual, { ym: "2569-12", key: "w:C:2", value: wk2.cells.Y || "x" });
+  eq(r.status, 200, "C วันธรรมดา (กลุ่ม ส.-อา.) ไม่ชนกับ Y (กลุ่ม จ.-ศ.)");
+  await call(manual, { ym: "2569-12", key: "w:C:2", value: null });
+  r = await call(manual, { ym: "2569-12", key: "w:U:19", value: "" });
+  eq(r.status, 200, "ล้างช่องว่าง → ไม่ตรวจ");
+  await call(manual, { ym: "2569-12", key: "w:U:19", value: null });
+  // ย้อนกลับ/ทำซ้ำ (entries) ไม่ตรวจ → ถ้ามีซ้ำ หน้าเว็บแสดงกรอบแดง + วันที่ซ้ำ
+  r = await call(manual, { ym: "2569-12", entries: [{ key: "w:U:19", value: nameH }] });
+  eq(r.status, 200, "entries บันทึกได้ (ใช้กับย้อนกลับ)");
+  st = await repo.loadOffMonth(2569, 12);
+  ok(eng.offDupDays(st.month).includes(19), "offDupDays พบวันที่ 19");
+  eq([...eng.offRowDupCols(st.month.rows[18].cells)].sort(), ["H", "U"], "ช่องซ้ำ = H, U");
+  const dh = rnd.renderOffHtml(st.month, { editable: true });
+  ok(/class="d e dup"[^>]*data-k="w:H:19"/.test(dh) || /class="d e m dup"[^>]*data-k="w:H:19"/.test(dh) || /data-k="w:H:19"/.test(dh) && /class="[^"]*dup[^"]*" data-k="w:U:19"/.test(dh), "กรอบแดงที่ช่องซ้ำ");
+  eq(eng.offBusyCol(st.month.rows[18].cells, "C", nameH), "H", "offBusyCol");
+  await call(manual, { ym: "2569-12", entries: [{ key: "w:U:19", value: null }] });
+  st = await repo.loadOffMonth(2569, 12);
+  ok(!eng.offDupDays(st.month).includes(19), "ล้างแล้วไม่ซ้ำ");
 
   console.log("5) สี/สีพนักงาน");
   r = await call(style, { ym: "2569-12", keys: ["w:C:6", "w:Z:2"], bg: "#FFC7CE" });

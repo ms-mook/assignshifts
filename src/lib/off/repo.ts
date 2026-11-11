@@ -6,7 +6,7 @@ import { batchGet, sheetTitles } from "../google";
 import { MONTH_SHORT, SHEETS, ymString } from "../config";
 import { readOffLeaves } from "../leave-system";
 import { readWebState, writeManual, writePersonColors, writeStyles } from "../webtabs";
-import { buildOffMonth, parseOffLists, type OffLeave, type OffLists, type OffMonth } from "./engine";
+import { buildOffMonth, offBusyCol, parseOffLists, type OffLeave, type OffLists, type OffMonth } from "./engine";
 export { parseOffLists };
 
 const ID = () => SHEETS.off;
@@ -69,3 +69,16 @@ export async function saveOffManual(yearBE: number, month: number, entries: { ke
 export const saveOffStyles = (y: number, m: number, keys: string[], patch: { bg?: string | null; fg?: string | null; clear?: boolean }) =>
   writeStyles(ID(), ymString(y, m), keys.map((k) => k.slice(2)), patch);
 export const saveOffPersonColors = (c: Record<string, string>) => writePersonColors(ID(), c);
+
+/** ใส่ชื่อ 1 ช่อง: ห้ามคนเดียวอยู่ 2 จุดในวันเดียวกัน (ส.-อา. C–W ทุกจุด · จ.-ศ. Y, Z) → ข้อความเหตุผล หรือ null */
+export async function validateOffManual(yearBE: number, month: number, key: string, value: string | null): Promise<string | null> {
+  if (value === null || value.trim() === "") return null;
+  const st = await loadOffMonth(yearBE, month);
+  const [, col, d] = key.split(":");
+  const row = st.month.rows[Number(d) - 1];
+  if (!row || row.date === null) return "วันที่นี้ไม่มีในเดือน";
+  const at = offBusyCol(row.cells, col, value);
+  if (!at) return null;
+  const label = st.month.head[`${at}6`] ?? at;
+  return `"${value.trim()}" อยู่ที่ ${label} ของวันที่ ${row.day} แล้ว (พนักงาน 1 คนอยู่ได้ 1 จุดต่อวัน)`;
+}

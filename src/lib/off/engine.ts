@@ -140,11 +140,36 @@ export function cfOf(r: OffRow, col: string, dupCount: (col: string, v: string) 
   return null;
 }
 
-/** วันที่ที่มีชื่อซ้ำในคอลัมน์ (กฎชมพูของชีต) */
+// ---------- กฎของเว็บ: พนักงาน 1 คนอยู่ได้ 1 จุดต่อวัน ----------
+/** กลุ่มช่องที่ห้ามชื่อซ้ำในวันเดียวกัน: ส.-อา. ทุกจุด (OPD + SMC: C–W) · จ.-ศ. (Y, Z) */
+export const OFF_ROW_GROUPS: string[][] = [OFF_WKEND_COLS, OFF_WKDAY_COLS];
+
+/** ช่องที่ชื่อซ้ำกับช่องอื่นในกลุ่มเดียวกันของวันนั้น */
+export function offRowDupCols(cells: Record<string, string>): Set<string> {
+  const out = new Set<string>();
+  for (const g of OFF_ROW_GROUPS) {
+    const seen = new Map<string, string[]>();
+    for (const c of g) {
+      const v = (cells[c] ?? "").trim().toLowerCase();
+      if (v === "") continue;
+      seen.set(v, [...(seen.get(v) ?? []), c]);
+    }
+    for (const cols of seen.values()) if (cols.length > 1) cols.forEach((c) => out.add(c));
+  }
+  return out;
+}
+
+/** วันที่ที่มีชื่อซ้ำในวันเดียวกัน (คนเดียวอยู่ 2 จุด) */
 export function offDupDays(mo: OffMonth): number[] {
-  const counts = Object.fromEntries(OFF_EDIT_COLS.map((c) => [c, colCounts(mo.rows, c)]));
-  const dc = (c: string, v: string) => counts[c]?.get(v.trim().toLowerCase()) ?? 0;
-  return mo.rows.filter((r) => r.date !== null && OFF_EDIT_COLS.some((c) => cfOf(r, c, dc)?.dup)).map((r) => r.day);
+  return mo.rows.filter((r) => r.date !== null && offRowDupCols(r.cells).size > 0).map((r) => r.day);
+}
+
+/** ชื่อนี้อยู่จุดอื่นของวันนั้นแล้วหรือไม่ → คืนคอลัมน์ที่อยู่ (null = ใส่ได้) */
+export function offBusyCol(cells: Record<string, string>, col: string, name: string): string | null {
+  const v = name.trim().toLowerCase();
+  const g = OFF_ROW_GROUPS.find((x) => x.includes(col));
+  if (!g || v === "") return null;
+  return g.find((c) => c !== col && (cells[c] ?? "").trim().toLowerCase() === v) ?? null;
 }
 
 // ---------- สรุป (สูตร AF–AM และ AO–AR ของแท็บเดือน) ----------

@@ -1,6 +1,6 @@
 // หน้า ตารางเวรนอกเวลา (เสาร์-อาทิตย์ ห้องเจาะเลือด OPD/SMC + นอกเวลา จ.-ศ. OPD)
 import { shiftYm } from "@/lib/config";
-import { offDupDays, offLeaveHits, offNamesByCol, offSummary } from "@/lib/off/engine";
+import { OFF_ROW_GROUPS, offDupDays, offLeaveHits, offNamesByCol, offSummary } from "@/lib/off/engine";
 import { loadOffLeaves, loadOffMonth } from "@/lib/off/repo";
 import { OFF_COL_W, OFF_CSS, renderOffHtml } from "@/lib/off/render";
 import { SHEET_CSS } from "@/lib/shift3/render";
@@ -47,7 +47,9 @@ export default async function OffSchedule({ tdef, ym, yearBE, month }: { tdef: T
       personColors={st.personColors}
       manual={Object.fromEntries(Object.entries(st.manual).map(([k, v]) => [`w:${k}`, v]))}
       cellStyles={st.styles}
-      dupDays={[]}
+      dupDays={offDupDays(mo)}
+      rowGroups={OFF_ROW_GROUPS}
+      dupNote="พนักงาน 1 คนอยู่ได้ 1 จุดต่อวัน"
       summary={summary}
       warning={warn.join(" · ")}
       api="/api/off"
@@ -55,7 +57,7 @@ export default async function OffSchedule({ tdef, ym, yearBE, month }: { tdef: T
       colLabels={colLabels}
       hint={
         "ค่าตั้งต้นทุกช่องมาจากสูตรในชีต (ตารางเวร ส-อา / จ-ศ) · ช่องที่แก้บนเว็บเก็บในแท็บ WEB-ช่องเลือกเอง (ไม่แตะสูตร) · คืนค่าสูตร = กลับไปใช้ค่าจากชีต · " +
-        "ชมพู = ชื่อซ้ำในคอลัมน์เดียวกันทั้งเดือน (กฎของชีต) · ส้มขีดฆ่า = งดเวรนอกเวลาวันนั้น (ระบบลา)"
+        "1 คนอยู่ได้ 1 จุดต่อวัน (กรอบแดง = ซ้ำ) · ชมพู = ชื่อซ้ำในคอลัมน์เดียวกันทั้งเดือน (กฎของชีต) · ส้มขีดฆ่า = งดเวรนอกเวลาวันนั้น (ระบบลา)"
       }
       pdf={{ colA: OFF_COL_W[0], colW: 110, keepCols: [1, 23], sheetCss: SHEET_CSS + OFF_CSS }}
     />

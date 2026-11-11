@@ -1,5 +1,5 @@
 // วาดฟอร์มรายเดือน "ตารางเวรนอกเวลา" ให้เหมือนแท็บเดือนในชีต (A1:Z40)
-import { OFF_COLS, cfOf, colCounts, OFF_EDIT_COLS, offOnLeave, type OffLeave, type OffMonth } from "./engine";
+import { OFF_COLS, cfOf, colCounts, OFF_EDIT_COLS, offOnLeave, offRowDupCols, type OffLeave, type OffMonth } from "./engine";
 
 /** ความกว้างคอลัมน์ในชีต (px) A38 · B66 · C–W 82 · X38 · Y/Z 86 — ขยาย 1.2 เท่าให้อ่านง่ายบนแท็บเล็ต */
 const SCALE = 1.2;
@@ -50,6 +50,7 @@ export function renderOffHtml(
   const counts = Object.fromEntries(OFF_EDIT_COLS.map((c) => [c, colCounts(m.rows, c)]));
   const dc = (c: string, v: string) => counts[c]?.get(v.trim().toLowerCase()) ?? 0;
   for (const r of m.rows) {
+    const rowDup = r.date === null ? new Set<string>() : offRowDupCols(r.cells);
     const tds: string[] = [];
     for (const col of OFF_COLS) {
       if (col === "A" || col === "B" || col === "X") {
@@ -80,7 +81,8 @@ export function renderOffHtml(
       const editable = o.editable && r.date !== null;
       if (editable) cls.push("e");
       if (r.manualCols.includes(col)) cls.push("m");
-      if (f?.dup) cls.push("dup");
+      // กรอบแดง = คนเดียวอยู่ 2 จุดในวันเดียวกัน (กฎของเว็บ) · สีชมพู = ชื่อซ้ำในคอลัมน์ทั้งเดือน (กฎของชีต)
+      if (rowDup.has(col)) cls.push("dup");
       tds.push(`<td class="${cls.join(" ")}"${editable ? ` data-k="${key}"` : ""} style="background:${bg};color:${fg};${extra}">${esc(v)}</td>`);
     }
     out.push(`<tr class="dr" style="height:28px">${tds.join("")}</tr>`);

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { parseYm } from "@/lib/config";
-import { isOffKey, saveOffManual } from "@/lib/off/repo";
+import { isOffKey, saveOffManual, validateOffManual } from "@/lib/off/repo";
 
-// ตารางเวรนอกเวลา: ชีตไม่มีกฎห้ามชื่อซ้ำ (มีแค่ไฮไลต์ชมพูเมื่อชื่อซ้ำในคอลัมน์) → บันทึกได้เลย ไม่ตรวจซ้ำ
+// ตารางเวรนอกเวลา: ใส่ชื่อ 1 ช่อง → ตรวจกฎ 1 คน 1 จุดต่อวัน (409) · หลายช่อง (ย้อนกลับ/ทำซ้ำ) บันทึกตามที่ส่งมา
 function parseEntries(b: { entries?: unknown }): { key: string; value: string | null }[] | null {
   if (!Array.isArray(b.entries)) return null;
   const out: { key: string; value: string | null }[] = [];
@@ -28,6 +28,10 @@ export async function POST(req: Request) {
     const v = b.value === null || b.value === undefined ? null : String(b.value);
     if (keys.length > 1 && v !== null && v !== "")
       return NextResponse.json({ error: "การแก้หลายช่องพร้อมกันทำได้เฉพาะ ล้างให้ว่าง หรือ คืนค่าสูตร" }, { status: 400 });
+    if (keys.length === 1) {
+      const conflict = await validateOffManual(p.yearBE, p.month, keys[0], v);
+      if (conflict) return NextResponse.json({ error: conflict, conflict: true }, { status: 409 });
+    }
     await saveOffManual(p.yearBE, p.month, keys.map((key) => ({ key, value: v })));
     return NextResponse.json({ ok: true });
   } catch (e) {
