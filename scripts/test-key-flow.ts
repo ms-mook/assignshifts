@@ -152,7 +152,7 @@ const ok = (c: boolean, msg: string) => { if (c) pass++; else { fail++; console.
   console.log("4d) ไกด์ตารางนอกเวลา ช่อง Key 4 (จุดลงทะเบียนรายการตรวจ · ทุกช่วงเวลา)");
   const ob = require("../src/lib/off/booking");
   const og = await ob.loadOffBookingGuide(2569, 12, ["น้ำทิพย์", "สุนิษา"]);
-  ok(!og.error && JSON.stringify(og.cols) === JSON.stringify(["F"]), "ไกด์อยู่ที่ช่อง Key 4 (F) เท่านั้น");
+  ok(!og.error && JSON.stringify(og.cols) === JSON.stringify(["E", "F"]), "ไกด์อยู่ที่ช่อง Key 3 / Key 4 (E,F) เท่านั้น");
   ok(JSON.stringify((og.byDay[2] ?? []).map((x: any) => [x.name, x.slot])) === JSON.stringify([["น้ำทิพย์", "06:00-08:30"], ["กฤณา", "06:00-08:30"]]), "วันที่ 2: เฉพาะจุดลงทะเบียน · รวมแถวซ้ำ · แสดงเวลาที่จอง: " + JSON.stringify(og.byDay[2]));
   ok((og.byDay[5] ?? [])[0]?.name === "สุนิษา" && og.byDay[5][0].slot === "06:00-12:00", "ช่วงสายก็แสดง (ไม่เดาว่าช่วงไหนตรงกับ Key 4): " + JSON.stringify(og.byDay[5]));
   ok(!Object.values(og.byDay).flat().some((x: any) => x.name === "ธัญญาธร"), "ไม่ดึงจุดอื่น/เดือนอื่น");

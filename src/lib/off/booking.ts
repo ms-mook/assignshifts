@@ -7,8 +7,8 @@ import { OT_STATION } from "../ot/booking";
 import { SHIFT3_STATION } from "../shift3/booking";
 import type { BookingGuide } from "../guide-types";
 
-/** ช่อง Key 4 ในตาราง (คอลัมน์ F ของหน้าเว็บ) */
-export const OFF_GUIDE_COLS = ["F"];
+/** ช่อง Key 3 และ Key 4 ในตาราง (คอลัมน์ E, F ของหน้าเว็บ) */
+export const OFF_GUIDE_COLS = ["E", "F"];
 
 export function loadOffBookingGuide(yearBE: number, month: number, known: string[]): Promise<BookingGuide> {
   return buildGuide({
