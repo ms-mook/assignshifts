@@ -25,6 +25,7 @@ const setF = (a: string, f: string, v: string | number) => (forms.set(a, f), val
 const STAFF = ["เพชรชรินทร์", "ณัฐณิชา", "บัวปรีญา", "กนกดาว", "อาภาศิริ", "อรพรรณ", "นันธิชา", "วรินยุพา", "สาวิลักษณ์", "ภูมิโชค", "วิภาวดี", "จิตติมา", "ณีรนุช", "พนักงานใหม่"];
 setF("B2", "=COUNTA($B$5:$B$30)", 14);
 STAFF.forEach((n, i) => setV(`B${5 + i}`, n));
+setV("B53", "ตารางเวรทดสอบ FM-XX"); setV("B54", "ประจำเดือน"); setV("B55", "นางสาว ทดสอบ ผู้จัดทำ"); setV("B56", "หัวหน้าหน่วยทดสอบ");
 setF("E15", "=DATE(2026,12,1)", 46357);
 setF("E16", "=DATE(2027,11,30)", 46721);
 const spots: [number, string, string, string, number | "", number | ""][] = [
@@ -114,7 +115,19 @@ const eq = (a: unknown, b: unknown, msg: string) => ok(JSON.stringify(a) === JSO
   eq(f0.lists.Y.length, 100, "Y9:Y108");
   eq(f0.lists.XC.length, 100, "AC5:AC104");
   eq(f0.lists.XC.filter((x: any) => x.v).map((x: any) => x.v), ["สุพัตตรา", "ขวัญจิรา", "จำเลียง"], "อ่านรายชื่อ เก็บ/บัตรคิว จาก AC");
+  eq(f0.doc, { title: "ตารางเวรทดสอบ FM-XX", monthPrefix: "ประจำเดือน", signerName: "นางสาว ทดสอบ ผู้จัดทำ", signerTitle: "หัวหน้าหน่วยทดสอบ" }, "อ่านชื่อตาราง/ผู้ลงนาม B53:B56");
   eq(S.validateOffSettings(f0), [], "ค่าปัจจุบันผ่านการตรวจ");
+  {
+    const f = clone(f0); f.doc.title = " "; f.doc.signerName = "";
+    const e = S.validateOffSettings(f);
+    ok(e.some((x: string) => /ชื่อตาราง/.test(x)) && e.some((x: string) => /ผู้จัดทำ/.test(x)), "ชื่อตาราง/ผู้จัดทำว่าง → ไม่ให้บันทึก");
+  }
+  {
+    const f = clone(f0); f.doc.signerName = "นาย ใหม่ ทดสอบ"; f.doc.title = "ชื่อใหม่";
+    const w = S.offSettingsWrites(f0, f).writes;
+    eq(w.filter((x: any) => /!B5[3-6]$/.test(x.range)).map((x: any) => [x.range, x.values[0][0]]), [["'ตั้งค่า'!B53", "ชื่อใหม่"], ["'ตั้งค่า'!B55", "นาย ใหม่ ทดสอบ"]], "เขียนเฉพาะช่องที่เปลี่ยน (B53, B55)");
+    eq(S.offSettingsWrites(f0, clone(f0)).writes, [], "ไม่เปลี่ยน = ไม่เขียน");
+  }
 
   console.log("2) ตรวจฟอร์ม");
   const bad = (mut: (f: any) => void, re: RegExp, msg: string) => { const f = clone(f0); mut(f); const e = S.validateOffSettings(f); ok(e.some((x: string) => re.test(x)), msg + " → " + e.join(" | ")); };

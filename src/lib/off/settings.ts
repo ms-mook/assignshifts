@@ -38,7 +38,11 @@ export const OFF_LIST_FIXED: Partial<Record<OffListKey, Record<number, string>>>
 export interface OffStaffRow { row: number; name: string; last: string; rep: string; repStart: string; nameF: boolean }
 export interface OffSpotRow { row: number; order: string; name: string; group: string; time: string; sat: string; sun: string; editable: boolean; satEd: boolean; sunEd: boolean }
 export interface OffHoliday { date: string; name: string; type: string; wd: string; status: string }
+/** ชื่อตาราง / หัวตาราง / ผู้ลงนาม (ตั้งค่า!B53:B56 → แท็บรายเดือน A1, A2, Q39, Q40) */
+export interface OffDoc { title: string; monthPrefix: string; signerName: string; signerTitle: string }
+export const OFF_DOC_ROWS = { title: 53, monthPrefix: 54, signerName: 55, signerTitle: 56 } as const;
 export interface OffSettingsForm {
+  doc: OffDoc;
   count: number;
   periodStart: string;
   periodEnd: string;
@@ -88,7 +92,14 @@ export function parseOffSettings(v: unknown[][], f: unknown[][]): OffSettingsFor
     lists[k] = [];
     for (let r = d.r1; r <= d.r2; r++) lists[k].push({ v: str(at(v, r, d.col)).trim(), f: isF(r, d.col) });
   }
+  const doc: OffDoc = {
+    title: str(at(v, 53, "B")).trim(),
+    monthPrefix: str(at(v, 54, "B")).trim(),
+    signerName: str(at(v, 55, "B")).trim(),
+    signerTitle: str(at(v, 56, "B")).trim(),
+  };
   return {
+    doc,
     count: Number(at(v, 2, "B")) || 0,
     periodStart: iso(at(v, 15, "E")),
     periodEnd: iso(at(v, 16, "E")),
@@ -104,6 +115,9 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 /** ตรวจฟอร์มก่อนบันทึก → ข้อความผิดพลาด (ว่าง = ผ่าน) */
 export function validateOffSettings(f: OffSettingsForm): string[] {
   const err: string[] = [];
+  if (!f.doc || f.doc.title.trim() === "") err.push("ชื่อตาราง (หัวตารางบรรทัดที่ 1) ต้องไม่ว่าง");
+  if (!f.doc || f.doc.monthPrefix.trim() === "") err.push("คำนำหน้าเดือน (หัวตารางบรรทัดที่ 2) ต้องไม่ว่าง");
+  if (!f.doc || f.doc.signerName.trim() === "") err.push("ชื่อผู้จัดทำ (ลายเซ็นท้ายตาราง) ต้องไม่ว่าง");
   const names = f.staff.map((s) => s.name.trim()).filter((n) => n !== "");
   const count = names.length;
   f.staff.forEach((s, i) => {
@@ -161,6 +175,8 @@ export function offSettingsWrites(cur: OffSettingsForm, next: OffSettingsForm): 
   const writes: { range: string; values: unknown[][] }[] = [];
   const skipped: string[] = [];
   const put = (c: string, r: number, val: string) => writes.push({ range: `'ตั้งค่า'!${c}${r}`, values: [[val]] });
+  for (const k of ["title", "monthPrefix", "signerName", "signerTitle"] as const)
+    if ((next.doc?.[k] ?? "").trim() !== (cur.doc?.[k] ?? "")) put("B", OFF_DOC_ROWS[k], next.doc[k].trim());
   next.staff.forEach((s, i) => {
     const c = cur.staff[i];
     if (!c) return;

@@ -88,6 +88,20 @@ export default function OffSettingsClient({ initial }: { initial: OffSettingsFor
         </div>
       </section>
 
+      <section className="card">
+        <h2>ชื่อตาราง · หัวตาราง · ผู้ลงนาม</h2>
+        <div className="grid2">
+          <label>ชื่อตาราง (หัวตารางบรรทัดที่ 1) <span className="cellref">B53</span></label>
+          <input className="y" value={f.doc.title} onChange={(e) => setF({ ...f, doc: { ...f.doc, title: e.target.value } })} />
+          <label>คำนำหน้าเดือน (หัวตารางบรรทัดที่ 2 เช่น “ประจำเดือน”) <span className="cellref">B54</span></label>
+          <input className="y" value={f.doc.monthPrefix} onChange={(e) => setF({ ...f, doc: { ...f.doc, monthPrefix: e.target.value } })} />
+          <label>ชื่อผู้จัดทำ (ลายเซ็นท้ายตาราง) <span className="cellref">B55</span></label>
+          <input className="y" value={f.doc.signerName} onChange={(e) => setF({ ...f, doc: { ...f.doc, signerName: e.target.value } })} />
+          <label>ตำแหน่ง <span className="cellref">B56</span></label>
+          <input className="y" value={f.doc.signerTitle} onChange={(e) => setF({ ...f, doc: { ...f.doc, signerTitle: e.target.value } })} />
+        </div>
+      </section>
+
       <section className="card scroll-x">
         <h2>
           เจ้าหน้าที่ในรอบหมุนเวร <small>ตั้งค่า!B5:B30 · ลาออก/คนมาแทน = Z:AB</small>
