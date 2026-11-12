@@ -1,7 +1,7 @@
 // หน้า ตารางเวรนอกเวลา (เสาร์-อาทิตย์ ห้องเจาะเลือด OPD/SMC + นอกเวลา จ.-ศ. OPD)
 import { shiftYm } from "@/lib/config";
 import { OFF_ROW_GROUPS, offDupDays, offLeaveHits, offNamesByCol, offSummary } from "@/lib/off/engine";
-import { loadOffBookingGuide, loadOffCollectGuide } from "@/lib/off/booking";
+import { loadOffBookingGuide, loadOffCollectGuide, loadOffDrawGuide } from "@/lib/off/booking";
 import { loadOffLeaves, loadOffMonth } from "@/lib/off/repo";
 import { OFF_COL_W, OFF_CSS, renderOffHtml } from "@/lib/off/render";
 import { SHEET_CSS } from "@/lib/shift3/render";
@@ -22,7 +22,7 @@ export default async function OffSchedule({ tdef, ym, yearBE, month }: { tdef: T
   const html = `<style>${OFF_CSS}</style>` + renderOffHtml(mo, { editable: st.hasTab, styles: st.styles, personColors: st.personColors, leaves: lv.leaves, today: todaySerial() });
   const byCol = offNamesByCol(st.lists);
   const names = Array.from(new Set(Object.values(byCol).flat()));
-  const [keyGuide, collectGuide] = await Promise.all([loadOffBookingGuide(yearBE, month, names), loadOffCollectGuide(yearBE, month, names)]);
+  const [keyGuide, collectGuide, drawGuide] = await Promise.all([loadOffBookingGuide(yearBE, month, names), loadOffCollectGuide(yearBE, month, names), loadOffDrawGuide(yearBE, month, names)]);
   const hits = offLeaveHits(mo, lv.leaves);
   const summary = offSummary(mo, st.lists).filter((g) => g.rows.length > 0);
   const colLabels = Object.fromEntries("CDEFGHIJKLMNOPQRSTUVWYZ".split("").map((c) => [c, label(mo.head, c)]));
@@ -57,7 +57,7 @@ export default async function OffSchedule({ tdef, ym, yearBE, month }: { tdef: T
       api="/api/off"
       officerCols={[]}
       colLabels={colLabels}
-      guide={[keyGuide, collectGuide]}
+      guide={[keyGuide, collectGuide, drawGuide]}
       hint={
         "Key 4, Key 5, ช่อง 9, เก็บ 1, เก็บ 2, บัตรคิว, เก็บ SMC (ส.-อา.) บันทึกลงแท็บ ตารางเวร ส-อา ในชีตโดยตรง · ช่องที่เป็นสูตรหมุนเวรเก็บในแท็บ WEB-ช่องเลือกเอง (ไม่แตะสูตร) · คืนค่าสูตร = กลับไปใช้ค่าจากชีต · " +
         "1 คนอยู่ได้ 1 จุดต่อวัน (กรอบแดง = ซ้ำ) · ชมพู = ชื่อซ้ำในคอลัมน์เดียวกันทั้งเดือน (กฎของชีต) · ส้มขีดฆ่า = งดเวรนอกเวลาวันนั้น (ระบบลา)"

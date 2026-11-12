@@ -169,6 +169,19 @@ const ok = (c: boolean, msg: string) => { if (c) pass++; else { fail++; console.
   ok(!cg.error && JSON.stringify(cg.cols) === JSON.stringify(["Q", "R", "S", "W"]), "ไกด์อยู่ที่ เก็บ1/เก็บ2/บัตรคิว/เก็บ SMC (Q,R,S,W) เท่านั้น");
   ok(JSON.stringify((cg.byDay[6] ?? []).map((x: any) => [x.name, x.slot])) === JSON.stringify([["น้ำทิพย์", "06:00-08:30, 12:00-16:30"], ["สุนิษา", "06:00-12:00"]]), "วันที่ 6: เฉพาะจุดอื่นๆ · แสดงทุกช่วงที่จอง (รวม SMC ไม่ตัด): " + JSON.stringify(cg.byDay[6]));
   ok(Object.keys(cg.byDay).join() === "6", "ไม่ดึงจุดลงทะเบียน/เดือนอื่น");
+  console.log("4f) ไกด์ตารางนอกเวลา ช่อง 9 / ช่อง 10 (จุดเจาะเลือด)");
+  wb.set("Booking Data", [
+    ["Timestamp", "Date", "ชื่อ", "นามสกุล", "ตำแหน่ง", "Room", "Station", "เช้า", "สาย", "บ่าย"],
+    ["", "2026-12-07", "น้ำทิพย์", "จังพล", "", "OPD", "จุดเจาะเลือด", "06:00-08:30", "08:30-12:30"],
+    ["", "2026-12-07", "สุนิษา", "จันทะดวง", "", "OPD", "จุดเจาะเลือด", "", "", "12:30-16:30"],
+    ["", "2026-12-07", "ธัญญาธร", "นนท์ขุนทด", "", "OPD", "จุดลงทะเบียนรายการตรวจ", "06:00-08:30"],
+    ["", "2027-01-07", "น้ำทิพย์", "จังพล", "", "OPD", "จุดเจาะเลือด", "06:00-08:30"],
+  ]);
+  require("../src/lib/booking").invalidateBookings();
+  const dg = await ob.loadOffDrawGuide(2569, 12, ["น้ำทิพย์", "สุนิษา"]);
+  ok(!dg.error && JSON.stringify(dg.cols) === JSON.stringify(["K", "L"]), "ไกด์อยู่ที่ ช่อง 9 / ช่อง 10 (K,L) เท่านั้น");
+  ok(JSON.stringify((dg.byDay[7] ?? []).map((x: any) => [x.name, x.slot])) === JSON.stringify([["น้ำทิพย์", "06:00-08:30, 08:30-12:30"], ["สุนิษา", "12:30-16:30"]]), "วันที่ 7: เฉพาะจุดเจาะเลือด · แสดงทุกช่วงที่จอง: " + JSON.stringify(dg.byDay[7]));
+  ok(Object.keys(dg.byDay).join() === "7", "ไม่ดึงจุดอื่น/เดือนอื่น");
   wb.delete("Booking Data");
   require("../src/lib/booking").invalidateBookings();
   const gd2 = await bk.loadKeyBookingGuide(2569, 12, s.dropdown);
