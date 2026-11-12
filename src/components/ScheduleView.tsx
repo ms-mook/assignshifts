@@ -86,6 +86,7 @@ const OFFICER_COLS = ["D", "E", "F", "S", "T", "U", "AC"];
 const BG_SWATCHES: { c: string; t: string }[] = [
   { c: "#7F7F7F", t: "เทาทึบ (ปิดให้บริการ)" },
   { c: "#BFBFBF", t: "เทาอ่อน" },
+  { c: "#D5D5D5", t: "เทา (สีช่องที่ปิด/ไม่ใช้งาน)" },
   { c: "#FFFFFF", t: "ขาว" },
   { c: "#FFF2CC", t: "เหลือง" },
   { c: "#FFC7CE", t: "ชมพู" },
