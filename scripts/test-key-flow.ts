@@ -156,6 +156,19 @@ const ok = (c: boolean, msg: string) => { if (c) pass++; else { fail++; console.
   ok(JSON.stringify((og.byDay[2] ?? []).map((x: any) => [x.name, x.slot])) === JSON.stringify([["น้ำทิพย์", "06:00-08:30"], ["กฤณา", "06:00-08:30"]]), "วันที่ 2: เฉพาะจุดลงทะเบียน · รวมแถวซ้ำ · แสดงเวลาที่จอง: " + JSON.stringify(og.byDay[2]));
   ok((og.byDay[5] ?? [])[0]?.name === "สุนิษา" && og.byDay[5][0].slot === "06:00-12:00", "ช่วงสายก็แสดง (ไม่เดาว่าช่วงไหนตรงกับ Key 4): " + JSON.stringify(og.byDay[5]));
   ok(!Object.values(og.byDay).flat().some((x: any) => x.name === "ธัญญาธร"), "ไม่ดึงจุดอื่น/เดือนอื่น");
+  console.log("4e) ไกด์ตารางนอกเวลา ช่อง เก็บ 1 / เก็บ 2 / บัตรคิว (จุดอื่นๆ บัตรคิว นำ-ส่ง)");
+  wb.set("Booking Data", [
+    ["Timestamp", "Date", "ชื่อ", "นามสกุล", "ตำแหน่ง", "Room", "Station", "เช้า", "สาย", "บ่าย"],
+    ["", "2026-12-06", "น้ำทิพย์", "จังพล", "", "OPD", "จุดอื่นๆ (บัตรคิว, นำ-ส่ง สิ่งส่งตรวจ)", "06:00-08:30", "", "12:00-16:30"],
+    ["", "2026-12-06", "สุนิษา", "จันทะดวง", "", "SMC", "จุดอื่นๆ (บัตรคิว, นำ-ส่ง สิ่งส่งตรวจ)", "", "06:00-12:00"],
+    ["", "2026-12-06", "ธัญญาธร", "นนท์ขุนทด", "", "OPD", "จุดลงทะเบียนรายการตรวจ", "06:00-08:30"],
+    ["", "2027-01-03", "น้ำทิพย์", "จังพล", "", "OPD", "จุดอื่นๆ (บัตรคิว, นำ-ส่ง สิ่งส่งตรวจ)", "06:00-08:30"],
+  ]);
+  require("../src/lib/booking").invalidateBookings();
+  const cg = await ob.loadOffCollectGuide(2569, 12, ["น้ำทิพย์", "สุนิษา"]);
+  ok(!cg.error && JSON.stringify(cg.cols) === JSON.stringify(["Q", "R", "S"]), "ไกด์อยู่ที่ เก็บ1/เก็บ2/บัตรคิว (Q,R,S) เท่านั้น");
+  ok(JSON.stringify((cg.byDay[6] ?? []).map((x: any) => [x.name, x.slot])) === JSON.stringify([["น้ำทิพย์", "06:00-08:30, 12:00-16:30"], ["สุนิษา", "06:00-12:00"]]), "วันที่ 6: เฉพาะจุดอื่นๆ · แสดงทุกช่วงที่จอง (รวม SMC ไม่ตัด): " + JSON.stringify(cg.byDay[6]));
+  ok(Object.keys(cg.byDay).join() === "6", "ไม่ดึงจุดลงทะเบียน/เดือนอื่น");
   wb.delete("Booking Data");
   require("../src/lib/booking").invalidateBookings();
   const gd2 = await bk.loadKeyBookingGuide(2569, 12, s.dropdown);

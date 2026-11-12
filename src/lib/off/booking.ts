@@ -3,6 +3,7 @@
 import "server-only";
 import { buildGuide } from "../booking";
 import { KEY_STATION } from "../key/booking";
+import { OT_STATION } from "../ot/booking";
 import type { BookingGuide } from "../guide-types";
 
 /** ช่อง Key 4 ในตาราง (คอลัมน์ F ของหน้าเว็บ) */
@@ -14,6 +15,19 @@ export function loadOffBookingGuide(yearBE: number, month: number, known: string
     cols: OFF_GUIDE_COLS,
     title: `จองเวรไว้ · ${KEY_STATION} (ทุกช่วงเวลา)`,
     filter: (b) => b.station === KEY_STATION,
+    slot: -1,
+  });
+}
+
+/** ช่อง เก็บ 1 · เก็บ 2 · บัตรคิว ในตาราง (คอลัมน์ Q, R, S ของหน้าเว็บ) */
+export const OFF_COLLECT_GUIDE_COLS = ["Q", "R", "S"];
+
+export function loadOffCollectGuide(yearBE: number, month: number, known: string[]): Promise<BookingGuide> {
+  return buildGuide({
+    yearBE, month, known,
+    cols: OFF_COLLECT_GUIDE_COLS,
+    title: `จองเวรไว้ · ${OT_STATION} (ทุกช่วงเวลา)`,
+    filter: (b) => b.station === OT_STATION,
     slot: -1,
   });
 }
