@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "./Toast";
 import Icon from "./Icon";
-import { OFF_CLOSE_TYPES, OFF_HOLIDAY_ROWS, OFF_LIST_FIXED, OFF_LISTS, validateOffSettings, type OffListKey, type OffSettingsForm } from "@/lib/off/settings";
+import { OFF_CLOSE_TYPES, OFF_HEAD_ROWS, OFF_HOLIDAY_ROWS, OFF_LIST_FIXED, OFF_LISTS, validateOffSettings, type OffListKey, type OffSettingsForm } from "@/lib/off/settings";
 
 const fmt = (iso: string) => {
   if (!iso) return "-";
@@ -89,7 +89,7 @@ export default function OffSettingsClient({ initial }: { initial: OffSettingsFor
       </section>
 
       <section className="card">
-        <h2>ชื่อตาราง · หัวตาราง · ผู้ลงนาม</h2>
+        <h2>ชื่อตาราง · หัวตาราง · หัวกลุ่มคอลัมน์ · ผู้ลงนาม</h2>
         <div className="grid2">
           <label>ชื่อตาราง (หัวตารางบรรทัดที่ 1) <span className="cellref">B53</span></label>
           <input className="y" value={f.doc.title} onChange={(e) => setF({ ...f, doc: { ...f.doc, title: e.target.value } })} />
@@ -99,6 +99,12 @@ export default function OffSettingsClient({ initial }: { initial: OffSettingsFor
           <input className="y" value={f.doc.signerName} onChange={(e) => setF({ ...f, doc: { ...f.doc, signerName: e.target.value } })} />
           <label>ตำแหน่ง <span className="cellref">B56</span></label>
           <input className="y" value={f.doc.signerTitle} onChange={(e) => setF({ ...f, doc: { ...f.doc, signerTitle: e.target.value } })} />
+          {OFF_HEAD_ROWS.map((h) => (
+            <Fragment key={h.cell}>
+              <label>{h.label} <span className="cellref">B{h.row}</span></label>
+              <input className="y" value={f.doc.heads[h.cell] ?? ""} onChange={(e) => setF({ ...f, doc: { ...f.doc, heads: { ...f.doc.heads, [h.cell]: e.target.value } } })} />
+            </Fragment>
+          ))}
         </div>
       </section>
 

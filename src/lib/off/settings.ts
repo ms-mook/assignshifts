@@ -39,8 +39,19 @@ export interface OffStaffRow { row: number; name: string; last: string; rep: str
 export interface OffSpotRow { row: number; order: string; name: string; group: string; time: string; sat: string; sun: string; editable: boolean; satEd: boolean; sunEd: boolean }
 export interface OffHoliday { date: string; name: string; type: string; wd: string; status: string }
 /** ชื่อตาราง / หัวตาราง / ผู้ลงนาม (ตั้งค่า!B53:B56 → แท็บรายเดือน A1, A2, Q39, Q40) */
-export interface OffDoc { title: string; monthPrefix: string; signerName: string; signerTitle: string }
+export interface OffDoc { title: string; monthPrefix: string; signerName: string; signerTitle: string; heads: Record<string, string> }
 export const OFF_DOC_ROWS = { title: 53, monthPrefix: 54, signerName: 55, signerTitle: 56 } as const;
+/** หัวกลุ่มคอลัมน์ของตาราง (เซลล์ในแท็บรายเดือน → ช่องใน ตั้งค่า!B) */
+export const OFF_HEAD_ROWS: { cell: string; row: number; label: string }[] = [
+  { cell: "C3", row: 59, label: "หัวกลุ่ม ห้องเจาะเลือด OPD (แถว 3 ซ้าย)" },
+  { cell: "T3", row: 60, label: "หัวกลุ่ม ห้องเจาะเลือด SMC (แถว 3 กลาง)" },
+  { cell: "Y3", row: 61, label: "หัวกลุ่ม นอกเวลา จ.-ศ. (แถว 3 ขวา)" },
+  { cell: "C4", row: 62, label: "หัวกลุ่มย่อย จุด Key (แถว 4)" },
+  { cell: "H4", row: 63, label: "หัวกลุ่มย่อย จุดเจาะเลือด (แถว 4)" },
+  { cell: "Q4", row: 64, label: "หัวกลุ่มย่อย จุดเก็บ-บัตรคิว (แถว 4)" },
+  { cell: "Y4", row: 65, label: "หัวคอลัมน์ นอกเวลา จ.-ศ. ซ้าย (แถว 4)" },
+  { cell: "Z4", row: 66, label: "หัวคอลัมน์ นอกเวลา จ.-ศ. ขวา (แถว 4)" },
+];
 export interface OffSettingsForm {
   doc: OffDoc;
   count: number;
@@ -97,6 +108,7 @@ export function parseOffSettings(v: unknown[][], f: unknown[][]): OffSettingsFor
     monthPrefix: str(at(v, 54, "B")).trim(),
     signerName: str(at(v, 55, "B")).trim(),
     signerTitle: str(at(v, 56, "B")).trim(),
+    heads: Object.fromEntries(OFF_HEAD_ROWS.map((h) => [h.cell, str(at(v, h.row, "B")).trim()])),
   };
   return {
     doc,
@@ -118,6 +130,7 @@ export function validateOffSettings(f: OffSettingsForm): string[] {
   if (!f.doc || f.doc.title.trim() === "") err.push("ชื่อตาราง (หัวตารางบรรทัดที่ 1) ต้องไม่ว่าง");
   if (!f.doc || f.doc.monthPrefix.trim() === "") err.push("คำนำหน้าเดือน (หัวตารางบรรทัดที่ 2) ต้องไม่ว่าง");
   if (!f.doc || f.doc.signerName.trim() === "") err.push("ชื่อผู้จัดทำ (ลายเซ็นท้ายตาราง) ต้องไม่ว่าง");
+  for (const h of OFF_HEAD_ROWS) if ((f.doc?.heads?.[h.cell] ?? "").trim() === "") err.push(`${h.label} ต้องไม่ว่าง`);
   const names = f.staff.map((s) => s.name.trim()).filter((n) => n !== "");
   const count = names.length;
   f.staff.forEach((s, i) => {
@@ -177,6 +190,7 @@ export function offSettingsWrites(cur: OffSettingsForm, next: OffSettingsForm): 
   const put = (c: string, r: number, val: string) => writes.push({ range: `'ตั้งค่า'!${c}${r}`, values: [[val]] });
   for (const k of ["title", "monthPrefix", "signerName", "signerTitle"] as const)
     if ((next.doc?.[k] ?? "").trim() !== (cur.doc?.[k] ?? "")) put("B", OFF_DOC_ROWS[k], next.doc[k].trim());
+  for (const h of OFF_HEAD_ROWS) if ((next.doc?.heads?.[h.cell] ?? "").trim() !== (cur.doc?.heads?.[h.cell] ?? "")) put("B", h.row, next.doc.heads[h.cell].trim());
   next.staff.forEach((s, i) => {
     const c = cur.staff[i];
     if (!c) return;

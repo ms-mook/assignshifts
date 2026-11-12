@@ -26,6 +26,7 @@ const STAFF = ["เพชรชรินทร์", "ณัฐณิชา", "�
 setF("B2", "=COUNTA($B$5:$B$30)", 14);
 STAFF.forEach((n, i) => setV(`B${5 + i}`, n));
 setV("B53", "ตารางเวรทดสอบ FM-XX"); setV("B54", "ประจำเดือน"); setV("B55", "นางสาว ทดสอบ ผู้จัดทำ"); setV("B56", "หัวหน้าหน่วยทดสอบ");
+["หัวทดสอบ OPD", "หัวทดสอบ SMC", "หัวทดสอบ จ.-ศ.", "จุด Key ทดสอบ", "จุดเจาะเลือดทดสอบ", "จุดเก็บทดสอบ", "Key/เก็บ", "เจาะเลือด"].forEach((t, i) => setV(`B${59 + i}`, t));
 setF("E15", "=DATE(2026,12,1)", 46357);
 setF("E16", "=DATE(2027,11,30)", 46721);
 const spots: [number, string, string, string, number | "", number | ""][] = [
@@ -115,7 +116,7 @@ const eq = (a: unknown, b: unknown, msg: string) => ok(JSON.stringify(a) === JSO
   eq(f0.lists.Y.length, 100, "Y9:Y108");
   eq(f0.lists.XC.length, 100, "AC5:AC104");
   eq(f0.lists.XC.filter((x: any) => x.v).map((x: any) => x.v), ["สุพัตตรา", "ขวัญจิรา", "จำเลียง"], "อ่านรายชื่อ เก็บ/บัตรคิว จาก AC");
-  eq(f0.doc, { title: "ตารางเวรทดสอบ FM-XX", monthPrefix: "ประจำเดือน", signerName: "นางสาว ทดสอบ ผู้จัดทำ", signerTitle: "หัวหน้าหน่วยทดสอบ" }, "อ่านชื่อตาราง/ผู้ลงนาม B53:B56");
+  eq(f0.doc, { title: "ตารางเวรทดสอบ FM-XX", monthPrefix: "ประจำเดือน", signerName: "นางสาว ทดสอบ ผู้จัดทำ", signerTitle: "หัวหน้าหน่วยทดสอบ", heads: { C3: "หัวทดสอบ OPD", T3: "หัวทดสอบ SMC", Y3: "หัวทดสอบ จ.-ศ.", C4: "จุด Key ทดสอบ", H4: "จุดเจาะเลือดทดสอบ", Q4: "จุดเก็บทดสอบ", Y4: "Key/เก็บ", Z4: "เจาะเลือด" } }, "อ่านชื่อตาราง/ผู้ลงนาม/หัวกลุ่ม B53:B66");
   eq(S.validateOffSettings(f0), [], "ค่าปัจจุบันผ่านการตรวจ");
   {
     const f = clone(f0); f.doc.title = " "; f.doc.signerName = "";
@@ -127,6 +128,10 @@ const eq = (a: unknown, b: unknown, msg: string) => ok(JSON.stringify(a) === JSO
     const w = S.offSettingsWrites(f0, f).writes;
     eq(w.filter((x: any) => /!B5[3-6]$/.test(x.range)).map((x: any) => [x.range, x.values[0][0]]), [["'ตั้งค่า'!B53", "ชื่อใหม่"], ["'ตั้งค่า'!B55", "นาย ใหม่ ทดสอบ"]], "เขียนเฉพาะช่องที่เปลี่ยน (B53, B55)");
     eq(S.offSettingsWrites(f0, clone(f0)).writes, [], "ไม่เปลี่ยน = ไม่เขียน");
+    const g = clone(f0); g.doc.heads.T3 = "หัวใหม่ SMC";
+    eq(S.offSettingsWrites(f0, g).writes.map((x: any) => [x.range, x.values[0][0]]), [["'ตั้งค่า'!B60", "หัวใหม่ SMC"]], "แก้หัวกลุ่ม → เขียน B60");
+    const h = clone(f0); h.doc.heads.C4 = " ";
+    ok(S.validateOffSettings(h).some((x: string) => /จุด Key/.test(x)), "หัวกลุ่มว่าง → ไม่ให้บันทึก");
   }
 
   console.log("2) ตรวจฟอร์ม");
