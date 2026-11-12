@@ -93,7 +93,7 @@ export async function buildGuide(o: {
   title: string;
   known: string[];
   filter: (b: Booking) => boolean;
-  slot: number;
+  slot: number; // -1 = ทุกช่วง (แสดงเวลาที่จองทั้งหมดของคนนั้น ไม่เดาว่าช่วงไหนตรงกับช่อง)
   /** ข้อความเพิ่มในแต่ละชื่อ (เช่น จุดที่จอง) */
   meta?: (b: Booking) => string;
   /** ส่วนของตารางที่จองไว้ (ใช้กับ "ใส่ชื่อเดียวกันในตารางอื่นด้วย") */
@@ -107,13 +107,18 @@ export async function buildGuide(o: {
     const known = Array.from(new Set(o.known.map((k) => k.trim()).filter((k) => k !== "")));
     for (const b of all) {
       if (b.date < start || b.date > end || !o.filter(b)) continue;
-      const slot = b.slots[o.slot] ?? "";
+      const slot = o.slot < 0 ? b.slots.filter((x) => x !== "").join(", ") : (b.slots[o.slot] ?? "");
       if (slot === "") continue;
       const day = ymdFromSerial(b.date).d;
       const m = matchName(b.first, known);
       const list = (guide.byDay[day] ??= []);
       const dup = list.find((x) => x.name === m.name);
       if (dup) {
+        if (o.slot < 0 && dup.slot) {
+          // จองหลายแถววันเดียวกัน → รวมเวลาที่จอง (ไม่ซ้ำ)
+          const have = dup.slot.split(" · ")[0].split(", ");
+          dup.slot = Array.from(new Set([...have, ...slot.split(", ")])).join(", ") + (dup.slot.includes(" · ") ? " · " + dup.slot.split(" · ").slice(1).join(" · ") : "");
+        }
         // จองหลายแถววันเดียวกัน → รวมช่วงที่จองไว้
         if (o.secs && dup.secs) dup.secs = Array.from(new Set([...dup.secs, ...o.secs(b)])).sort();
         continue;
