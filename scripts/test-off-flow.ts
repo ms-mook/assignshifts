@@ -168,7 +168,7 @@ const eq = (a: unknown, b: unknown, msg: string) => ok(JSON.stringify(a) === JSO
   eq(eng.cfOf(day(6), "R", dc)?.bg, "#D5D5D5", "อาทิตย์ R เทา (แม้มีชื่อ)");
   eq(eng.cfOf(day(6), "G", dc)?.bg, "#D5D5D5", "อาทิตย์ G เทา");
   eq(eng.cfOf(day(6), "J", dc)?.bg, "#D5D5D5", "อาทิตย์ J เทา");
-  eq(eng.cfOf(day(12), "G", dc), (day(12).cells.G ?? "") === "" ? null : null, "เสาร์ G ไม่เทา (กฎว่าง C:E/I/L:P/T:V ไม่ครอบ G)");
+  eq(eng.cfOf(day(12), "G", dc), { bg: "#D5D5D5" }, "Key 5 (G) เสาร์ก็เทาทึบ (ผู้ใช้สั่ง: ทึบทั้งคอลัมน์ เหมือนวันอาทิตย์)");
   eq(eng.cfOf(day(6), "B", dc), { fg: "#BF0000", bold: true }, "อาทิตย์ B ตัวแดง");
   eq(eng.cfOf(day(12), "B", dc), null, "เสาร์ B ปกติ");
   // เสาร์ว่าง C → เทา · มีชื่อ → ไม่เทา

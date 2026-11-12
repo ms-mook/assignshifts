@@ -130,7 +130,7 @@ export function cfOf(r: OffRow, col: string, dupCount: (col: string, v: string) 
   if (in_(col, "I,K,M-P,U-V") && v !== "" && dupCount(col, v) > 1) return { bg: "#F4CCCC", dup: true };
   if (in_(col, "C-W") && r.AD === 1) return { bg: GREY };
   if (in_(col, "C-E") && hasDate && wkend && v === "") return { bg: GREY };
-  if (col === "G" && sun) return { bg: GREY };
+  if (col === "G" && wkend) return { bg: GREY }; // Key 5 ปิดทั้งเสาร์-อาทิตย์ (สีทึบเหมือนกันทั้งคอลัมน์)
   if (in_(col, "I,L-P,T-V") && hasDate && wkend && v === "") return { bg: GREY };
   if (col === "J" && sun) return { bg: GREY }; // ช่อง 9 (K) วันอาทิตย์หมุนเวรแล้ว → ไม่เทา
   if (in_(col, "Y-Z") && r.AD === 1) return { bg: GREY };
