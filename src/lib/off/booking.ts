@@ -19,8 +19,8 @@ export function loadOffBookingGuide(yearBE: number, month: number, known: string
   });
 }
 
-/** ช่อง เก็บ 1 · เก็บ 2 · บัตรคิว ในตาราง (คอลัมน์ Q, R, S ของหน้าเว็บ) */
-export const OFF_COLLECT_GUIDE_COLS = ["Q", "R", "S"];
+/** ช่อง เก็บ 1 · เก็บ 2 · บัตรคิว · เก็บ SMC ในตาราง (คอลัมน์ Q, R, S, W ของหน้าเว็บ) */
+export const OFF_COLLECT_GUIDE_COLS = ["Q", "R", "S", "W"];
 
 export function loadOffCollectGuide(yearBE: number, month: number, known: string[]): Promise<BookingGuide> {
   return buildGuide({

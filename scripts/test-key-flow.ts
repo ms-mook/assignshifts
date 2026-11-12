@@ -166,7 +166,7 @@ const ok = (c: boolean, msg: string) => { if (c) pass++; else { fail++; console.
   ]);
   require("../src/lib/booking").invalidateBookings();
   const cg = await ob.loadOffCollectGuide(2569, 12, ["น้ำทิพย์", "สุนิษา"]);
-  ok(!cg.error && JSON.stringify(cg.cols) === JSON.stringify(["Q", "R", "S"]), "ไกด์อยู่ที่ เก็บ1/เก็บ2/บัตรคิว (Q,R,S) เท่านั้น");
+  ok(!cg.error && JSON.stringify(cg.cols) === JSON.stringify(["Q", "R", "S", "W"]), "ไกด์อยู่ที่ เก็บ1/เก็บ2/บัตรคิว/เก็บ SMC (Q,R,S,W) เท่านั้น");
   ok(JSON.stringify((cg.byDay[6] ?? []).map((x: any) => [x.name, x.slot])) === JSON.stringify([["น้ำทิพย์", "06:00-08:30, 12:00-16:30"], ["สุนิษา", "06:00-12:00"]]), "วันที่ 6: เฉพาะจุดอื่นๆ · แสดงทุกช่วงที่จอง (รวม SMC ไม่ตัด): " + JSON.stringify(cg.byDay[6]));
   ok(Object.keys(cg.byDay).join() === "6", "ไม่ดึงจุดลงทะเบียน/เดือนอื่น");
   wb.delete("Booking Data");
