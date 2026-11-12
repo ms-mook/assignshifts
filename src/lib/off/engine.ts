@@ -138,7 +138,6 @@ export function cfOf(r: OffRow, col: string, dupCount: (col: string, v: string) 
   if (in_(col, "C-W") && !isWeekendB(r.B)) return { bg: GREY };
   if (in_(col, "Y-Z") && (isWeekendB(r.B) || r.A === "")) return { bg: GREY };
   if (in_(col, "A-B,X") && r.A === "") return { bg: GREY };
-  if (col === "B" && r.B === "อาทิตย์") return { fg: "#BF0000", bold: true };
   return null;
 }
 
