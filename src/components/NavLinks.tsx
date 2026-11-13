@@ -43,7 +43,7 @@ export default function NavLinks() {
   const ctx = isOff ? "off" : isSmc ? "smc" : isKey ? "key" : isOt ? "ot" : "s";
   const sub: { href: string; label: string; icon: IconName }[] =
     ctx === "off"
-      ? [{ href: "/off/settings", label: "ตั้งค่า", icon: "Settings" }]
+      ? [{ href: "/off/summary", label: "สรุปสะสม", icon: "ChartColumn" }, { href: "/off/settings", label: "ตั้งค่า", icon: "Settings" }]
       : ctx === "smc"
       ? [
           { href: "/smc/plan", label: "สรุปรายปี", icon: "ChartColumn" },

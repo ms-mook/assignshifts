@@ -203,6 +203,38 @@ export function offSummary(mo: OffMonth, lists: OffLists): OffSummary[] {
   ];
 }
 
+// ---------- สรุปสะสมรายปี (เหมือนแท็บ "สรุปจำนวนเวร") ----------
+export interface OffYearRow { name: string; months: number[]; total: number; extras: number[] }
+export interface OffYearBlock { title: string; totalLabel: string; extraLabels: string[]; rows: OffYearRow[]; monthTotals: number[]; total: number }
+
+/** months = 12 เดือนเรียงกัน (null = ไม่มีแท็บเดือนนั้น นับเป็น 0) · นับจากข้อมูลที่รวมการแก้บนเว็บแล้ว จึงเปลี่ยนตามผู้จัดเวรอัตโนมัติ */
+export function offYearSummary(months: (OffMonth | null)[], lists: OffLists): OffYearBlock[] {
+  const uniq = (a: string[]) => Array.from(new Set(a.map((x) => x.trim()).filter((x) => x !== "")));
+  const wk = uniq(lists.staff);
+  const wd = uniq(lists.keyY);
+  const OPD = range("C", "P"), SMC = range("T", "V");
+  const cnt = (cols: string[], name: string) => months.map((mo) => (mo ? countIn(mo, cols, name) : 0));
+  const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
+  const block = (title: string, totalLabel: string, names: string[], cols: string[], extra: { label: string; cols: string[] }[] = []): OffYearBlock => {
+    const rows = names.map((name) => {
+      const mm = cnt(cols, name);
+      return { name, months: mm, total: sum(mm), extras: extra.map((e) => sum(cnt(e.cols, name))) };
+    });
+    return { title, totalLabel, extraLabels: extra.map((e) => e.label), rows, monthTotals: months.map((_, i) => sum(rows.map((r) => r.months[i]))), total: sum(rows.map((r) => r.total)) };
+  };
+  const ALL = [...OPD, ...SMC];
+  return [
+    block("สรุปจำนวนเวรนอกเวลาราชการ (วันเสาร์-อาทิตย์) รายบุคคล", "รวมทั้งปี", wk, ALL, [{ label: "OPD (งานหนัก)", cols: OPD }, { label: "SMC (งานเบา)", cols: SMC }]),
+    block("สรุปเวรห้องเจาะเลือด OPD (งานหนัก) รายเดือนของแต่ละคน", "รวม OPD", wk, OPD),
+    block("สรุปเวรห้องเจาะเลือด SMC / Check-up (งานเบา) รายเดือนของแต่ละคน", "รวม SMC", wk, SMC),
+    block("สรุปเวร Key 1 (ค่าตอบแทนสูงกว่า) รายเดือนของแต่ละคน (เสาร์+อาทิตย์)", "รวม Key 1", wk, ["C"]),
+    block("สรุปเวร Key 2 รายเดือนของแต่ละคน (เสาร์)", "รวม Key 2", wk, ["D"]),
+    block("สรุปเวร ช่อง 6(E) (ค่าตอบแทนสูงกว่า) รายเดือนของแต่ละคน", "รวม ช่อง 6(E)", wk, ["H"]),
+    block("สรุปเวร ช่อง 8 รายเดือนของแต่ละคน (เสาร์)", "รวม ช่อง 8", wk, ["J"]),
+    block("สรุปเวรนอกเวลา (จ.-ศ.) OPD รายเดือนของแต่ละคน", "รวมเวร จ.-ศ.", wd, ["Y", "Z"], [{ label: "Key ช่อง 2", cols: ["Y"] }, { label: "เวร ช่อง 6", cols: ["Z"] }]),
+  ];
+}
+
 /** รายชื่อ dropdown ของแต่ละคอลัมน์ (ตามการตรวจข้อมูลของแท็บเดือน) */
 export function offNamesByCol(l: OffLists): Record<string, string[]> {
   const nz = (a: string[]) => Array.from(new Set(a.map((x) => x.trim()).filter((x) => x !== "")));

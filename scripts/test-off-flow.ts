@@ -390,6 +390,64 @@ const eq = (a: unknown, b: unknown, msg: string) => ok(JSON.stringify(a) === JSO
   ok(occ.every((n) => n === 26), "ทุกแถวกว้าง 26 คอลัมน์: " + occ.join(","));
   eq(rnd.OFF_COL_W.length, 26, "ความกว้าง 26 คอลัมน์");
 
+  console.log("11) สรุปสะสมรายปี (offYearSummary / loadOffYear)");
+  {
+    const nowKey = 2026 * 12 + 10; // พ.ย. 2569 (ก่อนเดือนแรกที่มีแท็บ) → รอบแรก ธ.ค. 69 – พ.ย. 70
+    let yr = await repo.loadOffYear(null, nowKey);
+    eq(yr.labels[0], { y: 2569, m: 12 }, "รอบเริ่ม ธ.ค. 69");
+    eq(yr.labels[11], { y: 2570, m: 11 }, "รอบจบ พ.ย. 70");
+    ok(yr.months[0] !== null && yr.months[2] !== null && yr.months[1] === null, "มี ธ.ค. กับ ก.พ. (ม.ค. ไม่มีแท็บ → null)");
+    let blocks = eng.offYearSummary(yr.months, yr.lists);
+    eq(blocks.length, 8, "8 ตาราง (7 เสาร์-อาทิตย์ + จ.-ศ.)");
+    // นับเองจากแท็บดิบ
+    const feb70 = books.OFFSHEET.get("ก.พ. 70")!;
+    const rawCount = (g: string[][], cols: string, name: string, days: number) => { let n = 0; for (let d = 1; d <= days; d++) for (const c of cols) if ((g[5 + d]?.[L(c)] ?? "").trim() === name) n++; return n; };
+    const OPD = "CDEFGHIJKLMNOP", SMC = "TUV";
+    let bad = 0;
+    for (const row of blocks[0].rows) {
+      const exp = [0, 1, 2].map((i) => i === 1 ? 0 : 0); void exp;
+      const dec2 = rawCount(dec, OPD + SMC, row.name, 31), fb = rawCount(feb70, OPD + SMC, row.name, 28);
+      if (row.months[0] !== dec2 || row.months[2] !== fb || row.total !== dec2 + fb) bad++;
+      if (row.extras[0] + row.extras[1] !== row.total) bad++;
+    }
+    eq(bad, 0, "รวมทั้งปี/รายเดือน ตรงกับการนับจากแท็บดิบทุกคน");
+    eq(blocks[0].rows.map((x: any) => x.name), STAFF, "รายชื่อ = ตั้งค่า T5:T44");
+    eq(blocks[0].total, blocks[1].total + blocks[2].total, "รวม = OPD + SMC");
+    eq(blocks[0].monthTotals[1], 0, "เดือนไม่มีแท็บ = 0");
+    eq(blocks[3].rows.reduce((n: number, x: any) => n + x.total, 0), blocks[3].total, "แถวรวม Key 1");
+    const wdTotal = blocks[7].rows.reduce((n: number, x: any) => n + x.total, 0);
+    ok(wdTotal > 0 && blocks[7].rows.every((x: any) => x.extras[0] + x.extras[1] === x.total), "จ.-ศ. Y+Z = รวม");
+    // ผู้จัดเวรแก้บนเว็บ → ยอดเปลี่ยนตามอัตโนมัติ
+    const usedD = new Set(eng.OFF_EDIT_COLS.map((c: string) => cellOf(dec, c, 12).trim()));
+    const target = STAFF.find((n) => !usedD.has(n))!;
+    const before = blocks[0].rows.find((x: any) => x.name === target)!;
+    const d12 = 12;
+    const had = cellOf(dec, "C", d12) === target;
+    const r1 = await call(manual, { ym: "2569-12", key: `w:C:${d12}`, value: target });
+    eq(r1.status, 200, "แก้บนเว็บ");
+    yr = await repo.loadOffYear(null, nowKey);
+    blocks = eng.offYearSummary(yr.months, yr.lists);
+    const after = blocks[0].rows.find((x: any) => x.name === target)!;
+    ok(after.months[0] >= before.months[0] + (had ? 0 : 0), "ยอดไม่ลดลงหลังใส่ชื่อ");
+    const sameDay = (dec[5 + d12]?.[L("C")] ?? "").trim();
+    const delta = had ? 0 : 1;
+    eq(after.months[0] - before.months[0], delta, "ยอด ธ.ค. เพิ่มตามที่แก้ (+" + delta + ")");
+    if (sameDay && sameDay !== target) {
+      const old0 = (await repo.loadOffYear(null, nowKey)).months; void old0;
+      eq(blocks[3].rows.find((x: any) => x.name === sameDay)!.months[0], eng.offYearSummary(yr.months, yr.lists)[3].rows.find((x: any) => x.name === sameDay)!.months[0], "คนที่ถูกแทนที่ยอดคำนวณสม่ำเสมอ");
+    }
+    await call(manual, { ym: "2569-12", entries: [{ key: `w:C:${d12}`, value: null }] });
+    yr = await repo.loadOffYear(null, nowKey);
+    eq(eng.offYearSummary(yr.months, yr.lists)[0].rows.find((x: any) => x.name === target)!.months[0], before.months[0], "คืนค่าสูตร → ยอดกลับเท่าเดิม");
+    // เลือกช่วงเอง · รอบถัดไปไม่มีแท็บ → ศูนย์ทั้งหมด ไม่ error
+    const nx = await repo.loadOffYear({ y: 2570, m: 12 }, nowKey);
+    eq(nx.labels[0], { y: 2570, m: 12 }, "เลือกช่วงเอง");
+    eq(eng.offYearSummary(nx.months, nx.lists)[0].total, 0, "ไม่มีแท็บเลย = 0");
+    // รอบถัดไปเมื่อเวลาผ่านไป: ธ.ค. 70 → รอบ 2
+    const later = await repo.loadOffYear(null, 2027 * 12 + 11);
+    eq(later.labels[0], { y: 2570, m: 12 }, "ถึง ธ.ค. 70 เลื่อนรอบเอง");
+  }
+
   console.log(`\nผ่าน ${pass} · ไม่ผ่าน ${fail}`);
   process.exit(fail ? 1 : 0);
 })().catch((e) => {

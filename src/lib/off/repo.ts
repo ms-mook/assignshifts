@@ -11,6 +11,7 @@ import { readOffLeaves } from "../leave-system";
 import { readWebState, writeManual, writePersonColors, writeStyles } from "../webtabs";
 import { serialOf } from "../ot/engine";
 import { OFF_SET_RANGE, offSettingsWrites, parseOffSettings, validateOffSettings, type OffSettingsForm } from "./settings";
+import { WEB_MANUAL } from "../webtabs";
 import { buildOffMonth, offBusyCol, parseOffLists, type OffLeave, type OffLists, type OffMonth } from "./engine";
 export { parseOffLists };
 
@@ -50,6 +51,42 @@ export async function loadOffMonth(yearBE: number, month: number): Promise<OffSt
     styles: Object.fromEntries(Object.entries(st.styles).map(([k, v]) => [`w:${k}`, v])),
     personColors: st.personColors,
   };
+}
+
+/** เดือนแรกที่มีแท็บ (เรียงตามเวลา) → ใช้เป็นจุดเริ่มรอบ 12 เดือน · null = ไม่มีแท็บเดือนเลย */
+export function firstOffMonthKey(titles: string[]): number | null {
+  for (let y = 2560; y <= 2600; y++) for (let m = 1; m <= 12; m++) if (offTabName(titles, y, m)) return (y - 543) * 12 + m - 1;
+  return null;
+}
+
+/** โหลดครั้งเดียวทั้ง 12 เดือน (แท็บเดือน + ค่าที่แก้บนเว็บ + ตั้งค่า) สำหรับสรุปสะสม · months: [{y(พ.ศ.), m}] */
+export async function loadOffYear(pick: { y: number; m: number } | null, nowKey: number): Promise<{ months: (OffMonth | null)[]; labels: { y: number; m: number }[]; lists: OffLists }> {
+  const titles = await sheetTitles(ID());
+  // ไม่ระบุช่วง = รอบ 12 เดือนที่ครอบคลุมเดือนปัจจุบัน นับจากเดือนแรกที่มีแท็บ (ชีตเริ่ม ธ.ค. → ธ.ค.–พ.ย.)
+  const k0 = firstOffMonthKey(titles) ?? nowKey;
+  const kStart = pick ? (pick.y - 543) * 12 + pick.m - 1 : nowKey < k0 ? k0 : k0 + Math.floor((nowKey - k0) / 12) * 12;
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const k = kStart + i;
+    return { y: Math.floor(k / 12) + 543, m: (k % 12) + 1 };
+  });
+  const tabs = months.map(({ y, m }) => offTabName(titles, y, m));
+  const ranges: string[] = [OFF_SETTINGS_RANGE];
+  const hasWeb = titles.includes(WEB_MANUAL);
+  const webAt = hasWeb ? ranges.push(`'${WEB_MANUAL}'!A2:B5000`) - 1 : -1;
+  const tabAt = tabs.map((t) => (t ? ranges.push(`'${t}'!A1:AD40`) - 1 : -1));
+  const g = await batchGet(ID(), ranges, "FORMATTED_VALUE");
+  const webRows = webAt >= 0 ? g[webAt] : [];
+  const built = months.map(({ y, m }, i) => {
+    if (tabAt[i] < 0) return null;
+    const prefix = `${ymString(y, m)}|`;
+    const web: Record<string, string> = {};
+    for (const r of webRows) {
+      const k = String(r?.[0] ?? "");
+      if (k.startsWith(prefix)) web[k.slice(prefix.length)] = String(r?.[1] ?? "");
+    }
+    return buildOffMonth(g[tabAt[i]], web, y, m);
+  });
+  return { months: built, labels: months, lists: parseOffLists(g[0]) };
 }
 
 /** การลาประเภท งดเวรนอกเวลา (Approve) จากระบบลา — อ่านไม่ได้ก็แสดงตารางต่อ */
